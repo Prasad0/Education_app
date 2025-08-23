@@ -100,6 +100,18 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
     checkLocationStatus();
   }, []);
 
+  // Log token for debugging
+  useEffect(() => {
+    console.log('🔑 Current Access Token:', accessToken);
+    if (accessToken) {
+      console.log('✅ Token is available');
+      console.log('📝 Token length:', accessToken.length);
+      console.log('🔍 Token preview:', accessToken.substring(0, 20) + '...');
+    } else {
+      console.log('❌ No access token available');
+    }
+  }, [accessToken]);
+
   const checkLocationStatus = async () => {
     try {
       // Check current permission status first
@@ -143,6 +155,11 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
       } else if (status === 'denied') {
         setLocationPermission(false);
         setLocation(null);
+        Toast.show({
+          type: 'error',
+          text1: 'Location Permission Denied',
+          text2: 'Please enable location access in your device settings.',
+        });
         Alert.alert(
           'Location Permission Denied',
           'Location access is required to submit this form. Please enable location permissions in your device settings.',
@@ -215,14 +232,24 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
         mayShowUserSettingsDialog: true, // Show settings if needed
       });
       
+      // Round coordinates to 4 decimal places to match API requirements
+      const roundedLatitude = Math.round(currentLocation.coords.latitude * 10000) / 10000;
+      const roundedLongitude = Math.round(currentLocation.coords.longitude * 10000) / 10000;
+
       setLocation({
-        latitude: currentLocation.coords.latitude,
-        longitude: currentLocation.coords.longitude
+        latitude: roundedLatitude,
+        longitude: roundedLongitude
       });
       
       console.log('Location obtained successfully:', {
-        latitude: currentLocation.coords.latitude,
-        longitude: currentLocation.coords.longitude
+        original: {
+          latitude: currentLocation.coords.latitude,
+          longitude: currentLocation.coords.longitude,
+        },
+        rounded: {
+          latitude: roundedLatitude,
+          longitude: roundedLongitude,
+        }
       });
       
     } catch (error: any) {
@@ -342,6 +369,11 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
     try {
       const isEnabled = await Location.hasServicesEnabledAsync();
       if (!isEnabled) {
+        Toast.show({
+          type: 'error',
+          text1: 'Location Services Disabled',
+          text2: 'Please enable location services in your device settings.',
+        });
         Alert.alert(
           'Device Location Services Disabled',
           'Location services are disabled on your device. Please enable them in your device settings to continue.',
@@ -363,6 +395,11 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
       return true;
     } catch (error) {
       console.error('Error checking device location services:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Location Error',
+        text2: 'Failed to check location services.',
+      });
       return false;
     }
   };
@@ -550,16 +587,43 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
             text2: 'Failed to add children. Please try again.',
           });
         }
-      } else {
-        console.log('❌ Parent profile creation failed or rejected');
-        console.log('Result meta:', result.meta);
+      } else if (createProfile.rejected.match(result)) {
+        console.log('❌ Profile creation failed:', result.error);
+        
+        // Handle specific API errors
+        if (result.payload && typeof result.payload === 'object' && 'data' in result.payload) {
+          const apiResponse = result.payload.data as any;
+          if (apiResponse && apiResponse.errors && typeof apiResponse.errors === 'object') {
+            // Show specific error messages
+            const errorMessages = Object.values(apiResponse.errors).flat();
+            const errorText = errorMessages.join(', ');
+            
+            Toast.show({
+              type: 'error',
+              text1: 'Validation Error',
+              text2: errorText,
+            });
+          } else {
+            Toast.show({
+              type: 'error',
+              text1: 'Profile Creation Failed',
+              text2: (apiResponse?.message as string) || 'Something went wrong. Please try again.',
+            });
+          }
+        } else {
+          Toast.show({
+            type: 'error',
+            text1: 'Profile Creation Failed',
+            text2: 'Something went wrong. Please try again.',
+          });
+        }
       }
     } catch (error) {
-      console.error('💥 Error in handleSubmit:', error);
+      console.error('❌ Unexpected error during profile creation:', error);
       Toast.show({
         type: 'error',
-        text1: 'Error',
-        text2: 'Failed to create profile. Please try again.',
+        text1: 'Unexpected Error',
+        text2: 'Something went wrong. Please try again.',
       });
     }
   };
