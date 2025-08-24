@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Alert, Linking, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, Alert, Linking, TouchableOpacity, RefreshControl } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Location from 'expo-location';
+import Toast from 'react-native-toast-message';
+import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { fetchCoachingCenters, setActiveTab, toggleStarred } from '../store/slices/coachingSlice';
+import { getCurrentLocation as getLocationFromSlice } from '../store/slices/locationSlice';
 import Header from '../components/Header';
 import BottomNavigation from '../components/BottomNavigation';
 import PromotionalBanner from '../components/PromotionalBanner';
 import CoachingCard from '../components/CoachingCard';
 import CoachingListingScreen from './CoachingListingScreen';
+import LocationSelector from '../components/LocationSelector';
 import { CoachingCenter } from '../store/slices/coachingSlice';
 
 const promotionalBanners = [
@@ -41,9 +46,9 @@ const HomeScreen: React.FC = () => {
     starredCenters 
   } = useAppSelector(state => state.coaching);
   
-  const { accessToken } = useAppSelector(state => state.auth);
+  const { accessToken, profile } = useAppSelector(state => state.auth);
+  const { currentLocation, isLocationLoading, coordinates } = useAppSelector(state => state.location);
   
-  const [location, setLocation] = useState('Koramangala, Bangalore');
   const [currentScreen, setCurrentScreen] = useState<'home' | 'search' | 'listing' | 'location' | 'profile'>('home');
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
 
@@ -89,15 +94,85 @@ const HomeScreen: React.FC = () => {
     
     checkStoredTokens();
     
-    // Fetch coaching centers when component mounts with city parameter
-    const params = { 
-      location: 'Koramangala',
-      city: 'Bangalore'
-    };
-    
-    console.log('🏠 [HomeScreen] Dispatching fetchCoachingCenters with params:', JSON.stringify(params, null, 2));
-    dispatch(fetchCoachingCenters(params));
+    // Get current location
+    getCurrentLocation();
   }, [dispatch]);
+  
+  // Watch for location changes and update coaching centers
+  useEffect(() => {
+    if (currentLocation && currentLocation !== 'Getting location...' && currentLocation !== 'Location unavailable' && currentLocation !== 'Location permission denied') {
+      // Extract city and state from location
+      const parts = currentLocation.split(',').map(part => part.trim());
+      if (parts.length >= 2) {
+        const city = parts[0];
+        const state = parts[1];
+        
+        const params = { 
+          location: city,
+          city: state
+        };
+        dispatch(fetchCoachingCenters(params));
+      }
+    }
+  }, [currentLocation, dispatch]);
+  
+  // Watch for profile changes and update location if needed
+  useEffect(() => {
+    if (profile?.latitude && profile?.longitude && !coordinates) {
+      console.log('Profile location updated, refreshing location display');
+      getCurrentLocation();
+    }
+  }, [profile, coordinates]);
+  
+  // Function to get current location
+  const getCurrentLocation = async () => {
+    try {
+      // First try to get location from user profile if available
+      if (profile?.latitude && profile?.longitude) {
+        console.log('Using location from profile:', profile.latitude, profile.longitude);
+        
+        Toast.show({
+          type: 'info',
+          text1: 'Using Profile Location',
+          text2: 'Loading location from your profile...',
+          position: 'top',
+          visibilityTime: 1500,
+        });
+        
+        // Use the location slice action with profile coordinates
+        dispatch(getLocationFromSlice({ 
+          latitude: profile.latitude, 
+          longitude: profile.longitude 
+        }));
+        
+        return;
+      }
+      
+      // Fallback to device location if profile location not available
+      Toast.show({
+        type: 'info',
+        text1: 'Getting Device Location',
+        text2: 'Requesting location permission...',
+        position: 'top',
+        visibilityTime: 1500,
+      });
+      
+      // Use the location slice action for device location
+      dispatch(getLocationFromSlice());
+      
+    } catch (error) {
+      console.error('Error getting location:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Location Error',
+        text2: 'Could not get your current location',
+        position: 'top',
+        visibilityTime: 3000,
+      });
+    }
+  };
+  
+
 
   useEffect(() => {
     // Set initial student if available
@@ -117,6 +192,7 @@ const HomeScreen: React.FC = () => {
   };
 
   const handleLocationPress = () => {
+    // Go to location selection screen
     setCurrentScreen('location');
   };
 
@@ -182,10 +258,7 @@ const HomeScreen: React.FC = () => {
 
   if (currentScreen === 'location') {
     return (
-      <View style={styles.container}>
-        <Text>Location Selector - Coming Soon</Text>
-        {/* TODO: Implement LocationSelector */}
-      </View>
+      <LocationSelector onBack={() => setCurrentScreen('home')} />
     );
   }
 
@@ -202,12 +275,14 @@ const HomeScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       {/* Header - Fixed */}
       <Header
-        location={location}
+        location={currentLocation}
         onLocationPress={handleLocationPress}
         onSearchPress={handleSearchPress}
         userProfile={mockUserProfile}
         selectedStudentId={selectedStudentId || ''}
         onStudentSelect={setSelectedStudentId}
+        isLocationLoading={isLocationLoading}
+        coordinates={coordinates}
       />
 
       {/* Content - With top padding for fixed header */}
@@ -215,6 +290,14 @@ const HomeScreen: React.FC = () => {
         style={styles.content}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.contentContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={isLocationLoading}
+            onRefresh={getCurrentLocation}
+            colors={['#3b82f6']}
+            tintColor="#3b82f6"
+          />
+        }
       >
         {/* Promotional banners */}
         <PromotionalBanner banners={promotionalBanners} />
@@ -222,26 +305,20 @@ const HomeScreen: React.FC = () => {
         {/* Section header */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Nearby Centers</Text>
-          {isLoading && <Text style={styles.loadingText}>Loading...</Text>}
-          
-          {/* Debug button to set token */}
-          <TouchableOpacity 
-            style={styles.debugButton}
-            onPress={async () => {
-              try {
-                // Set a test token for debugging
-                const testToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzcxNTA3MDM2LCJpYXQiOjE3NTU5NTUwMzYsImp0aSI6ImFkMGM5M2FjYTkyMjQ1YmVhYzQxYmM2YWZlOTVmNmZhIiwidXNlcl9pZCI6IjEifQ.JsGb7VyBsv1xoFgvke8yf3nrxjq_eTUS5fIDTnORjjM';
-                await AsyncStorage.setItem('accessToken', testToken);
-                console.log('✅ [HomeScreen] Test token set successfully');
-                Alert.alert('Success', 'Test token set successfully!');
-              } catch (error) {
-                console.error('❌ [HomeScreen] Error setting test token:', error);
-                Alert.alert('Error', 'Failed to set test token');
-              }
-            }}
-          >
-            <Text style={styles.debugButtonText}>Set Test Token</Text>
-          </TouchableOpacity>
+          <View style={styles.sectionHeaderRight}>
+            {isLoading && <Text style={styles.loadingText}>Loading...</Text>}
+            <TouchableOpacity 
+              style={styles.refreshButton}
+              onPress={getCurrentLocation}
+              disabled={isLocationLoading}
+            >
+              <Ionicons 
+                name="refresh" 
+                size={16} 
+                color={isLocationLoading ? "#9ca3af" : "#3b82f6"} 
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Error message */}
@@ -300,6 +377,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 16,
   },
+  sectionHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
@@ -339,17 +421,12 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     textAlign: 'center',
   },
-  debugButton: {
-    backgroundColor: '#3b82f6',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+  refreshButton: {
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: '#f3f4f6',
   },
-  debugButtonText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '500',
-  },
+
 });
 
 export default HomeScreen;
