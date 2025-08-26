@@ -243,55 +243,124 @@ export const fetchCoachingCenters = createAsyncThunk(
   'coaching/fetchCoachingCenters',
   async (params: CoachingSearchParams = {}, { getState, rejectWithValue }) => {
     try {
+      // Check authentication status before making API call
+      const state = getState() as any;
+      const isAuthenticated = state.auth?.isAuthenticated;
+      const accessToken = state.auth?.accessToken;
+      
+      if (!isAuthenticated || !accessToken) {
+        console.log('fetchCoachingCenters: User not authenticated, using fallback data');
+        return getFallbackData();
+      }
+      
       console.log('fetchCoachingCenters: Starting with params:', params);
       
-      const response = await api.get('/coachings/', { params });
+      // Add pagination parameters to get all results
+      const apiParams = {
+        ...params,
+        page_size: 100, // Set a large page size to get all results
+        page: 1,        // Start from first page
+        limit: 100,     // Alternative parameter name
+        per_page: 100,  // Another common alternative
+        size: 100,      // Yet another alternative
+      };
+      
+      const response = await api.get('/coachings/', { params: apiParams });
       console.log('fetchCoachingCenters: API response received:', {
         status: response.status,
         statusText: response.statusText,
         dataType: typeof response.data,
         isArray: Array.isArray(response.data),
         dataKeys: response.data ? Object.keys(response.data) : 'no data',
-        dataLength: Array.isArray(response.data) ? response.data.length : 'not array'
+        dataLength: Array.isArray(response.data) ? response.data.length : 'not array',
+        totalCount: response.data?.count || response.data?.total || 'unknown',
+        pageSize: response.data?.page_size || 'unknown',
+        currentPage: response.data?.page || 'unknown'
       });
       
-      // Handle different possible API response structures
-      let dataToTransform: any[] = [];
-      
-      if (response.data) {
-        if (Array.isArray(response.data)) {
-          // Direct array response
-          dataToTransform = response.data;
-          console.log('fetchCoachingCenters: Using direct array response, length:', dataToTransform.length);
-        } else if (response.data.results && Array.isArray(response.data.results)) {
-          // Paginated response with results array
-          dataToTransform = response.data.results;
-          console.log('fetchCoachingCenters: Using paginated results, length:', dataToTransform.length);
-        } else if (response.data.data && Array.isArray(response.data.data)) {
-          // Nested data response
-          dataToTransform = response.data.data;
-          console.log('fetchCoachingCenters: Using nested data, length:', dataToTransform.length);
-        } else if (response.data.coaching_centers && Array.isArray(response.data.coaching_centers)) {
-          // Specific key response
-          dataToTransform = response.data.coaching_centers;
-          console.log('fetchCoachingCenters: Using coaching_centers key, length:', dataToTransform.length);
+      // Check if we need to fetch more pages to get all results
+      let allData: any[] = [];
+      if (response.data?.count && response.data?.results && Array.isArray(response.data.results)) {
+        const totalCount = response.data.count;
+        const currentPageSize = response.data.results.length;
+        const currentPage = response.data.page || 1;
+        
+        console.log(`fetchCoachingCenters: Pagination info - Total: ${totalCount}, Current Page: ${currentPage}, Current Page Size: ${currentPageSize}`);
+        
+        // If we got fewer results than total count, try to fetch more pages
+        if (currentPageSize < totalCount && totalCount > 100) {
+          console.log('fetchCoachingCenters: Need to fetch more pages to get all results');
+          
+          // Start with current results
+          allData = [...response.data.results];
+          
+          // Calculate how many more pages we need
+          const totalPages = Math.ceil(totalCount / 100);
+          console.log(`fetchCoachingCenters: Total pages needed: ${totalPages}`);
+          
+          // Fetch remaining pages
+          for (let page = 2; page <= totalPages; page++) {
+            try {
+              const nextPageParams = { ...apiParams, page };
+              console.log(`fetchCoachingCenters: Fetching page ${page}...`);
+              
+              const nextPageResponse = await api.get('/coachings/', { params: nextPageParams });
+              if (nextPageResponse.data?.results && Array.isArray(nextPageResponse.data.results)) {
+                allData = [...allData, ...nextPageResponse.data.results];
+                console.log(`fetchCoachingCenters: Page ${page} fetched, total results so far: ${allData.length}`);
+              }
+            } catch (pageError) {
+              console.warn(`fetchCoachingCenters: Error fetching page ${page}:`, pageError);
+              break; // Stop fetching if we encounter an error
+            }
+          }
+          
+          console.log(`fetchCoachingCenters: Final total results after fetching all pages: ${allData.length}`);
         } else {
-          console.warn('fetchCoachingCenters: Unknown response structure:', response.data);
-          dataToTransform = [];
+          // We got all results in one page
+          allData = response.data.results;
         }
       } else {
-        console.warn('fetchCoachingCenters: No response data');
-        dataToTransform = [];
+        // Not paginated or different structure - handle different response structures
+        if (response.data) {
+          if (Array.isArray(response.data)) {
+            // Direct array response
+            allData = response.data;
+            console.log('fetchCoachingCenters: Using direct array response, length:', allData.length);
+          } else if (response.data.results && Array.isArray(response.data.results)) {
+            // Paginated response with results array
+            allData = response.data.results;
+            console.log('fetchCoachingCenters: Using paginated results, length:', allData.length);
+            console.log('fetchCoachingCenters: Total count from API:', response.data.count);
+            console.log('fetchCoachingCenters: Page size from API:', response.data.page_size);
+            console.log('fetchCoachingCenters: Current page from API:', response.data.page);
+          } else if (response.data.data && Array.isArray(response.data.data)) {
+            // Nested data response
+            allData = response.data.data;
+            console.log('fetchCoachingCenters: Using nested data, length:', allData.length);
+          } else if (response.data.coaching_centers && Array.isArray(response.data.coaching_centers)) {
+            // Specific key response
+            allData = response.data.coaching_centers;
+            console.log('fetchCoachingCenters: Using coaching_centers key, length:', allData.length);
+          } else {
+            console.warn('fetchCoachingCenters: Unknown response structure:', response.data);
+            console.log('fetchCoachingCenters: Available keys:', Object.keys(response.data));
+            allData = [];
+          }
+        } else {
+          console.warn('fetchCoachingCenters: No response data');
+          allData = [];
+        }
       }
       
       // Validate and transform the response data
       try {
-        console.log('fetchCoachingCenters: About to transform data, length:', dataToTransform.length);
-        const transformedData = transformApiData(dataToTransform);
+        console.log('fetchCoachingCenters: About to transform data, length:', allData.length);
+        const transformedData = transformApiData(allData);
         console.log('fetchCoachingCenters: Transformation successful, transformed length:', transformedData.length);
         
         // If transformation returns empty array and we have data, use fallback
-        if (transformedData.length === 0 && dataToTransform.length > 0) {
+        if (transformedData.length === 0 && allData.length > 0) {
           console.warn('fetchCoachingCenters: Transformation returned empty array, using fallback data');
           return getFallbackData();
         }
@@ -305,7 +374,7 @@ export const fetchCoachingCenters = createAsyncThunk(
         return transformedData;
       } catch (transformError) {
         console.error('Error transforming API data:', transformError);
-        console.error('Data that failed to transform:', dataToTransform);
+        console.error('Data that failed to transform:', allData);
         // Return fallback data if transformation fails
         console.log('fetchCoachingCenters: Using fallback data due to transformation error');
         return getFallbackData();
@@ -315,12 +384,10 @@ export const fetchCoachingCenters = createAsyncThunk(
       
       // Handle 401 Unauthorized error
       if (error.response?.status === 401) {
-        console.log('fetchCoachingCenters: 401 Unauthorized, clearing tokens');
-        // Clear tokens and redirect to login
-        await AsyncStorage.removeItem('accessToken');
-        await AsyncStorage.removeItem('auth_tokens');
-        await AsyncStorage.removeItem('auth');
-        throw new Error('UNAUTHORIZED');
+        console.log('fetchCoachingCenters: 401 Unauthorized, using fallback data instead of clearing tokens');
+        // Don't clear tokens here - let the auth slice handle logout
+        // Just return fallback data to prevent the error from bubbling up
+        return getFallbackData();
       }
       
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch coaching centers');
@@ -333,9 +400,18 @@ export const searchCoachingCenters = createAsyncThunk(
   'coaching/searchCoachingCenters',
   async (searchTerm: string, { getState, rejectWithValue }) => {
     try {
+      // Check authentication status before making API call
+      const state = getState() as any;
+      const isAuthenticated = state.auth?.isAuthenticated;
+      const accessToken = state.auth?.accessToken;
+      
+      if (!isAuthenticated || !accessToken) {
+        console.log('searchCoachingCenters: User not authenticated, using fallback data');
+        return getFallbackData();
+      }
+      
       console.log('searchCoachingCenters: Starting with search term:', searchTerm);
       
-      const state = getState() as any;
       const coordinates = state.location.coordinates;
       
       // Build query parameters with coordinates from state
@@ -347,14 +423,27 @@ export const searchCoachingCenters = createAsyncThunk(
       
       console.log('searchCoachingCenters: API call params:', params);
       
-      const response = await api.get('/coachings/', { params });
+      // Add pagination parameters to get all search results
+      const apiParams = {
+        ...params,
+        page_size: 100, // Set a large page size to get all results
+        page: 1,        // Start from first page
+        limit: 100,     // Alternative parameter name
+        per_page: 100,  // Another common alternative
+        size: 100,      // Yet another alternative
+      };
+      
+      const response = await api.get('/coachings/', { params: apiParams });
       console.log('searchCoachingCenters: API response received:', {
         status: response.status,
         statusText: response.statusText,
         dataType: typeof response.data,
         isArray: Array.isArray(response.data),
         dataKeys: response.data ? Object.keys(response.data) : 'no data',
-        dataLength: Array.isArray(response.data) ? response.data.length : 'not array'
+        dataLength: Array.isArray(response.data) ? response.data.length : 'not array',
+        totalCount: response.data?.count || response.data?.total || 'unknown',
+        pageSize: response.data?.page_size || 'unknown',
+        currentPage: response.data?.page || 'unknown'
       });
       
       // Handle different possible API response structures
@@ -417,12 +506,10 @@ export const searchCoachingCenters = createAsyncThunk(
       
       // Handle 401 Unauthorized error
       if (error.response?.status === 401) {
-        console.log('searchCoachingCenters: 401 Unauthorized, clearing tokens');
-        // Clear tokens and redirect to login
-        await AsyncStorage.removeItem('accessToken');
-        await AsyncStorage.removeItem('auth_tokens');
-        await AsyncStorage.removeItem('auth');
-        throw new Error('UNAUTHORIZED');
+        console.log('searchCoachingCenters: 401 Unauthorized, using fallback data instead of clearing tokens');
+        // Don't clear tokens here - let the auth slice handle logout
+        // Just return fallback data to prevent the error from bubbling up
+        return getFallbackData();
       }
       
       return rejectWithValue(error.response?.data?.message || 'Search failed');
@@ -464,6 +551,15 @@ const coachingSlice = createSlice({
           state.starredCenters.includes(center.id)
         );
       }
+    },
+    clearData: (state) => {
+      // Clear coaching data (useful for logout)
+      state.coachingCenters = [];
+      state.filteredCenters = [];
+      state.isLoading = false;
+      state.error = null;
+      state.searchParams = {};
+      state.starredCenters = [];
     },
     filterCenters: (state, action: PayloadAction<CoachingSearchParams>) => {
       const params = action.payload;
@@ -571,6 +667,7 @@ export const {
   setSearchParams,
   clearSearchParams,
   toggleStarred,
+  clearData,
   filterCenters,
   clearError,
 } = coachingSlice.actions;

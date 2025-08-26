@@ -288,6 +288,10 @@ const authSlice = createSlice({
       // Clear stored tokens and user data
       clearStorage();
     },
+    clearCoachingData: (state) => {
+      // This action will be used to clear coaching data when logging out
+      // The actual clearing will be done by dispatching clearData from coaching slice
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -385,5 +389,15 @@ const authSlice = createSlice({
   },
 });
 
-export const {setPhoneNumber, setOtp, clearError, setTokens, setProfileStatus, restoreAuth, logout} = authSlice.actions;
+export const {
+  setPhoneNumber, 
+  setOtp, 
+  clearError, 
+  setTokens, 
+  setProfileStatus, 
+  restoreAuth, 
+  logout, 
+  clearCoachingData
+} = authSlice.actions;
+
 export default authSlice.reducer;

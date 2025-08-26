@@ -5,7 +5,7 @@ import * as Location from 'expo-location';
 import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { fetchCoachingCenters, setActiveTab, toggleStarred } from '../store/slices/coachingSlice';
+import { fetchCoachingCenters, setActiveTab, toggleStarred, clearData } from '../store/slices/coachingSlice';
 import { getCurrentLocation as getLocationFromSlice, deselectLocation } from '../store/slices/locationSlice';
 import { fetchUserProfile } from '../store/slices/authSlice';
 import Header from '../components/Header';
@@ -106,12 +106,19 @@ const HomeScreen: React.FC = () => {
       dispatch(fetchUserProfile());
     }
     
-    // Initially fetch coaching centers with only radius
-    dispatch(fetchCoachingCenters({ radius: 2000 }));
-  }, [dispatch, accessToken]);
+    // Only fetch coaching centers if user is authenticated
+    if (accessToken && authState.isAuthenticated) {
+      dispatch(fetchCoachingCenters({ radius: 2000 }));
+    }
+  }, [dispatch, accessToken, authState.isAuthenticated]);
   
   // Watch for selected location changes and fetch coaching centers
   useEffect(() => {
+    // Only fetch coaching centers if user is authenticated
+    if (!accessToken || !authState.isAuthenticated) {
+      return;
+    }
+    
     if (safeSelectedLocation && safeSelectedLocation !== 'Getting location...' && safeSelectedLocation !== 'Location unavailable' && safeSelectedLocation !== 'Location permission denied') {
       // Extract city name from selected location (e.g., "Mumbai, Maharashtra, India" -> "Mumbai")
       const cityName = safeSelectedLocation.split(',')[0].trim();
@@ -124,11 +131,13 @@ const HomeScreen: React.FC = () => {
       };
       dispatch(fetchCoachingCenters(params));
     }
-  }, [safeSelectedLocation, safeCoordinates, dispatch]);
+  }, [safeSelectedLocation, safeCoordinates, dispatch, accessToken, authState.isAuthenticated]);
 
   // Handle authentication errors
   useEffect(() => {
     if (error === 'UNAUTHORIZED') {
+      // Clear coaching data first
+      dispatch(clearData());
       // Clear auth state and redirect to login
       dispatch(logout());
       // You can also navigate to login screen here if needed
@@ -262,7 +271,10 @@ const HomeScreen: React.FC = () => {
   const handleClearLocation = () => {
     dispatch(deselectLocation());
     // Clear coaching centers when location is deselected - only pass radius
-    dispatch(fetchCoachingCenters({ radius: 2000 }));
+    // Only fetch if user is authenticated
+    if (accessToken && authState.isAuthenticated) {
+      dispatch(fetchCoachingCenters({ radius: 2000 }));
+    }
   };
 
   const handleBookDemo = (center: CoachingCenter) => {
@@ -669,8 +681,6 @@ const HomeScreen: React.FC = () => {
       </SafeAreaView>
     );
   }
-
-  
 
   return (
     <SafeAreaView style={styles.container}>

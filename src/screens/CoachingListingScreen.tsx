@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert, Linking, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { fetchCoachingCenters, filterCenters, setSearchParams, searchCoachingCenters } from '../store/slices/coachingSlice';
+import { fetchCoachingCenters, filterCenters, setSearchParams, searchCoachingCenters, clearData } from '../store/slices/coachingSlice';
 import { deselectLocation } from '../store/slices/locationSlice';
 import { logout } from '../store/slices/authSlice';
 import Header from '../components/Header';
@@ -86,6 +86,8 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack })
   // Handle authentication errors
   useEffect(() => {
     if (error === 'UNAUTHORIZED') {
+      // Clear coaching data first
+      dispatch(clearData());
       // Clear auth state and redirect to login
       dispatch(logout());
       Alert.alert(
@@ -122,7 +124,8 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack })
     setSearchText(text);
     if (!text.trim()) {
       // If search is cleared, fetch coaching centers for current location
-      if (selectedLocation) {
+      // Only fetch if user is authenticated
+      if (selectedLocation && accessToken) {
         const areaName = selectedLocation.split(',')[0].trim();
         const params = { 
           search: areaName,
@@ -182,8 +185,10 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack })
   const clearFilters = () => {
     dispatch(setSearchParams({}));
     dispatch(filterCenters({}));
-    // Clear filters and fetch with only radius
-    dispatch(fetchCoachingCenters({ radius: 2000 }));
+    // Clear filters and fetch with only radius - only if authenticated
+    if (accessToken) {
+      dispatch(fetchCoachingCenters({ radius: 2000 }));
+    }
   };
 
   return (
