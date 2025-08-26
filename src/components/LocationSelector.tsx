@@ -19,7 +19,8 @@ import {
   addCustomLocation,
   searchLocations,
   selectSearchResult,
-  clearRecentSearches
+  clearRecentSearches,
+  getNearbyLocations
 } from '../store/slices/locationSlice';
 
 interface LocationSelectorProps {
@@ -32,21 +33,41 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({ onBack }) => {
     currentLocation, 
     selectedLocation, 
     isLocationLoading, 
-    suggestedLocations, 
     searchQuery, 
-    filteredLocations,
     searchResults,
     isSearching,
     searchError,
-    recentSearches
+    recentSearches,
+    coordinates
   } = useAppSelector(state => state.location);
 
   const [searchText, setSearchText] = useState('');
+  const [isFetchingNearby, setIsFetchingNearby] = useState(false);
   const searchTimeout = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     setSearchText(searchQuery);
   }, [searchQuery]);
+
+  // Fetch nearby locations when coordinates are available
+  useEffect(() => {
+    if (coordinates) {
+      setIsFetchingNearby(true);
+      dispatch(getNearbyLocations(coordinates)).finally(() => {
+        setIsFetchingNearby(false);
+      });
+    }
+  }, [coordinates, dispatch]);
+
+  // Also fetch nearby locations when current location is obtained
+  useEffect(() => {
+    if (currentLocation && currentLocation !== 'Getting location...' && coordinates) {
+      setIsFetchingNearby(true);
+      dispatch(getNearbyLocations(coordinates)).finally(() => {
+        setIsFetchingNearby(false);
+      });
+    }
+  }, [currentLocation, coordinates, dispatch]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -58,17 +79,25 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({ onBack }) => {
   }, []);
 
   const handleLocationSelect = (location: string) => {
-    dispatch(setSelectedLocation(location));
+    const fullAddress = formatLocationName(location);
+    dispatch(setSelectedLocation(fullAddress));
     onBack();
   };
 
-  const handleCurrentLocation = () => {
-    dispatch(getCurrentLocation());
+  const handleCurrentLocation = async () => {
+    const result = await dispatch(getCurrentLocation());
+    // After getting current location, fetch nearby locations if coordinates are available
+    if (result.payload && result.payload.coordinates) {
+      setIsFetchingNearby(true);
+      dispatch(getNearbyLocations(result.payload.coordinates)).finally(() => {
+        setIsFetchingNearby(false);
+      });
+    }
   };
 
   const handleCustomLocation = () => {
     if (searchText.trim()) {
-      const customLocation = searchText.trim();
+      const customLocation = formatLocationName(searchText.trim());
       dispatch(addCustomLocation(customLocation));
       handleLocationSelect(customLocation);
     }
@@ -77,8 +106,21 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({ onBack }) => {
   const handleSearchResultSelect = (result: any) => {
     dispatch(selectSearchResult({
       name: result.name,
-      coordinates: result.coordinates
+      coordinates: result.coordinates,
+      fullAddress: result.fullAddress,
+      area: result.area,
+      state: result.state
     }));
+    
+    // Log the selected location details for debugging
+    console.log('📍 Selected Location:', {
+      name: result.name,
+      area: result.area,
+      state: result.state,
+      coordinates: result.coordinates,
+      fullAddress: result.fullAddress
+    });
+    
     onBack();
   };
 
@@ -88,7 +130,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({ onBack }) => {
     
     // Debounce search API calls
     if (text.trim().length >= 2) {
-      console.log('Starting search for:', text.trim());
+      console.log('Starting location search for:', text.trim());
       
       // Clear previous timeout
       if (searchTimeout.current) {
@@ -97,22 +139,64 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({ onBack }) => {
       
       // Set new timeout for search
       searchTimeout.current = setTimeout(() => {
-        console.log('Executing search for:', text.trim());
+        console.log('Executing location search for:', text.trim());
         dispatch(searchLocations(text.trim()));
       }, 500);
     } else {
       // Clear search results if query is too short
       dispatch(setSearchQuery(''));
+      // Restore nearby locations if coordinates are available
+      if (coordinates) {
+        setIsFetchingNearby(true);
+        dispatch(getNearbyLocations(coordinates)).finally(() => {
+          setIsFetchingNearby(false);
+        });
+      }
     }
   };
 
   const handleBack = () => {
     dispatch(clearSearchQuery());
+    // Restore nearby locations if coordinates are available
+    if (coordinates) {
+      setIsFetchingNearby(true);
+      dispatch(getNearbyLocations(coordinates)).finally(() => {
+        setIsFetchingNearby(false);
+      });
+    }
     onBack();
   };
 
-  const displayLocations = searchText.trim() ? filteredLocations : suggestedLocations;
   const showSearchResults = searchText.trim().length >= 2 && searchResults.length > 0;
+  
+  // Show nearby areas from searchResults if available and not searching
+  const showNearbyAreas = !showSearchResults && searchResults.length > 0 && !isFetchingNearby;
+  const nearbyAreas = showNearbyAreas ? searchResults : [];
+
+  // Debug logging
+  useEffect(() => {
+    console.log('Search debug:', {
+      searchText: searchText.trim(),
+      searchTextLength: searchText.trim().length,
+      searchResults: searchResults,
+      searchResultsLength: searchResults.length,
+      showSearchResults,
+      isSearching,
+      searchError,
+      showNearbyAreas,
+      nearbyAreas: nearbyAreas.length
+    });
+  }, [searchText, searchResults, showSearchResults, isSearching, searchError, showNearbyAreas, nearbyAreas]);
+
+  // Format location names to show full addresses
+  const formatLocationName = (location: string) => {
+    // If it's already in "City, State" format, add "India" to make it full address
+    if (location.includes(',')) {
+      return `${location}, India`;
+    }
+    // If it's just a city name, add "India" to make it full address
+    return `${location}, India`;
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -128,14 +212,17 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({ onBack }) => {
             </TouchableOpacity>
             <View style={styles.headerText}>
               <Text style={styles.headerTitle}>Select Location</Text>
-              <Text style={styles.headerSubtitle}>Choose your preferred location</Text>
+              <Text style={styles.headerSubtitle}>Search for addresses or discover nearby areas</Text>
             </View>
           </View>
         </View>
       </View>
 
       {/* Content */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+      >
                  {/* Current Location Button */}
          <View style={styles.card}>
            <TouchableOpacity
@@ -155,6 +242,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({ onBack }) => {
                {isLocationLoading ? 'Getting location...' : 'Use Current Location'}
              </Text>
            </TouchableOpacity>
+           {!coordinates && (
+             <Text style={styles.locationPermissionText}>
+               Enable location services to find nearby areas automatically
+             </Text>
+           )}
          </View>
 
          {/* Recent Searches */}
@@ -174,13 +266,14 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({ onBack }) => {
                  <TouchableOpacity
                    key={index}
                    onPress={() => {
-                     dispatch(setSelectedLocation(search));
+                     const fullAddress = formatLocationName(search);
+                     dispatch(setSelectedLocation(fullAddress));
                      onBack();
                    }}
                    style={styles.recentSearchItem}
                  >
                    <Ionicons name="time" size={16} color="#9ca3af" />
-                   <Text style={styles.recentSearchText}>{search}</Text>
+                   <Text style={styles.recentSearchText}>{formatLocationName(search)}</Text>
                    <Ionicons name="chevron-forward" size={16} color="#9ca3af" />
                  </TouchableOpacity>
                ))}
@@ -195,7 +288,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({ onBack }) => {
                <Ionicons name="search" size={20} color="#9ca3af" style={styles.searchIcon} />
                <TextInput
                  style={styles.searchInput}
-                 placeholder="Search for areas like Andheri, Borivali..."
+                 placeholder="Search for addresses, cities, or areas..."
                  value={searchText}
                  onChangeText={handleSearchChange}
                  placeholderTextColor="#9ca3af"
@@ -205,6 +298,13 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({ onBack }) => {
                    onPress={() => {
                      setSearchText('');
                      dispatch(clearSearchQuery());
+                     // Restore nearby locations if coordinates are available
+                     if (coordinates) {
+                       setIsFetchingNearby(true);
+                       dispatch(getNearbyLocations(coordinates)).finally(() => {
+                         setIsFetchingNearby(false);
+                       });
+                     }
                    }}
                    style={styles.clearButton}
                  >
@@ -225,20 +325,18 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({ onBack }) => {
              {searchError && (
                <View style={styles.searchErrorContainer}>
                  <Ionicons name="alert-circle" size={16} color="#ef4444" />
-                 <Text style={styles.searchErrorText}>{searchError}</Text>
+                 <Text style={styles.searchErrorText}>Location search failed. Please try again.</Text>
                </View>
              )}
              
              {/* Custom Location Button */}
-             {searchText.trim() && !suggestedLocations.some(loc => 
-               loc.toLowerCase() === searchText.toLowerCase()
-             ) && searchResults.length === 0 && !isSearching && (
+             {searchText.trim() && searchResults.length === 0 && !isSearching && (
                <TouchableOpacity
                  onPress={handleCustomLocation}
                  style={styles.customLocationButton}
                >
                  <Text style={styles.customLocationButtonText}>
-                   Use "{searchText.trim()}"
+                   Use "{formatLocationName(searchText.trim())}" as Location
                  </Text>
                </TouchableOpacity>
              )}
@@ -248,7 +346,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({ onBack }) => {
          {/* Search Results */}
          {showSearchResults && (
            <View style={styles.card}>
-             <Text style={styles.sectionTitle}>Search Results</Text>
+             <View style={styles.sectionHeader}>
+               <Text style={styles.sectionTitle}>Search Results</Text>
+             </View>
              <View style={styles.locationsList}>
                {searchResults.map((result) => (
                  <TouchableOpacity
@@ -259,7 +359,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({ onBack }) => {
                    <Ionicons name="location" size={16} color="#3b82f6" />
                    <View style={styles.locationTextContainer}>
                      <Text style={styles.locationText}>
-                       {result.name}
+                       {result.fullAddress || result.name}
                      </Text>
                      <Text style={styles.locationSubtext}>
                        {result.area}, {result.state}
@@ -274,57 +374,84 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({ onBack }) => {
 
                  {/* Suggested Locations - Only show when not searching */}
          {!showSearchResults && (
-           <View style={styles.card}>
-             <Text style={styles.sectionTitle}>Suggested Locations</Text>
+           <View style={[styles.card, styles.suggestedAreasCard]}>
+             <View style={styles.sectionHeader}>
+               <Text style={styles.sectionTitle}>Nearby Areas</Text>
+             </View>
+             
+             {/* Loading indicator for nearby locations */}
+             {isFetchingNearby && (
+               <View style={styles.searchLoadingContainer}>
+                 <Ionicons name="hourglass" size={16} color="#6b7280" />
+                 <Text style={styles.searchLoadingText}>Finding nearby areas...</Text>
+               </View>
+             )}
+             
              <View style={styles.locationsList}>
-               {displayLocations.map((location) => (
-                 <TouchableOpacity
-                   key={location}
-                   onPress={() => handleLocationSelect(location)}
-                   style={[
-                     styles.locationItem,
-                     selectedLocation === location && styles.locationItemSelected
-                   ]}
-                 >
-                   <Ionicons 
-                     name="location" 
-                     size={16} 
-                     color={selectedLocation === location ? "#10b981" : "#9ca3af"} 
-                   />
-                   <View style={styles.locationTextContainer}>
-                     <Text style={[
-                       styles.locationText,
-                       selectedLocation === location && styles.locationTextSelected
-                     ]}>
-                       {location}
-                     </Text>
-                   </View>
-                   {selectedLocation === location && (
-                     <View style={styles.selectedIndicator} />
-                   )}
-                 </TouchableOpacity>
-               ))}
+               {showNearbyAreas && !isFetchingNearby ? (
+                 // Show nearby areas from searchResults with full addresses
+                 nearbyAreas.map((location) => (
+                   <TouchableOpacity
+                     key={location.id}
+                     onPress={() => handleSearchResultSelect(location)}
+                     style={[
+                       styles.locationItem,
+                       selectedLocation === (location.fullAddress || location.name) && styles.locationItemSelected
+                     ]}
+                   >
+                     <Ionicons 
+                       name="location" 
+                       size={16} 
+                       color={selectedLocation === (location.fullAddress || location.name) ? "#10b981" : "#9ca3af"} 
+                     />
+                     <View style={styles.locationTextContainer}>
+                       <Text style={[
+                         styles.locationText,
+                         selectedLocation === (location.fullAddress || location.name) && styles.locationTextSelected
+                       ]}>
+                         {location.fullAddress || location.name}
+                       </Text>
+                       <Text style={styles.locationSubtext}>
+                         {location.area}, {location.state}
+                       </Text>
+                       <Text style={styles.coordinateText}>
+                         Lat: {location.coordinates?.latitude?.toFixed(6)}, Lng: {location.coordinates?.longitude?.toFixed(6)}
+                       </Text>
+                       {location.distance && (
+                         <Text style={styles.distanceText}>
+                           Distance: {location.distance.toFixed(2)}km
+                         </Text>
+                       )}
+                     </View>
+                     {selectedLocation === (location.fullAddress || location.name) && (
+                       <View style={styles.selectedIndicator} />
+                     )}
+                   </TouchableOpacity>
+                 ))
+               ) : !isFetchingNearby ? (
+                 // Show message when no nearby areas available
+                 <View style={styles.noNearbyAreasContainer}>
+                   <Ionicons name="location-outline" size={24} color="#9ca3af" />
+                   <Text style={styles.noNearbyAreasText}>No nearby areas found</Text>
+                   <Text style={styles.noNearbyAreasSubtext}>Enable location services to discover nearby areas</Text>
+                 </View>
+               ) : null}
              </View>
            </View>
          )}
 
-                 {/* Empty States */}
-         {showSearchResults && searchResults.length === 0 && !isSearching && searchText.trim().length >= 2 && (
-           <View style={styles.emptyState}>
-             <Ionicons name="search-outline" size={48} color="#d1d5db" />
-             <Text style={styles.emptyStateTitle}>No search results found</Text>
-             <Text style={styles.emptyStateSubtitle}>Try a different city name or location</Text>
-           </View>
-         )}
-         
-         {!showSearchResults && displayLocations.length === 0 && (
-           <View style={styles.emptyState}>
-             <Ionicons name="location-outline" size={48} color="#d1d5db" />
-             <Text style={styles.emptyStateTitle}>No suggested locations</Text>
-             <Text style={styles.emptyStateSubtitle}>Try searching for a specific city</Text>
-           </View>
-         )}
-      </ScrollView>
+          {/* Empty States */}
+          {showSearchResults && searchResults.length === 0 && !isSearching && searchText.trim().length >= 2 && (
+            <View style={styles.emptyState}>
+              <Ionicons name="search-outline" size={48} color="#d1d5db" />
+              <Text style={styles.emptyStateTitle}>No locations found</Text>
+              <Text style={styles.emptyStateSubtitle}>Try searching for a different location or area</Text>
+            </View>
+          )}
+        </ScrollView>
+      
+      {/* Floating Scroll to Top Button */}
+      {/* This block is removed as showScrollToTop is removed */}
     </SafeAreaView>
   );
 };
@@ -506,6 +633,9 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginBottom: 16,
   },
+  sectionHeader: {
+    marginBottom: 16,
+  },
   locationsList: {
     gap: 8,
   },
@@ -557,6 +687,40 @@ const styles = StyleSheet.create({
   emptyStateSubtitle: {
     fontSize: 14,
     color: '#9ca3af',
+  },
+  locationPermissionText: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  suggestedAreasCard: {
+    marginBottom: 16,
+  },
+  noNearbyAreasContainer: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  noNearbyAreasText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#6b7280',
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  noNearbyAreasSubtext: {
+    fontSize: 14,
+    color: '#9ca3af',
+  },
+  coordinateText: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 4,
+  },
+  distanceText: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 4,
   },
 });
 

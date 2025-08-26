@@ -12,6 +12,7 @@ interface LocationState {
   currentLocation: string;
   selectedLocation: string;
   coordinates: { latitude: number; longitude: number } | null;
+  selectedLocationData: { area: string; state: string } | null;
   isLocationLoading: boolean;
   suggestedLocations: string[];
   searchQuery: string;
@@ -23,6 +24,7 @@ interface LocationState {
     fullAddress: string;
     area: string;
     state: string;
+    distance?: number;
   }>;
   isSearching: boolean;
   searchError: string | null;
@@ -33,17 +35,9 @@ const initialState: LocationState = {
   currentLocation: 'Getting location...',
   selectedLocation: '',
   coordinates: null,
+  selectedLocationData: null,
   isLocationLoading: false,
-  suggestedLocations: [
-    'Mumbai, Maharashtra',
-    'Pune, Maharashtra',
-    'Nagpur, Maharashtra',
-    'Thane, Maharashtra',
-    'Nashik, Maharashtra',
-    'Aurangabad, Maharashtra',
-    'Solapur, Maharashtra',
-    'Kolhapur, Maharashtra'
-  ],
+  suggestedLocations: [],
   searchQuery: '',
   filteredLocations: [],
   searchResults: [],
@@ -96,6 +90,7 @@ export const getCurrentLocation = createAsyncThunk(
         if (place.region) parts.push(place.region);
         
         const address = parts.join(', ') || 'Unknown location';
+        
         return {
           address,
           coordinates: { latitude, longitude }
@@ -298,6 +293,24 @@ async function searchWithOpenStreetMap(query: string) {
   }
 }
 
+// Helper function to calculate distance between two coordinates in kilometers
+function calculateDistance(
+  lat1: number, 
+  lon1: number, 
+  lat2: number, 
+  lon2: number
+): number {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
 // Async thunk for reverse geocoding coordinates
 export const reverseGeocode = createAsyncThunk(
   'location/reverseGeocode',
@@ -322,6 +335,140 @@ export const reverseGeocode = createAsyncThunk(
   }
 );
 
+// Simple function to get nearby locations - just pass lat/lng coordinates
+// Usage: dispatch(getNearbyLocations({ latitude: 19.0760, longitude: 72.8777 }))
+// This will find all nearby areas within 10km of Mumbai coordinates
+export const getNearbyLocations = createAsyncThunk(
+  'location/getNearbyLocations',
+  async (coordinates: { latitude: number; longitude: number }, { rejectWithValue }: any) => {
+    try {
+      console.log('Getting nearby locations for:', coordinates);
+      
+      // Simple OpenStreetMap search within 10km radius
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=&lat=${coordinates.latitude}&lon=${coordinates.longitude}&radius=10000&limit=20`;
+      
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'CoachingFinderApp/1.0'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('OpenStreetMap response:', data);
+      
+      if (!Array.isArray(data) || data.length === 0) {
+        console.log('No nearby areas found');
+        return [];
+      }
+      
+      // Simple processing - just extract the essential info
+      const nearbyAreas = data
+        .filter((place: any) => place.address && place.lat && place.lon)
+        .map((place: any, index: number) => {
+          const address = place.address;
+          const area = address.city || address.town || address.village || address.suburb || 'Unknown';
+          const state = address.state || 'Unknown';
+          
+          return {
+            id: `nearby_${index}_${Date.now()}`,
+            name: `${area}, ${state}`,
+            fullAddress: `${area}, ${state}, India`,
+            coordinates: {
+              latitude: parseFloat(place.lat),
+              longitude: parseFloat(place.lon)
+            },
+            area: area,
+            state: state,
+            distance: calculateDistance(
+              coordinates.latitude, 
+              coordinates.longitude, 
+              parseFloat(place.lat), 
+              parseFloat(place.lon)
+            )
+          };
+        })
+        .filter(place => place.distance <= 10) // Only within 10km
+        .sort((a, b) => a.distance - b.distance) // Sort by distance
+        .slice(0, 10); // Limit to 10 results
+      
+      console.log('Found nearby areas:', nearbyAreas.length);
+      return nearbyAreas;
+      
+    } catch (error: any) {
+      console.error('Error getting nearby locations:', error);
+      return rejectWithValue(error.message || 'Failed to get nearby locations');
+    }
+  }
+);
+
+// Helper function to get major cities for a specific state
+function getStateCities(state: string): string[] {
+  const stateCityMap: { [key: string]: string[] } = {
+    'Maharashtra': ['Mumbai', 'Pune', 'Nagpur', 'Thane', 'Nashik', 'Aurangabad', 'Solapur', 'Kolhapur'],
+    'Delhi': ['New Delhi', 'Delhi Cantonment', 'Dwarka', 'Rohini', 'Pitampura'],
+    'Karnataka': ['Bangalore', 'Mysore', 'Hubli', 'Mangalore', 'Belgaum'],
+    'Tamil Nadu': ['Chennai', 'Coimbatore', 'Madurai', 'Salem', 'Vellore'],
+    'Telangana': ['Hyderabad', 'Warangal', 'Karimnagar', 'Nizamabad', 'Adilabad'],
+    'Gujarat': ['Ahmedabad', 'Surat', 'Vadodara', 'Rajkot', 'Bhavnagar'],
+    'Rajasthan': ['Jaipur', 'Jodhpur', 'Udaipur', 'Kota', 'Ajmer'],
+    'Uttar Pradesh': ['Lucknow', 'Kanpur', 'Varanasi', 'Agra', 'Prayagraj'],
+    'West Bengal': ['Kolkata', 'Howrah', 'Durgapur', 'Asansol', 'Siliguri'],
+    'Andhra Pradesh': ['Visakhapatnam', 'Vijayawada', 'Guntur', 'Nellore', 'Kurnool']
+  };
+  
+  return stateCityMap[state] || [];
+}
+
+// Helper function to get default Maharashtra cities
+function getDefaultMaharashtraCities() {
+  return [
+    {
+      id: 'mumbai_maharashtra',
+      name: 'Mumbai, Maharashtra',
+      fullAddress: 'Mumbai, Maharashtra, India',
+      coordinates: { latitude: 19.0760, longitude: 72.8777 },
+      area: 'Mumbai',
+      state: 'Maharashtra'
+    },
+    {
+      id: 'pune_maharashtra',
+      name: 'Pune, Maharashtra',
+      fullAddress: 'Pune, Maharashtra, India',
+      coordinates: { latitude: 18.5204, longitude: 73.8567 },
+      area: 'Pune',
+      state: 'Maharashtra'
+    },
+    {
+      id: 'nagpur_maharashtra',
+      name: 'Nagpur, Maharashtra',
+      fullAddress: 'Nagpur, Maharashtra, India',
+      coordinates: { latitude: 21.1458, longitude: 79.0882 },
+      area: 'Nagpur',
+      state: 'Maharashtra'
+    },
+    {
+      id: 'thane_maharashtra',
+      name: 'Thane, Maharashtra',
+      fullAddress: 'Thane, Maharashtra, India',
+      coordinates: { latitude: 19.2183, longitude: 72.9781 },
+      area: 'Thane',
+      state: 'Maharashtra'
+    },
+    {
+      id: 'nashik_maharashtra',
+      name: 'Nashik, Maharashtra',
+      fullAddress: 'Nashik, Maharashtra, India',
+      coordinates: { latitude: 19.9975, longitude: 73.7898 },
+      area: 'Nashik',
+      state: 'Maharashtra'
+    }
+  ];
+}
+
 const locationSlice = createSlice({
   name: 'location',
   initialState,
@@ -332,18 +479,26 @@ const locationSlice = createSlice({
     },
     setSearchQuery: (state, action: PayloadAction<string>) => {
       state.searchQuery = action.payload;
-      // Filter locations based on search query
-      if (action.payload.trim()) {
+      // Only clear search results when clearing the query, not when setting a new one
+      if (!action.payload.trim()) {
+        state.filteredLocations = [];
+        state.searchResults = [];
+      } else {
+        // Filter locations based on search query
         state.filteredLocations = state.suggestedLocations.filter(location =>
           location.toLowerCase().includes(action.payload.toLowerCase())
         );
-      } else {
-        state.filteredLocations = [];
+        // Don't clear searchResults here - let the search API handle it
       }
     },
     clearSearchQuery: (state) => {
       state.searchQuery = '';
       state.filteredLocations = [];
+      state.searchResults = []; // Clear search results to allow nearby locations to show
+      // Restore nearby locations when search is cleared
+      if (state.coordinates) {
+        // This will be handled by the component to fetch nearby locations
+      }
     },
     setLocationLoading: (state, action: PayloadAction<boolean>) => {
       state.isLocationLoading = action.payload;
@@ -357,20 +512,25 @@ const locationSlice = createSlice({
     selectSearchResult: (state, action: PayloadAction<{
       name: string;
       coordinates: { latitude: number; longitude: number };
+      fullAddress?: string;
+      area?: string;
+      state?: string;
     }>) => {
-      state.selectedLocation = action.payload.name;
-      state.currentLocation = action.payload.name;
-      state.coordinates = action.payload.coordinates;
-      state.searchResults = [];
-      state.searchQuery = '';
-      
+      const { name, coordinates, fullAddress, area, state: stateName } = action.payload;
+      state.selectedLocation = fullAddress || name;
+      // Store the coordinates for API calls
+      if (coordinates) {
+        state.coordinates = coordinates;
+      }
+      // Store the area and state for display
+      if (area && stateName) {
+        state.selectedLocationData = { area, state: stateName };
+      }
       // Add to recent searches
-      const searchTerm = action.payload.name;
-      if (!state.recentSearches.includes(searchTerm)) {
-        state.recentSearches.unshift(searchTerm);
-        // Keep only last 5 searches
-        if (state.recentSearches.length > 5) {
-          state.recentSearches = state.recentSearches.slice(0, 5);
+      if (!state.recentSearches.includes(name)) {
+        state.recentSearches.unshift(name);
+        if (state.recentSearches.length > 10) {
+          state.recentSearches.pop();
         }
       }
     },
@@ -378,6 +538,11 @@ const locationSlice = createSlice({
       state.selectedLocation = '';
       state.coordinates = null;
       state.isLocationLoading = false;
+    },
+    deselectLocation: (state) => {
+      state.selectedLocation = '';
+      state.selectedLocationData = null;
+      // Keep coordinates for current location but clear selected location
     },
     clearRecentSearches: (state) => {
       state.recentSearches = [];
@@ -397,10 +562,32 @@ const locationSlice = createSlice({
         if (!state.selectedLocation) {
           state.selectedLocation = action.payload.address;
         }
+        // After getting current location, fetch nearby locations
+        if (action.payload.coordinates) {
+          // This will be handled by the component
+        }
       })
       .addCase(getCurrentLocation.rejected, (state, action) => {
         state.isLocationLoading = false;
         state.currentLocation = action.payload as string || 'Location unavailable';
+      })
+      // Get Nearby Locations
+      .addCase(getNearbyLocations.pending, (state) => {
+        // Don't set loading state for nearby locations as it's background operation
+      })
+      .addCase(getNearbyLocations.fulfilled, (state, action) => {
+        // Update suggested locations with nearby areas
+        if (action.payload && action.payload.length > 0) {
+          // Store the full location objects for better display
+          state.suggestedLocations = action.payload.map((location: any) => location.name);
+          // Only update searchResults if there are no active search results or search query
+          if (state.searchResults.length === 0 && !state.searchQuery.trim()) {
+            state.searchResults = action.payload;
+          }
+        }
+      })
+      .addCase(getNearbyLocations.rejected, (state) => {
+        // Keep existing suggested locations if nearby locations fail
       })
       // Reverse Geocode
       .addCase(reverseGeocode.pending, (state) => {
@@ -444,6 +631,7 @@ export const {
   addCustomLocation, 
   selectSearchResult,
   resetLocation,
+  deselectLocation,
   clearRecentSearches
 } = locationSlice.actions;
 

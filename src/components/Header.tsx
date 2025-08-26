@@ -6,50 +6,45 @@ import StudentSwitcher from './StudentSwitcher';
 interface HeaderProps {
   location: string;
   onLocationPress: () => void;
-  onSearchPress: () => void;
+  onSearchPress?: () => void; // Made optional since search is disabled
   userProfile?: any;
   selectedStudentId: string;
   onStudentSelect: (studentId: string) => void;
   isLocationLoading?: boolean;
   coordinates?: { latitude: number; longitude: number } | null;
+  selectedLocationData?: {
+    area: string;
+    state: string;
+  } | null;
 }
 
 const Header: React.FC<HeaderProps> = ({
   location,
   onLocationPress,
-  onSearchPress,
+  onSearchPress, // Optional prop - search functionality disabled
   userProfile,
   selectedStudentId,
   onStudentSelect,
   isLocationLoading = false,
   coordinates = null,
+  selectedLocationData = null,
 }) => {
   
-  // Function to extract city and state from full address
-  const getCityAndState = (fullAddress: string): string => {
-    if (!fullAddress || fullAddress === 'Getting location...' || fullAddress === 'Location unavailable' || fullAddress === 'Location permission denied') {
-      return fullAddress;
+  // Function to get the display text for location
+  const getLocationDisplayText = (): string => {
+    if (isLocationLoading) {
+      return 'Getting current location...';
     }
     
-    const parts = fullAddress.split(',').map(part => part.trim());
-    
-    // Try to find city and state
-    if (parts.length >= 2) {
-      // Get the last two parts (usually city and state)
-      const city = parts[parts.length - 2];
-      const state = parts[parts.length - 1];
-      
-      if (city && state) {
-        return `${city}, ${state}`;
-      }
+    if (selectedLocationData?.area && selectedLocationData?.state) {
+      return `${selectedLocationData.area}, ${selectedLocationData.state}`;
     }
     
-    // Fallback: return the last part if it exists
-    if (parts.length > 0) {
-      return parts[parts.length - 1];
+    if (location && location !== 'Getting location...') {
+      return location;
     }
     
-    return fullAddress;
+    return 'Select location';
   };
   return (
     <View style={styles.header}>
@@ -88,7 +83,7 @@ const Header: React.FC<HeaderProps> = ({
             <View style={styles.locationTextContainer}>
               <Text style={styles.locationLabel}>Location</Text>
               <Text style={styles.locationText} numberOfLines={1}>
-                {isLocationLoading ? 'Getting current location...' : getCityAndState(location)}
+                {getLocationDisplayText()}
               </Text>
               {isLocationLoading && (
                 <View style={styles.locationLoadingIndicator}>
@@ -108,13 +103,13 @@ const Header: React.FC<HeaderProps> = ({
           </View>
         </View>
         
-        {/* Search bar */}
+        {/* Search bar - COMING SOON */}
         <TouchableOpacity
           onPress={onSearchPress}
-          style={styles.searchBar}
+          style={styles.searchBarDisabled}
         >
-          <Ionicons name="search" size={20} color="#9ca3af" style={styles.searchIcon} />
-          <Text style={styles.searchPlaceholder}>Search coaching centers...</Text>
+          <Ionicons name="search" size={20} color="#d1d5db" style={styles.searchIcon} />
+          <Text style={styles.searchPlaceholderDisabled}>Search coaching centers... (Coming Soon)</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -209,7 +204,8 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     minHeight: 44,
   },
-  searchBar: {
+  // Search styles - DISABLED
+  searchBarDisabled: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
@@ -223,7 +219,7 @@ const styles = StyleSheet.create({
   searchIcon: {
     marginRight: 8,
   },
-  searchPlaceholder: {
+  searchPlaceholderDisabled: {
     color: '#9ca3af',
     fontSize: 16,
     flex: 1,

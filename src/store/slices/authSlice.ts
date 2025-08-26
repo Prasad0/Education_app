@@ -204,6 +204,41 @@ export const addChild = createAsyncThunk(
   }
 );
 
+// Async thunk for fetching user profile
+export const fetchUserProfile = createAsyncThunk(
+  'auth/fetchUserProfile',
+  async (_, {getState, rejectWithValue}) => {
+    try {
+      const state = getState() as {auth: AuthState};
+      const accessToken = state.auth.accessToken;
+      
+      if (!accessToken) {
+        return rejectWithValue('No access token available');
+      }
+
+      const response = await axios.get(getApiUrl(API_CONFIG.ENDPOINTS.GET_PROFILE), {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.data?.data?.success && response.data?.data?.profile) {
+        const profileData = response.data.data.profile;
+        return profileData;
+      } else {
+        return rejectWithValue('Invalid response format or profile not found');
+      }
+    } catch (error: any) {
+      console.error('Error fetching user profile:', error);
+      if (error.response?.data?.message) {
+        return rejectWithValue(error.response.data.message);
+      }
+      return rejectWithValue('Failed to get user profile');
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -332,6 +367,20 @@ const authSlice = createSlice({
       .addCase(addChild.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
+      })
+      // Fetch User Profile
+      .addCase(fetchUserProfile.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchUserProfile.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.user = action.payload;
+      })
+      .addCase(fetchUserProfile.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+        console.error('Failed to fetch user profile:', action.payload);
       });
   },
 });

@@ -10,6 +10,7 @@ export const API_CONFIG = {
     PROFILE_STATUS: '/user_auth/users/profile_status/',
     CREATE_PROFILE: '/user_auth/users/create_profile/',
     ADD_CHILD: '/user_auth/users/add_child/',
+    GET_PROFILE: '/user_auth/users/get_profile/',
   }
 };
 
@@ -30,8 +31,6 @@ export const api = axios.create({
 api.interceptors.request.use(
   async (config) => {
     try {
-      console.log('🔑 [API Interceptor] Checking for auth token...');
-      
       // First try to get token from the correct storage key
       let token = await AsyncStorage.getItem('accessToken');
       
@@ -41,27 +40,19 @@ api.interceptors.request.use(
         if (tokensData) {
           const tokens = JSON.parse(tokensData);
           token = tokens.accessToken;
-          console.log('🔑 [API Interceptor] Found token in auth_tokens structure');
         }
       }
       
-      console.log('🔑 [API Interceptor] Token from AsyncStorage:', token ? `${token.substring(0, 20)}...` : 'null');
-      
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
-        console.log('✅ [API Interceptor] Authorization header set:', `Bearer ${token.substring(0, 20)}...`);
-      } else {
-        console.log('❌ [API Interceptor] No token found in AsyncStorage');
       }
-      
-      console.log('📡 [API Interceptor] Final request headers:', JSON.stringify(config.headers, null, 2));
     } catch (error) {
-      console.error('❌ [API Interceptor] Error getting token:', error);
+      console.error('Error getting token in API interceptor:', error);
     }
     return config;
   },
   (error) => {
-    console.error('❌ [API Interceptor] Request interceptor error:', error);
+    console.error('Request interceptor error:', error);
     return Promise.reject(error);
   }
 );

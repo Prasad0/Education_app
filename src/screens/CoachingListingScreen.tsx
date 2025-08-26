@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert, Linking } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert, Linking, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { fetchCoachingCenters, filterCenters, setSearchParams } from '../store/slices/coachingSlice';
+import { fetchCoachingCenters, filterCenters, setSearchParams, searchCoachingCenters } from '../store/slices/coachingSlice';
+import { deselectLocation } from '../store/slices/locationSlice';
+import { logout } from '../store/slices/authSlice';
 import Header from '../components/Header';
 import BottomNavigation from '../components/BottomNavigation';
 import CoachingCard from '../components/CoachingCard';
@@ -23,9 +25,11 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack })
     searchParams 
   } = useAppSelector(state => state.coaching);
   
-  const [location, setLocation] = useState('Koramangala, Bangalore');
+  const { accessToken, profile } = useAppSelector(state => state.auth);
+  const { selectedLocation, selectedLocationData, coordinates } = useAppSelector(state => state.location);
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
+  const [searchText, setSearchText] = useState<string>('');
 
   // Mock user profile for now
   const mockUserProfile = {
@@ -36,16 +40,41 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack })
     ]
   };
 
-  useEffect(() => {
-    // Fetch coaching centers when component mounts with city parameter
-    const params = { 
-      location: 'Koramangala',
-      city: 'Bangalore'
-    };
-    
-    console.log('📋 [CoachingListingScreen] Dispatching fetchCoachingCenters with params:', JSON.stringify(params, null, 2));
-    dispatch(fetchCoachingCenters(params));
-  }, [dispatch]);
+  // Remove automatic API call - only fetch when explicitly requested
+  // useEffect(() => {
+  //   console.log('📍 [CoachingListingScreen] LOCATION CHANGED - useEffect triggered');
+  //   console.log('📍 [CoachingListingScreen] New selectedLocation:', selectedLocation);
+  //   console.log('📍 [CoachingListingScreen] New coordinates:', coordinates);
+  //   
+  //   // Fetch coaching centers using selected location
+  //   if (selectedLocation) {
+  //     // Extract area name from selected location (e.g., "Borivali, Maharashtra, India" -> "Borivali")
+  //     const areaName = selectedLocation.split(',')[0].trim();
+  //     
+  //     console.log('📍 [CoachingListingScreen] Using selected location:', selectedLocation);
+  //     console.log('🔍 [CoachingListingScreen] Area name for search:', areaName);
+  //     console.log('📍 [CoachingListingScreen] Coordinates:', coordinates);
+  //     
+  //     // Use the area name for search and include coordinates directly
+  //     const params = { 
+  //       search: areaName,
+  //       latitude: coordinates?.latitude,
+  //       longitude: coordinates?.longitude
+  //     };
+  //     
+  //     console.log('📋 [CoachingListingScreen] Dispatching fetchCoachingCenters with params:', JSON.stringify(params, null, 2));
+  //     dispatch(fetchCoachingCenters(params));
+  //   } else {
+  //     // Fallback to default location if no location selected
+  //     const params = { 
+  //       location: 'Koramangala',
+  //       city: 'Bangalore'
+  //     };
+  //     
+  //     console.log('📋 [CoachingListingScreen] No location selected, using default params:', JSON.stringify(params, null, 2));
+  //     dispatch(fetchCoachingCenters(params));
+  //   }
+  // }, [dispatch, selectedLocation, coordinates]);
 
   useEffect(() => {
     // Set initial student if available
@@ -54,24 +83,55 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack })
     }
   }, []);
 
+  // Handle authentication errors
+  useEffect(() => {
+    if (error === 'UNAUTHORIZED') {
+      // Clear auth state and redirect to login
+      dispatch(logout());
+      Alert.alert(
+        'Session Expired',
+        'Your session has expired. Please login again.',
+        [{ text: 'OK' }]
+      );
+    }
+  }, [error, dispatch]);
+
   const handleTabPress = (tab: 'offline' | 'online' | 'starred' | 'profile') => {
     if (tab === 'profile') {
-      console.log('Navigate to profile');
       return;
     }
     
     // This will be handled by the parent component
-    console.log('Tab pressed:', tab);
   };
 
   const handleLocationPress = () => {
     // Handle location change
-    console.log('Location pressed');
   };
 
   const handleSearchPress = () => {
     // Handle search
-    console.log('Search pressed');
+  };
+
+  const handleSearchSubmit = () => {
+    if (searchText.trim()) {
+      dispatch(searchCoachingCenters(searchText.trim()));
+    }
+  };
+
+  const handleSearchChange = (text: string) => {
+    setSearchText(text);
+    if (!text.trim()) {
+      // If search is cleared, fetch coaching centers for current location
+      if (selectedLocation) {
+        const areaName = selectedLocation.split(',')[0].trim();
+        const params = { 
+          search: areaName,
+          latitude: coordinates?.latitude,
+          longitude: coordinates?.longitude
+        };
+        dispatch(fetchCoachingCenters(params));
+      }
+    }
   };
 
   const handleBookDemo = (center: CoachingCenter) => {
@@ -83,7 +143,6 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack })
         { 
           text: 'Book Now', 
           onPress: () => {
-            console.log('Booking demo for:', center.name);
             Alert.alert('Success', 'Demo class booked successfully!');
           }
         }
@@ -100,8 +159,10 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack })
         { 
           text: 'Call', 
           onPress: () => {
-            const phoneNumber = center.phone.replace(/\s+/g, '');
-            Linking.openURL(`tel:${phoneNumber}`);
+            const phoneNumber = center.phone?.replace(/\s+/g, '') || '';
+            if (phoneNumber) {
+              Linking.openURL(`tel:${phoneNumber}`);
+            }
           }
         }
       ]
@@ -110,13 +171,10 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack })
 
   const handleToggleStar = (centerId: string) => {
     // This will be handled by the parent component
-    console.log('Toggle star:', centerId);
   };
 
   const handleFilterChange = (filterType: string, value: any) => {
     const newParams = { ...searchParams, [filterType]: value };
-    console.log('🔍 [CoachingListingScreen] Filter changed:', filterType, '=', value);
-    console.log('📋 [CoachingListingScreen] New filter params:', JSON.stringify(newParams, null, 2));
     dispatch(setSearchParams(newParams));
     dispatch(filterCenters(newParams));
   };
@@ -124,42 +182,77 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack })
   const clearFilters = () => {
     dispatch(setSearchParams({}));
     dispatch(filterCenters({}));
+    // Clear filters and fetch with only radius
+    dispatch(fetchCoachingCenters({ radius: 2000 }));
   };
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header - Fixed */}
       <Header
-        location={location}
+        location={selectedLocation || 'Koramangala, Bangalore'}
         onLocationPress={handleLocationPress}
         onSearchPress={handleSearchPress}
         userProfile={mockUserProfile}
         selectedStudentId={selectedStudentId || ''}
         onStudentSelect={setSelectedStudentId}
+        selectedLocationData={selectedLocationData}
       />
 
-      {/* Filter Bar */}
-      <View style={styles.filterBar}>
-        <TouchableOpacity
-          style={styles.filterButton}
-          onPress={() => setShowFilters(!showFilters)}
-        >
-          <Ionicons name="filter" size={20} color="#6b7280" />
-          <Text style={styles.filterButtonText}>Filters</Text>
-          <Ionicons 
-            name={showFilters ? "chevron-up" : "chevron-down"} 
-            size={16} 
-            color="#6b7280" 
-          />
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={styles.clearFiltersButton}
-          onPress={clearFilters}
-        >
-          <Text style={styles.clearFiltersText}>Clear</Text>
-        </TouchableOpacity>
-      </View>
+             {/* Search Bar */}
+       <View style={styles.searchBar}>
+         <View style={styles.searchInputContainer}>
+           <Ionicons name="search" size={20} color="#9ca3af" style={styles.searchIcon} />
+           <TextInput
+             style={styles.searchInput}
+             placeholder="Search coaching centers..."
+             value={searchText}
+             onChangeText={handleSearchChange}
+             onSubmitEditing={handleSearchSubmit}
+             returnKeyType="search"
+           />
+           {searchText.length > 0 && (
+             <TouchableOpacity
+               style={styles.clearSearchButton}
+               onPress={() => handleSearchChange('')}
+             >
+               <Ionicons name="close-circle" size={20} color="#9ca3af" />
+             </TouchableOpacity>
+           )}
+         </View>
+         <TouchableOpacity
+           style={styles.searchButton}
+           onPress={handleSearchSubmit}
+           disabled={!searchText.trim()}
+         >
+           <Text style={[styles.searchButtonText, !searchText.trim() && styles.searchButtonTextDisabled]}>
+             Search
+           </Text>
+         </TouchableOpacity>
+       </View>
+
+       {/* Filter Bar */}
+       <View style={styles.filterBar}>
+         <TouchableOpacity
+           style={styles.filterButton}
+           onPress={() => setShowFilters(!showFilters)}
+         >
+           <Ionicons name="filter" size={20} color="#6b7280" />
+           <Text style={styles.filterButtonText}>Filters</Text>
+           <Ionicons 
+             name={showFilters ? "chevron-up" : "chevron-down"} 
+             size={16} 
+             color="#6b7280" 
+           />
+         </TouchableOpacity>
+         
+         <TouchableOpacity
+           style={styles.clearFiltersButton}
+           onPress={clearFilters}
+         >
+           <Text style={styles.clearFiltersText}>Clear</Text>
+         </TouchableOpacity>
+       </View>
 
       {/* Filters Panel */}
       {showFilters && (
@@ -260,8 +353,19 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack })
           </View>
         )}
 
+        {/* Loading indicator */}
+        {isLoading && (
+          <View style={styles.loadingContainer}>
+            <View style={styles.loadingSpinner}>
+              <Ionicons name="refresh" size={24} color="#3b82f6" />
+            </View>
+            <Text style={styles.loadingTitle}>Loading coaching centers...</Text>
+            <Text style={styles.loadingSubtitle}>Please wait while we fetch the latest data</Text>
+          </View>
+        )}
+
         {/* Coaching centers list */}
-        {filteredCenters.length > 0 ? (
+        {!isLoading && filteredCenters.length > 0 && (
           filteredCenters.map((center) => (
             <CoachingCard
               key={center.id}
@@ -272,12 +376,15 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack })
               isStarred={starredCenters.includes(center.id)}
             />
           ))
-        ) : !isLoading ? (
+        )}
+
+        {/* Empty state */}
+        {!isLoading && filteredCenters.length === 0 && (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No coaching centers found</Text>
             <Text style={styles.emptySubtext}>Try adjusting your filters</Text>
           </View>
-        ) : null}
+        )}
       </ScrollView>
 
       {/* Bottom Navigation - Fixed */}
@@ -300,6 +407,50 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingBottom: 120, // Increased from 100 to 120 for more bottom spacing
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    gap: 12,
+  },
+  searchInputContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f3f4f6',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#111827',
+  },
+  clearSearchButton: {
+    padding: 4,
+  },
+  searchButton: {
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  searchButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  searchButtonTextDisabled: {
+    color: '#9ca3af',
   },
   filterBar: {
     flexDirection: 'row',
@@ -419,6 +570,35 @@ const styles = StyleSheet.create({
   emptySubtext: {
     fontSize: 14,
     color: '#9ca3af',
+    textAlign: 'center',
+  },
+
+  // Loading styles
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 16,
+  },
+  loadingSpinner: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  loadingTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  loadingSubtitle: {
+    fontSize: 14,
+    color: '#6b7280',
     textAlign: 'center',
   },
 });

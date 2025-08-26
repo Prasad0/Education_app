@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Dimensions, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CoachingCenter } from '../store/slices/coachingSlice';
 
@@ -13,6 +13,27 @@ interface CoachingCardProps {
 
 const { width: screenWidth } = Dimensions.get('window');
 
+// Helper function to validate image URL
+const isValidImageUrl = (url: string): boolean => {
+  try {
+    if (!url || typeof url !== 'string') return false;
+    const trimmedUrl = url.trim();
+    if (trimmedUrl === '') return false;
+    
+    // Check if it's a valid URL format
+    try {
+      const urlObj = new URL(trimmedUrl);
+      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+    } catch {
+      // If it's not a valid URL, it might be a local asset
+      return trimmedUrl.startsWith('data:') || trimmedUrl.startsWith('file:') || trimmedUrl.startsWith('/');
+    }
+  } catch (error) {
+    console.warn('Error validating image URL:', url, error);
+    return false;
+  }
+};
+
 const CoachingCard: React.FC<CoachingCardProps> = ({
   center,
   onBookDemo,
@@ -20,31 +41,165 @@ const CoachingCard: React.FC<CoachingCardProps> = ({
   onToggleStar,
   isStarred,
 }) => {
+  // State to track failed images
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const [imageLoadingStates, setImageLoadingStates] = useState<Map<string, boolean>>(new Map());
+  
+  // Filter out invalid images and failed images
+  const validImages = React.useMemo(() => {
+    try {
+      const images = (center.gallery_images || center.images || []);
+      if (!Array.isArray(images)) {
+        console.warn('Images is not an array:', images);
+        return [];
+      }
+      
+      // Additional safety check for array elements
+      const safeImages = images.filter(img => {
+        try {
+          return img !== null && img !== undefined && isValidImageUrl(img) && !failedImages.has(img);
+        } catch (error) {
+          console.warn('Error filtering image:', img, error);
+          return false;
+        }
+      });
+      
+      return safeImages;
+    } catch (error) {
+      console.error('Error processing images:', error);
+      return [];
+    }
+  }, [center.gallery_images, center.images, failedImages]);
+  
+  const handleImageError = (imageUrl: string) => {
+    try {
+      console.warn('Image failed to load:', imageUrl);
+      setFailedImages(prev => new Set(prev).add(imageUrl));
+      setImageLoadingStates(prev => {
+        const newMap = new Map(prev);
+        newMap.set(imageUrl, false);
+        return newMap;
+      });
+      
+      // Show a toast or notification that the image failed to load
+      // This provides better user feedback
+    } catch (error) {
+      console.error('Error handling image error:', error);
+    }
+  };
+
+  const handleImageLoadStart = (imageUrl: string) => {
+    try {
+      setImageLoadingStates(prev => {
+        const newMap = new Map(prev);
+        newMap.set(imageUrl, true);
+        return newMap;
+      });
+    } catch (error) {
+      console.error('Error handling image load start:', error);
+    }
+  };
+
+  const handleImageLoadEnd = (imageUrl: string) => {
+    try {
+      setImageLoadingStates(prev => {
+        const newMap = new Map(prev);
+        newMap.set(imageUrl, false);
+        return newMap;
+      });
+    } catch (error) {
+      console.error('Error handling image load end:', error);
+    }
+  };
+  
   return (
     <View style={styles.card}>
       {/* Image Section - Scrollable */}
       <View style={styles.imageSection}>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          style={styles.imageScroll}
-        >
-          {center.images.map((image, index) => (
-            <View key={index} style={styles.imageContainer}>
-              <View style={styles.imagePlaceholder}>
-                <Text style={styles.imagePlaceholderText}>📚</Text>
+        {(() => {
+          try {
+            return (
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                style={styles.imageScroll}
+              >
+                {validImages && validImages.length > 0 ? (
+                  validImages.map((image, index) => {
+                    try {
+                      if (!image || typeof image !== 'string') {
+                        console.warn('Invalid image data at index:', index, image);
+                        return (
+                          <View key={`placeholder-${index}`} style={styles.imageContainer}>
+                            <View style={styles.imagePlaceholder}>
+                              <Text style={styles.imagePlaceholderText}>❌</Text>
+                              <Text style={styles.imagePlaceholderSubtext}>Invalid image data</Text>
+                            </View>
+                          </View>
+                        );
+                      }
+                      
+                      return (
+                        <View key={`image-${index}-${image}`} style={styles.imageContainer}>
+                          <Image 
+                            source={{ uri: image }} 
+                            style={styles.image}
+                            resizeMode="cover"
+                            onError={() => handleImageError(image)}
+                            onLoadStart={() => handleImageLoadStart(image)}
+                            onLoadEnd={() => handleImageLoadEnd(image)}
+                          />
+                          {imageLoadingStates.get(image) && (
+                            <View style={styles.imageLoadingOverlay}>
+                              <Text style={styles.imageLoadingText}>Loading...</Text>
+                            </View>
+                          )}
+                        </View>
+                      );
+                    } catch (error) {
+                      console.error('Error rendering image at index:', index, error);
+                      // Return placeholder for failed images
+                      return (
+                        <View key={`error-${index}`} style={styles.imageContainer}>
+                          <View style={styles.imagePlaceholder}>
+                            <Text style={styles.imagePlaceholderText}>⚠️</Text>
+                            <Text style={styles.imagePlaceholderSubtext}>Image failed to load</Text>
+                          </View>
+                        </View>
+                      );
+                    }
+                  })
+                ) : (
+                  <View style={styles.imageContainer}>
+                    <View style={styles.imagePlaceholder}>
+                      <Text style={styles.imagePlaceholderText}>📚</Text>
+                      <Text style={styles.imagePlaceholderSubtext}>No images available</Text>
+                    </View>
+                  </View>
+                )}
+              </ScrollView>
+            );
+          } catch (error) {
+            console.error('Error rendering image section:', error);
+            // Fallback to simple placeholder if entire image section fails
+            return (
+              <View style={styles.imageContainer}>
+                <View style={styles.imagePlaceholder}>
+                  <Text style={styles.imagePlaceholderText}>🚫</Text>
+                  <Text style={styles.imagePlaceholderSubtext}>Images unavailable</Text>
+                </View>
               </View>
-            </View>
-          ))}
-        </ScrollView>
+            );
+          }
+        })()}
         
         {/* Seats Left Badge */}
         <View style={styles.seatsBadge}>
           <Text style={[
             styles.seatsText,
-            center.seatsLeft <= 5 ? styles.seatsTextWarning : styles.seatsTextNormal
+            (center.seatsLeft || 0) <= 5 ? styles.seatsTextWarning : styles.seatsTextNormal
           ]}>
-            {center.seatsLeft} seats left
+            {center.seatsLeft || 0} seats left
           </Text>
         </View>
 
@@ -60,15 +215,22 @@ const CoachingCard: React.FC<CoachingCardProps> = ({
           />
         </TouchableOpacity>
 
-        {/* Image indicators */}
-        {center.images.length > 1 && (
+        {/* Image indicators - only show if there are valid images */}
+        {validImages && validImages.length > 1 && (
           <View style={styles.imageIndicators}>
-            {center.images.map((_, index) => (
-              <View
-                key={index}
-                style={styles.imageIndicator}
-              />
-            ))}
+            {validImages.map((_, index) => {
+              try {
+                return (
+                  <View
+                    key={`indicator-${index}`}
+                    style={styles.imageIndicator}
+                  />
+                );
+              } catch (error) {
+                console.error('Error rendering image indicator:', error);
+                return null;
+              }
+            })}
           </View>
         )}
       </View>
@@ -86,8 +248,8 @@ const CoachingCard: React.FC<CoachingCardProps> = ({
         <View style={styles.ratingLocation}>
           <View style={styles.rating}>
             <Ionicons name="star" size={16} color="#fbbf24" />
-            <Text style={styles.ratingText}>{center.rating}</Text>
-            <Text style={styles.reviewsText}>({center.reviews})</Text>
+            <Text style={styles.ratingText}>{center.rating || 0}</Text>
+            <Text style={styles.reviewsText}>({center.reviews || 0})</Text>
           </View>
           <View style={styles.location}>
             <Ionicons name="location" size={16} color="#9ca3af" />
@@ -151,15 +313,27 @@ const styles = StyleSheet.create({
     width: screenWidth - 32,
     height: 160,
   },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
   imagePlaceholder: {
     width: '100%',
     height: '100%',
     backgroundColor: '#f3f4f6',
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 16,
   },
   imagePlaceholderText: {
     fontSize: 48,
+    opacity: 0.6,
+  },
+  imagePlaceholderSubtext: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 4,
+    textAlign: 'center',
   },
   seatsBadge: {
     position: 'absolute',
@@ -322,6 +496,22 @@ const styles = StyleSheet.create({
     color: '#3b82f6',
     fontSize: 14,
     fontWeight: '500',
+  },
+  imageLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 16,
+  },
+  imageLoadingText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 
