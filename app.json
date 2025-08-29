@@ -21,13 +21,22 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.prasad01.coachingfinderapp"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router"
-    ]
+      "expo-router",
+      "expo-font",
+      "./plugins/withNetworkSecurity"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "f71f027e-506c-4209-a1f6-64ff74ab6905"
+      }
+    }
   }
 }
