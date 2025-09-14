@@ -7,8 +7,9 @@ This directory contains the API configuration for the coaching finder app.
 The app uses environment variables stored in the `.env` file at the root of the project:
 
 ```env
-BASE_URL=http://65.0.135.170
-API_BASE_URL=http://65.0.135.170/api
+BASE_URL: 'http://13.200.17.30',
+  API_BASE_URL: 'http://13.200.17.30/api',
+ 
 ```
 
 ## Configuration Structure

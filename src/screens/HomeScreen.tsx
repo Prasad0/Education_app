@@ -5,7 +5,7 @@ import * as Location from 'expo-location';
 import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { fetchCoachingCenters, setActiveTab, toggleStarred, clearData } from '../store/slices/coachingSlice';
+import { fetchCoachingCenters, searchCoachingCenters, filterCoachingCenters, setActiveTab, toggleStarred, clearData } from '../store/slices/coachingSlice';
 import { getCurrentLocation as getLocationFromSlice, deselectLocation } from '../store/slices/locationSlice';
 import { fetchUserProfile } from '../store/slices/authSlice';
 import Header from '../components/Header';
@@ -13,7 +13,9 @@ import BottomNavigation from '../components/BottomNavigation';
 import PromotionalBanner from '../components/PromotionalBanner';
 import CoachingCard from '../components/CoachingCard';
 import CoachingListingScreen from './CoachingListingScreen';
+import CoachingDetailScreen from './CoachingDetailScreen';
 import LocationSelector from '../components/LocationSelector';
+import SearchFilterScreen from './SearchFilterScreen';
 import { CoachingCenter } from '../store/slices/coachingSlice';
 import { logout } from '../store/slices/authSlice';
 
@@ -59,8 +61,9 @@ const HomeScreen: React.FC = () => {
   const safeCoordinates = coordinates || null;
   const safeSelectedLocationData = selectedLocationData || null;
   
-  const [currentScreen, setCurrentScreen] = useState<'home' | 'search' | 'listing' | 'location' | 'profile'>('home');
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'search' | 'listing' | 'location' | 'profile' | 'detail' | 'searchFilter'>('home');
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
+  const [selectedCoachingId, setSelectedCoachingId] = useState<string>('');
   const [spinValue] = useState(new Animated.Value(0));
 
   // Determine which profile data to use (user or profile field)
@@ -95,7 +98,7 @@ const HomeScreen: React.FC = () => {
         const userData = await AsyncStorage.getItem('auth_user');
         
       } catch (error) {
-        console.error('Error checking stored tokens:', error);
+        // Silent error handling
       }
     };
     
@@ -198,7 +201,6 @@ const HomeScreen: React.FC = () => {
       dispatch(getLocationFromSlice());
       
     } catch (error) {
-      console.error('Error getting location:', error);
       Toast.show({
         type: 'error',
         text1: 'Location Error',
@@ -257,13 +259,24 @@ const HomeScreen: React.FC = () => {
     setCurrentScreen('location');
   };
 
-  const handleSearchPress = () => {
-    // Search functionality - Coming Soon
-    Alert.alert(
-      'Search Coming Soon',
-      'The search functionality will be available in the next update. Stay tuned!',
-      [{ text: 'OK' }]
-    );
+  const handleSearchPress = (searchTerm: string) => {
+    // Navigate to search filter screen with the search term
+    setCurrentScreen('searchFilter');
+  };
+
+  // Function to handle advanced filtering
+  const handleFilter = (filterParams: any) => {
+    if (accessToken && authState.isAuthenticated) {
+      // Add coordinates from current location if available
+      const paramsWithLocation = {
+        ...filterParams,
+        latitude: safeCoordinates?.latitude,
+        longitude: safeCoordinates?.longitude,
+        radius: filterParams.radius || 2000,
+      };
+      
+      dispatch(filterCoachingCenters(paramsWithLocation));
+    }
   };
 
 
@@ -318,6 +331,12 @@ const HomeScreen: React.FC = () => {
     dispatch(toggleStarred(centerId));
   };
 
+  const handleViewDetails = (center: CoachingCenter) => {
+    console.log('Viewing details for center:', center.name, 'ID:', center.id);
+    setSelectedCoachingId(center.id);
+    setCurrentScreen('detail');
+  };
+
   // Handle different screens
   // Search screen disabled - functionality removed
   // if (currentScreen === 'search') {
@@ -341,6 +360,40 @@ const HomeScreen: React.FC = () => {
   if (currentScreen === 'location') {
     return (
       <LocationSelector onBack={() => setCurrentScreen('home')} />
+    );
+  }
+
+  if (currentScreen === 'detail') {
+    return (
+      <CoachingDetailScreen
+        coachingId={selectedCoachingId}
+        onBack={() => setCurrentScreen('home')}
+        onViewBatches={() => {
+          // Handle view batches
+          Alert.alert('View Batches', 'Batches functionality coming soon!');
+        }}
+        onViewFaculty={() => {
+          // Handle view faculty
+          Alert.alert('View Faculty', 'Faculty functionality coming soon!');
+        }}
+        onViewReviews={() => {
+          // Handle view reviews
+          Alert.alert('View Reviews', 'Reviews functionality coming soon!');
+        }}
+        onViewTeacherProfile={(teacherId: string) => {
+          // Handle view teacher profile
+          Alert.alert('Teacher Profile', `Teacher profile for ${teacherId} coming soon!`);
+        }}
+      />
+    );
+  }
+
+  if (currentScreen === 'searchFilter') {
+    return (
+      <SearchFilterScreen
+        onBack={() => setCurrentScreen('home')}
+        searchQuery=""
+      />
     );
   }
 
@@ -587,7 +640,6 @@ const HomeScreen: React.FC = () => {
             <TouchableOpacity 
               style={styles.profileOption}
               onPress={() => {
-                console.log('🔄 [HomeScreen] Manual profile refresh requested');
                 if (accessToken) {
                   dispatch(fetchUserProfile());
                 } else {
@@ -720,6 +772,24 @@ const HomeScreen: React.FC = () => {
           <View style={styles.sectionHeaderRight}>
             {isLoading && <Text style={styles.loadingText}>Loading...</Text>}
             <TouchableOpacity 
+              style={styles.filterButton}
+              onPress={() => {
+                // Example filter - you can customize this based on your needs
+                const exampleFilter = {
+                  standards: '11th,12th',
+                  subjects: 'Physics,Chemistry,Mathematics',
+                  target_exams: 'JEE Main,NEET',
+                  coaching_type: 'offline',
+                  fees_min: 10000,
+                  fees_max: 500000,
+                  rating_min: 4.0,
+                };
+                handleFilter(exampleFilter);
+              }}
+            >
+              <Ionicons name="filter" size={16} color="#3b82f6" />
+            </TouchableOpacity>
+            <TouchableOpacity 
               style={styles.refreshButton}
               onPress={getCurrentLocation}
               disabled={safeIsLocationLoading}
@@ -787,17 +857,9 @@ const HomeScreen: React.FC = () => {
             .filter(center => {
               // Additional validation to prevent crashes
               if (!center || !center.id) {
-                console.warn('Invalid coaching center data:', center);
                 return false;
               }
               
-              // Log image data for debugging
-              if (center.gallery_images || center.images) {
-                console.log(`Coaching center ${center.id} images:`, {
-                  gallery_images: center.gallery_images,
-                  images: center.images
-                });
-              }
               
               return true;
             })
@@ -808,6 +870,7 @@ const HomeScreen: React.FC = () => {
               onBookDemo={handleBookDemo}
               onCallNow={handleCallNow}
               onToggleStar={handleToggleStar}
+              onViewDetails={handleViewDetails}
               isStarred={starredCenters.includes(center.id)}
             />
           ))
@@ -899,6 +962,12 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 6,
     backgroundColor: '#f3f4f6',
+  },
+  filterButton: {
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: '#f3f4f6',
+    marginRight: 8,
   },
 
   // New styles for Profile Screen

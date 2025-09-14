@@ -49,11 +49,16 @@ export interface CoachingSearchParams {
   location?: string;
   city?: string;
   subject?: string;
+  subjects?: string;
   board?: string;
   exam?: string;
+  target_exams?: string;
+  standards?: string;
   coaching_type?: 'offline' | 'online' | 'hybrid';
   budget_min?: number;
   budget_max?: number;
+  fees_min?: number;
+  fees_max?: number;
   rating_min?: number;
   distance_max?: number;
   latitude?: number;
@@ -69,43 +74,39 @@ export interface CoachingState {
   searchParams: CoachingSearchParams;
   activeTab: 'offline' | 'online' | 'starred';
   starredCenters: string[]; // Array of coaching center IDs
+  detailedInfo: any | null; // Detailed coaching center info
+  isDetailedLoading: boolean;
+  detailedError: string | null;
 }
 
-// Helper function to validate image URLs
-const isValidImageUrl = (url: string): boolean => {
-  if (!url || typeof url !== 'string') return false;
-  if (url.trim() === '') return false;
-  
-  // Check if it's a valid URL format
-  try {
-    const urlObj = new URL(url);
-    return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
-  } catch {
-    // If it's not a valid URL, it might be a local asset
-    return url.startsWith('data:') || url.startsWith('file:') || url.startsWith('/');
-  }
-};
 
 // Function to transform API data to match our interface
 const transformApiData = (apiData: any): CoachingCenter[] => {
   try {
-    // Validate input
     if (!apiData) {
-      console.warn('transformApiData: apiData is null/undefined');
       return [];
     }
     
     if (!Array.isArray(apiData)) {
-      console.warn('transformApiData: apiData is not an array:', typeof apiData, apiData);
       return [];
     }
     
-    return apiData.map(item => {
-      // Filter out invalid image URLs
-      const validGalleryImages = (item.gallery_images || []).filter(isValidImageUrl);
-      const validImages = (item.images || []).filter(isValidImageUrl);
+    return apiData.map((item, index) => {
       
-      return {
+      // Extract image URLs from gallery_images objects only
+      const galleryImageUrls = (item.gallery_images || [])
+        .map((img: any) => img?.image || img)
+        .filter((url: string) => url && typeof url === 'string' && url.trim() !== '');
+      
+      // No validation - use all gallery images as-is
+      const validGalleryImages: string[] = galleryImageUrls;
+      const validImages: string[] = [];
+      
+      console.log('🔍 [transformApiData] Valid gallery images:', validGalleryImages);
+      console.log('🔍 [transformApiData] Raw gallery_images from API:', item.gallery_images);
+      console.log('🔍 [transformApiData] Gallery image URLs extracted:', galleryImageUrls);
+      
+      const transformedItem = {
         id: item.id?.toString() || item.uuid || '',
         name: item.branch_name || item.name || '',
         tagline: item.tagline || '',
@@ -116,6 +117,7 @@ const transformApiData = (apiData: any): CoachingCenter[] => {
         rating: item.average_rating || item.rating || 0,
         reviews: item.total_reviews || item.reviews || 0,
         images: validImages,
+        gallery_images: validGalleryImages,
         distance: typeof item.distance === 'number' ? `${item.distance} km` : item.distance || '',
         location: item.city || item.location || '',
         phone: item.contact_number || item.phone || '',
@@ -133,8 +135,7 @@ const transformApiData = (apiData: any): CoachingCenter[] => {
         available_seats: item.available_seats,
         average_rating: item.average_rating,
         total_reviews: item.total_reviews,
-        gallery_images: validGalleryImages,
-        featured_image: item.featured_image,
+        featured_image: item.featured_image?.image || item.featured_image,
         contact_number: item.contact_number,
         subjects_offered: item.subjects_offered,
         amenities: item.amenities,
@@ -147,95 +148,60 @@ const transformApiData = (apiData: any): CoachingCenter[] => {
         slug: item.slug,
         uuid: item.uuid,
       };
+      
+      console.log('✅ [transformApiData] Transformed item:', {
+        id: transformedItem.id,
+        name: transformedItem.name,
+        gallery_images: transformedItem.gallery_images,
+        gallery_images_length: transformedItem.gallery_images?.length
+      });
+      
+      return transformedItem;
     });
   } catch (error) {
-    console.error('Error in transformApiData:', error);
     return [];
   }
 };
 
-// Mock data for development
-const mockCoachingCenters: CoachingCenter[] = [
-  {
-    id: '1',
-    name: 'Excellence Academy',
-    tagline: 'Building Future Engineers',
-    className: 'JEE Main & Advanced',
-    fees: '₹45,000 - ₹65,000',
-    startDate: 'Feb 15, 2025',
-    seatsLeft: 5,
-    rating: 4.8,
-    reviews: 324,
-    images: [], // Removed invalid image URLs to prevent crashes
-    distance: '0.8 km',
-    location: 'Koramangala',
-    phone: '+91 98765 43210',
-    subjects: ['Physics', 'Chemistry', 'Mathematics'],
-  },
-  {
-    id: '2',
-    name: 'Smart Learning Hub',
-    tagline: 'Your Medical Dreams Start Here',
-    className: 'NEET Preparation',
-    fees: '₹38,000 - ₹55,000',
-    startDate: 'Mar 1, 2025',
-    seatsLeft: 12,
-    rating: 4.6,
-    reviews: 187,
-    images: [], // Removed invalid image URLs to prevent crashes
-    distance: '1.2 km',
-    location: 'BTM Layout',
-    phone: '+91 98765 43211',
-    subjects: ['Physics', 'Chemistry', 'Biology'],
-  },
-  {
-    id: '3',
-    name: 'Future Minds Institute',
-    tagline: 'Excellence in Education',
-    className: 'Class 12 Physics & Chemistry',
-    fees: '₹25,000 - ₹35,000',
-    startDate: 'Feb 20, 2025',
-    seatsLeft: 3,
-    rating: 4.9,
-    reviews: 456,
-    images: [], // Removed invalid image URLs to prevent crashes
-    distance: '2.1 km',
-    location: 'Jayanagar',
-    phone: '+91 98765 43212',
-    subjects: ['Physics', 'Chemistry'],
-  },
-  {
-    id: '4',
-    name: 'Bright Career Academy',
-    tagline: 'Shaping Tomorrow\'s CAs',
-    className: 'CA Foundation',
-    fees: '₹20,000 - ₹30,000',
-    startDate: 'Mar 10, 2025',
-    seatsLeft: 8,
-    rating: 4.4,
-    reviews: 92,
-    images: [], // Removed invalid image URLs to prevent crashes
-    distance: '1.5 km',
-    location: 'Indiranagar',
-    phone: '+91 98765 43213',
-    subjects: ['Mathematics', 'English'],
-  }
-];
 
 // Function to get fallback data when API fails
 const getFallbackData = (): CoachingCenter[] => {
-  console.log('Using fallback mock data');
-  return [...mockCoachingCenters];
+  console.log('🔄 [getFallbackData] Returning empty array - no fallback data');
+  return [];
+};
+
+// Test function to add sample data for debugging
+const getTestData = (): CoachingCenter[] => {
+  console.log('🧪 [getTestData] Returning test data with images');
+  return [
+    {
+      id: 'test-1',
+      name: 'Test Academy',
+      tagline: 'Test with images',
+      className: 'Test Class',
+      fees: '₹10,000',
+      rating: 4.5,
+      reviews: 10,
+      images: ['https://picsum.photos/400/300?random=1'],
+      gallery_images: ['https://picsum.photos/400/300?random=1', 'https://picsum.photos/400/300?random=2'],
+      location: 'Test City',
+      phone: '+91 99999 99999',
+      subjects: ['Math', 'Science'],
+    }
+  ];
 };
 
 const initialState: CoachingState = {
-  coachingCenters: mockCoachingCenters,
-  filteredCenters: mockCoachingCenters,
+  coachingCenters: [],
+  filteredCenters: [],
   isLoading: false,
   error: null,
   searchParams: {},
   activeTab: 'offline',
   starredCenters: [],
+  detailedInfo: null,
+  isDetailedLoading: false,
+  detailedError: null,
 };
 
 // Async thunk for fetching coaching centers
@@ -248,77 +214,116 @@ export const fetchCoachingCenters = createAsyncThunk(
       const isAuthenticated = state.auth?.isAuthenticated;
       const accessToken = state.auth?.accessToken;
       
-      if (!isAuthenticated || !accessToken) {
-        console.log('fetchCoachingCenters: User not authenticated, using fallback data');
-        return getFallbackData();
-      }
-      
-      console.log('fetchCoachingCenters: Starting with params:', params);
-      
-      // Add pagination parameters to get all results
-      const apiParams = {
-        ...params,
-        page_size: 100, // Set a large page size to get all results
-        page: 1,        // Start from first page
-        limit: 100,     // Alternative parameter name
-        per_page: 100,  // Another common alternative
-        size: 100,      // Yet another alternative
-      };
-      
-      const response = await api.get('/coachings/', { params: apiParams });
-      console.log('fetchCoachingCenters: API response received:', {
-        status: response.status,
-        statusText: response.statusText,
-        dataType: typeof response.data,
-        isArray: Array.isArray(response.data),
-        dataKeys: response.data ? Object.keys(response.data) : 'no data',
-        dataLength: Array.isArray(response.data) ? response.data.length : 'not array',
-        totalCount: response.data?.count || response.data?.total || 'unknown',
-        pageSize: response.data?.page_size || 'unknown',
-        currentPage: response.data?.page || 'unknown'
+      console.log('🔐 [fetchCoachingCenters] Auth check:', {
+        isAuthenticated,
+        hasAccessToken: !!accessToken,
+        accessTokenLength: accessToken?.length,
+        authState: state.auth
       });
+      
+      if (!isAuthenticated || !accessToken) {
+        console.log('⚠️ [fetchCoachingCenters] Not authenticated, returning test data for debugging');
+        return getTestData();
+      }
+        
+      // Map parameters to match the API format from the curl command
+      const apiParams: any = {
+        radius: params.radius || 2000,
+        page_size: 200, // Increased page size to get more results per request
+        page: 1,        // Start from first page
+      };
+
+      // Add search parameter if provided
+      if (params.search) {
+        apiParams.search = params.search;
+      }
+
+      // Add city parameter if provided
+      if (params.city) {
+        apiParams.city = params.city;
+      }
+
+      // Add standards parameter if provided
+      if (params.standards) {
+        apiParams.standards = params.standards;
+      }
+
+      // Add subjects parameter if provided
+      if (params.subjects) {
+        apiParams.subjects = params.subjects;
+      }
+
+      // Add target_exams parameter if provided
+      if (params.target_exams) {
+        apiParams.target_exams = params.target_exams;
+      }
+
+      // Add coaching_type parameter if provided
+      if (params.coaching_type) {
+        apiParams.coaching_type = params.coaching_type;
+      }
+
+      // Add fees range parameters if provided
+      if (params.fees_min) {
+        apiParams.fees_min = params.fees_min;
+      }
+      if (params.fees_max) {
+        apiParams.fees_max = params.fees_max;
+      }
+
+      // Add rating_min parameter if provided
+      if (params.rating_min) {
+        apiParams.rating_min = params.rating_min;
+      }
+
+      // Add coordinates if provided
+      if (params.latitude && params.longitude) {
+        apiParams.latitude = params.latitude;
+        apiParams.longitude = params.longitude;
+      }
+       
+      const response = await api.get('/coachings/', { params: apiParams });
       
       // Check if we need to fetch more pages to get all results
       let allData: any[] = [];
-      if (response.data?.count && response.data?.results && Array.isArray(response.data.results)) {
+      if (response.data?.count && response.data?.data && Array.isArray(response.data.data)) {
         const totalCount = response.data.count;
-        const currentPageSize = response.data.results.length;
+        const currentPageSize = response.data.data.length;
         const currentPage = response.data.page || 1;
         
-        console.log(`fetchCoachingCenters: Pagination info - Total: ${totalCount}, Current Page: ${currentPage}, Current Page Size: ${currentPageSize}`);
+        console.log('📄 [fetchCoachingCenters] Pagination info:', {
+          totalCount,
+          currentPageSize,
+          currentPage,
+          needsMorePages: currentPageSize < totalCount,
+          totalPages: Math.ceil(totalCount / 200)
+        });
         
         // If we got fewer results than total count, try to fetch more pages
-        if (currentPageSize < totalCount && totalCount > 100) {
-          console.log('fetchCoachingCenters: Need to fetch more pages to get all results');
-          
+        if (currentPageSize < totalCount) {
           // Start with current results
-          allData = [...response.data.results];
+          allData = [...response.data.data];
           
           // Calculate how many more pages we need
-          const totalPages = Math.ceil(totalCount / 100);
-          console.log(`fetchCoachingCenters: Total pages needed: ${totalPages}`);
+          const totalPages = Math.ceil(totalCount / 200);
           
           // Fetch remaining pages
           for (let page = 2; page <= totalPages; page++) {
             try {
               const nextPageParams = { ...apiParams, page };
-              console.log(`fetchCoachingCenters: Fetching page ${page}...`);
               
               const nextPageResponse = await api.get('/coachings/', { params: nextPageParams });
-              if (nextPageResponse.data?.results && Array.isArray(nextPageResponse.data.results)) {
-                allData = [...allData, ...nextPageResponse.data.results];
-                console.log(`fetchCoachingCenters: Page ${page} fetched, total results so far: ${allData.length}`);
+              if (nextPageResponse.data?.data && Array.isArray(nextPageResponse.data.data)) {
+                allData = [...allData, ...nextPageResponse.data.data];
+                console.log(`✅ [fetchCoachingCenters] Page ${page} fetched, total results so far: ${allData.length}`);
               }
-            } catch (pageError) {
-              console.warn(`fetchCoachingCenters: Error fetching page ${page}:`, pageError);
+            } catch (pageError: any) {
               break; // Stop fetching if we encounter an error
             }
           }
-          
-          console.log(`fetchCoachingCenters: Final total results after fetching all pages: ${allData.length}`);
         } else {
           // We got all results in one page
-          allData = response.data.results;
+          allData = response.data.data;
         }
       } else {
         // Not paginated or different structure - handle different response structures
@@ -326,71 +331,236 @@ export const fetchCoachingCenters = createAsyncThunk(
           if (Array.isArray(response.data)) {
             // Direct array response
             allData = response.data;
-            console.log('fetchCoachingCenters: Using direct array response, length:', allData.length);
           } else if (response.data.results && Array.isArray(response.data.results)) {
             // Paginated response with results array
             allData = response.data.results;
-            console.log('fetchCoachingCenters: Using paginated results, length:', allData.length);
-            console.log('fetchCoachingCenters: Total count from API:', response.data.count);
-            console.log('fetchCoachingCenters: Page size from API:', response.data.page_size);
-            console.log('fetchCoachingCenters: Current page from API:', response.data.page);
           } else if (response.data.data && Array.isArray(response.data.data)) {
             // Nested data response
             allData = response.data.data;
-            console.log('fetchCoachingCenters: Using nested data, length:', allData.length);
           } else if (response.data.coaching_centers && Array.isArray(response.data.coaching_centers)) {
             // Specific key response
             allData = response.data.coaching_centers;
-            console.log('fetchCoachingCenters: Using coaching_centers key, length:', allData.length);
           } else {
-            console.warn('fetchCoachingCenters: Unknown response structure:', response.data);
-            console.log('fetchCoachingCenters: Available keys:', Object.keys(response.data));
             allData = [];
           }
         } else {
-          console.warn('fetchCoachingCenters: No response data');
+          console.log('⚠️ [fetchCoachingCenters] No response data or invalid structure');
           allData = [];
         }
       }
-      
+            
       // Validate and transform the response data
       try {
-        console.log('fetchCoachingCenters: About to transform data, length:', allData.length);
-        const transformedData = transformApiData(allData);
-        console.log('fetchCoachingCenters: Transformation successful, transformed length:', transformedData.length);
+        console.log('🔄 [fetchCoachingCenters] About to transform data:', {
+          allDataLength: allData.length,
+          allDataFirstItem: allData[0] ? Object.keys(allData[0]) : 'No items'
+        });
         
-        // If transformation returns empty array and we have data, use fallback
+        const transformedData = transformApiData(allData);
+        
+        console.log('✅ [fetchCoachingCenters] Transformation complete:', {
+          originalLength: allData.length,
+          transformedLength: transformedData.length,
+          firstTransformedItem: transformedData[0] ? {
+            id: transformedData[0].id,
+            name: transformedData[0].name,
+            images: transformedData[0].images,
+            gallery_images: transformedData[0].gallery_images,
+            imagesLength: transformedData[0].images?.length,
+            galleryImagesLength: transformedData[0].gallery_images?.length,
+            firstGalleryImage: transformedData[0].gallery_images?.[0],
+            firstImage: transformedData[0].images?.[0]
+          } : 'No items'
+        });
+        
+        // If transformation returns empty array and we have data, use test data
         if (transformedData.length === 0 && allData.length > 0) {
-          console.warn('fetchCoachingCenters: Transformation returned empty array, using fallback data');
-          return getFallbackData();
+          console.log('⚠️ [fetchCoachingCenters] Transformation returned empty array, using test data');
+          return getTestData();
         }
         
-        // Final safety check - if we still have no data, use fallback
+        // Final safety check - if we still have no data, use test data
         if (transformedData.length === 0) {
-          console.warn('fetchCoachingCenters: No data after transformation, using fallback data');
-          return getFallbackData();
+          console.log('⚠️ [fetchCoachingCenters] No data after transformation, using test data');
+          return getTestData();
         }
         
         return transformedData;
       } catch (transformError) {
-        console.error('Error transforming API data:', transformError);
-        console.error('Data that failed to transform:', allData);
-        // Return fallback data if transformation fails
-        console.log('fetchCoachingCenters: Using fallback data due to transformation error');
-        return getFallbackData();
+         // Return test data if transformation fails
+        console.log('❌ [fetchCoachingCenters] Transformation error:', transformError);
+        return getTestData();
       }
     } catch (error: any) {
-      console.error('fetchCoachingCenters: API call failed:', error);
       
       // Handle 401 Unauthorized error
       if (error.response?.status === 401) {
-        console.log('fetchCoachingCenters: 401 Unauthorized, using fallback data instead of clearing tokens');
+        console.log('🔒 [fetchCoachingCenters] 401 Unauthorized, returning test data');
         // Don't clear tokens here - let the auth slice handle logout
-        // Just return fallback data to prevent the error from bubbling up
-        return getFallbackData();
+        // Just return test data to prevent the error from bubbling up
+        return getTestData();
       }
       
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch coaching centers');
+    }
+  }
+);
+
+// Async thunk for fetching detailed coaching center info
+export const fetchCoachingCenterDetails = createAsyncThunk(
+  'coaching/fetchCoachingCenterDetails',
+  async (coachingId: string, { getState, rejectWithValue }) => {
+    try {
+      // Check authentication status before making API call
+      const state = getState() as any;
+      const isAuthenticated = state.auth?.isAuthenticated;
+      const accessToken = state.auth?.accessToken;
+      
+      if (!isAuthenticated || !accessToken) {
+        return rejectWithValue('User not authenticated');
+      }
+      
+      const response = await api.get(`/coachings/${coachingId}/detailed_info/`);
+      
+      // Return the raw API response data structure
+      const detailedData = response.data.data || response.data;
+      
+      return detailedData;
+    } catch (error: any) {
+      console.error('Error fetching coaching center details:', error);
+      
+      // Handle 401 Unauthorized error
+      if (error.response?.status === 401) {
+        return rejectWithValue('Authentication required');
+      }
+      
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch coaching center details');
+    }
+  }
+);
+
+// Async thunk for filtering coaching centers with advanced parameters
+export const filterCoachingCenters = createAsyncThunk(
+  'coaching/filterCoachingCenters',
+  async (filterParams: CoachingSearchParams, { getState, rejectWithValue }) => {
+    try {
+      // Check authentication status before making API call
+      const state = getState() as any;
+      const isAuthenticated = state.auth?.isAuthenticated;
+      const accessToken = state.auth?.accessToken;
+      
+      console.log('🔍 [filterCoachingCenters] Starting with filter params:', JSON.stringify(filterParams, null, 2));
+      console.log('🔍 [filterCoachingCenters] Auth status:', { isAuthenticated, hasToken: !!accessToken });
+      
+      if (!isAuthenticated || !accessToken) {
+        console.log('⚠️ [filterCoachingCenters] Not authenticated, returning test data');
+        return getTestData();
+      }
+      
+      const coordinates = state.location.coordinates;
+      console.log('📍 [filterCoachingCenters] Location coordinates:', coordinates);
+      
+      // Map parameters to match the API format from the curl command
+      const apiParams: any = {
+        radius: filterParams.radius || 2000,
+        page_size: 200, // Increased page size to get more results per request
+        page: 1,
+      };
+
+      // Add all filter parameters
+      if (filterParams.search) apiParams.search = filterParams.search;
+      if (filterParams.city) apiParams.city = filterParams.city;
+      if (filterParams.standards) apiParams.standards = filterParams.standards;
+      if (filterParams.subjects) apiParams.subjects = filterParams.subjects;
+      if (filterParams.target_exams) apiParams.target_exams = filterParams.target_exams;
+      if (filterParams.coaching_type) apiParams.coaching_type = filterParams.coaching_type;
+      if (filterParams.fees_min) apiParams.fees_min = filterParams.fees_min;
+      if (filterParams.fees_max) apiParams.fees_max = filterParams.fees_max;
+      if (filterParams.rating_min) apiParams.rating_min = filterParams.rating_min;
+      if (coordinates?.latitude && coordinates?.longitude) {
+        apiParams.latitude = coordinates.latitude;
+        apiParams.longitude = coordinates.longitude;
+      }
+      
+      console.log('📋 [filterCoachingCenters] Final API params:', JSON.stringify(apiParams, null, 2));
+      console.log('🌐 [filterCoachingCenters] Making API call to /coachings/');
+      
+      const response = await api.get('/coachings/', { params: apiParams });
+      
+      console.log('📊 [filterCoachingCenters] API response received:', {
+        status: response.status,
+        hasData: !!response.data,
+        dataKeys: response.data ? Object.keys(response.data) : [],
+        count: response.data?.count,
+        resultsLength: response.data?.results?.length
+      });
+      
+      // Handle different possible API response structures
+      let dataToTransform: any[] = [];
+      
+      if (response.data) {
+        if (Array.isArray(response.data)) {
+          dataToTransform = response.data;
+          console.log('📋 [filterCoachingCenters] Direct array response, count:', dataToTransform.length);
+        } else if (response.data.data && Array.isArray(response.data.data)) {
+          dataToTransform = response.data.data;
+          console.log('📋 [filterCoachingCenters] Nested data response, count:', dataToTransform.length);
+        } else if (response.data.results && Array.isArray(response.data.results)) {
+          dataToTransform = response.data.results;
+          console.log('📋 [filterCoachingCenters] Paginated response, count:', dataToTransform.length);
+        } else if (response.data.coaching_centers && Array.isArray(response.data.coaching_centers)) {
+          dataToTransform = response.data.coaching_centers;
+          console.log('📋 [filterCoachingCenters] Specific key response, count:', dataToTransform.length);
+        } else {
+          console.log('⚠️ [filterCoachingCenters] Unknown response structure');
+        }
+      } else {
+        console.log('⚠️ [filterCoachingCenters] No response data');
+      }
+      
+      console.log('📊 [filterCoachingCenters] Data to transform summary:', {
+        count: dataToTransform.length,
+        firstItem: dataToTransform[0] ? Object.keys(dataToTransform[0]) : []
+      });
+      
+      // Validate and transform the response data
+      try {
+        const transformedData = transformApiData(dataToTransform);
+        
+        console.log('✅ [filterCoachingCenters] Successfully processed and transformed data:', {
+          originalCount: dataToTransform.length,
+          transformedCount: transformedData.length
+        });
+        
+        if (transformedData.length === 0 && dataToTransform.length > 0) {
+          console.log('⚠️ [filterCoachingCenters] Transformation returned empty array, using test data');
+          return getTestData();
+        }
+        
+        if (transformedData.length === 0) {
+          console.log('⚠️ [filterCoachingCenters] No data after transformation, using test data');
+          return getTestData();
+        }
+        
+        return transformedData;
+      } catch (transformError) {
+        console.log('❌ [filterCoachingCenters] Transformation error:', transformError);
+        return getTestData();
+      }
+    } catch (error: any) {
+      console.error('❌ [filterCoachingCenters] Error filtering coaching centers:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
+      
+      if (error.response?.status === 401) {
+        console.log('🔒 [filterCoachingCenters] 401 Unauthorized, returning test data');
+        return getTestData();
+      }
+      
+      return rejectWithValue(error.response?.data?.message || 'Filter failed');
     }
   }
 );
@@ -405,45 +575,42 @@ export const searchCoachingCenters = createAsyncThunk(
       const isAuthenticated = state.auth?.isAuthenticated;
       const accessToken = state.auth?.accessToken;
       
+      console.log('🔍 [searchCoachingCenters] Starting with search term:', searchTerm);
+      console.log('🔍 [searchCoachingCenters] Auth status:', { isAuthenticated, hasToken: !!accessToken });
+      
       if (!isAuthenticated || !accessToken) {
-        console.log('searchCoachingCenters: User not authenticated, using fallback data');
-        return getFallbackData();
+        console.log('⚠️ [searchCoachingCenters] Not authenticated, returning test data');
+        return getTestData();
       }
       
-      console.log('searchCoachingCenters: Starting with search term:', searchTerm);
-      
       const coordinates = state.location.coordinates;
+      console.log('📍 [searchCoachingCenters] Location coordinates:', coordinates);
       
-      // Build query parameters with coordinates from state
-      const params = {
+      // Map parameters to match the API format from the curl command
+      const apiParams: any = {
         search: searchTerm,
-        latitude: coordinates?.latitude,
-        longitude: coordinates?.longitude
-      };
-      
-      console.log('searchCoachingCenters: API call params:', params);
-      
-      // Add pagination parameters to get all search results
-      const apiParams = {
-        ...params,
-        page_size: 100, // Set a large page size to get all results
+        radius: 2000,
+        page_size: 200, // Increased page size to get more results per request
         page: 1,        // Start from first page
-        limit: 100,     // Alternative parameter name
-        per_page: 100,  // Another common alternative
-        size: 100,      // Yet another alternative
       };
+
+      // Add coordinates if available
+      if (coordinates?.latitude && coordinates?.longitude) {
+        apiParams.latitude = coordinates.latitude;
+        apiParams.longitude = coordinates.longitude;
+      }
+      
+      console.log('📋 [searchCoachingCenters] Final API params:', JSON.stringify(apiParams, null, 2));
+      console.log('🌐 [searchCoachingCenters] Making API call to /coachings/');
       
       const response = await api.get('/coachings/', { params: apiParams });
-      console.log('searchCoachingCenters: API response received:', {
+      
+      console.log('📊 [searchCoachingCenters] API response received:', {
         status: response.status,
-        statusText: response.statusText,
-        dataType: typeof response.data,
-        isArray: Array.isArray(response.data),
-        dataKeys: response.data ? Object.keys(response.data) : 'no data',
-        dataLength: Array.isArray(response.data) ? response.data.length : 'not array',
-        totalCount: response.data?.count || response.data?.total || 'unknown',
-        pageSize: response.data?.page_size || 'unknown',
-        currentPage: response.data?.page || 'unknown'
+        hasData: !!response.data,
+        dataKeys: response.data ? Object.keys(response.data) : [],
+        count: response.data?.count,
+        resultsLength: response.data?.results?.length
       });
       
       // Handle different possible API response structures
@@ -453,63 +620,74 @@ export const searchCoachingCenters = createAsyncThunk(
         if (Array.isArray(response.data)) {
           // Direct array response
           dataToTransform = response.data;
-          console.log('searchCoachingCenters: Using direct array response, length:', dataToTransform.length);
+          console.log('📋 [searchCoachingCenters] Direct array response, count:', dataToTransform.length);
+        } else if (response.data.data && Array.isArray(response.data.data)) {
+          // Nested data response (primary format)
+          dataToTransform = response.data.data;
+          console.log('📋 [searchCoachingCenters] Nested data response, count:', dataToTransform.length);
         } else if (response.data.results && Array.isArray(response.data.results)) {
           // Paginated response with results array
           dataToTransform = response.data.results;
-          console.log('searchCoachingCenters: Using paginated results, length:', dataToTransform.length);
-        } else if (response.data.data && Array.isArray(response.data.data)) {
-          // Nested data response
-          dataToTransform = response.data.data;
-          console.log('searchCoachingCenters: Using nested data, length:', dataToTransform.length);
+          console.log('📋 [searchCoachingCenters] Paginated response, count:', dataToTransform.length);
         } else if (response.data.coaching_centers && Array.isArray(response.data.coaching_centers)) {
           // Specific key response
           dataToTransform = response.data.coaching_centers;
-          console.log('searchCoachingCenters: Using coaching_centers key, length:', dataToTransform.length);
+          console.log('📋 [searchCoachingCenters] Specific key response, count:', dataToTransform.length);
         } else {
-          console.warn('searchCoachingCenters: Unknown response structure:', response.data);
           dataToTransform = [];
+          console.log('⚠️ [searchCoachingCenters] Unknown response structure');
         }
       } else {
-        console.warn('searchCoachingCenters: No response data');
         dataToTransform = [];
+        console.log('⚠️ [searchCoachingCenters] No response data');
       }
+      
+      console.log('📊 [searchCoachingCenters] Data to transform summary:', {
+        count: dataToTransform.length,
+        firstItem: dataToTransform[0] ? Object.keys(dataToTransform[0]) : []
+      });
       
       // Validate and transform the response data
       try {
-        console.log('searchCoachingCenters: About to transform data, length:', dataToTransform.length);
         const transformedData = transformApiData(dataToTransform);
-        console.log('searchCoachingCenters: Transformation successful, transformed length:', transformedData.length);
         
-        // If transformation returns empty array and we have data, use fallback
+        console.log('✅ [searchCoachingCenters] Successfully processed and transformed data:', {
+          originalCount: dataToTransform.length,
+          transformedCount: transformedData.length
+        });
+        
+        // If transformation returns empty array and we have data, use test data
         if (transformedData.length === 0 && dataToTransform.length > 0) {
-          console.warn('searchCoachingCenters: Transformation returned empty array, using fallback data');
-          return getFallbackData();
+          console.log('⚠️ [searchCoachingCenters] Transformation returned empty array, using test data');
+          return getTestData();
         }
         
-        // Final safety check - if we still have no data, use fallback
+        // Final safety check - if we still have no data, use test data
         if (transformedData.length === 0) {
-          console.warn('searchCoachingCenters: No data after transformation, using fallback data');
-          return getFallbackData();
+          console.log('⚠️ [searchCoachingCenters] No data after transformation, using test data');
+          return getTestData();
         }
         
         return transformedData;
       } catch (transformError) {
-        console.error('Error transforming search API data:', transformError);
-        console.error('Data that failed to transform:', dataToTransform);
-        // Return fallback data if transformation fails
-        console.log('searchCoachingCenters: Using fallback data due to transformation error');
-        return getFallbackData();
+        console.log('❌ [searchCoachingCenters] Transformation error:', transformError);
+        // Return test data if transformation fails
+        return getTestData();
       }
     } catch (error: any) {
-      console.error('searchCoachingCenters: API call failed:', error);
+      console.error('❌ [searchCoachingCenters] Error searching coaching centers:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
       
       // Handle 401 Unauthorized error
       if (error.response?.status === 401) {
-        console.log('searchCoachingCenters: 401 Unauthorized, using fallback data instead of clearing tokens');
+        console.log('🔒 [searchCoachingCenters] 401 Unauthorized, returning test data');
         // Don't clear tokens here - let the auth slice handle logout
-        // Just return fallback data to prevent the error from bubbling up
-        return getFallbackData();
+        // Just return test data to prevent the error from bubbling up
+        return getTestData();
       }
       
       return rejectWithValue(error.response?.data?.message || 'Search failed');
@@ -623,6 +801,10 @@ const coachingSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
+    clearDetailedInfo: (state) => {
+      state.detailedInfo = null;
+      state.detailedError = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -658,6 +840,35 @@ const coachingSlice = createSlice({
       .addCase(searchCoachingCenters.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
+      })
+      .addCase(filterCoachingCenters.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(filterCoachingCenters.fulfilled, (state, action) => {
+        state.isLoading = false;
+        
+        // Data is already transformed in the thunk
+        const centers = Array.isArray(action.payload) ? action.payload : [];
+        state.filteredCenters = centers;
+        state.error = null;
+      })
+      .addCase(filterCoachingCenters.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      .addCase(fetchCoachingCenterDetails.pending, (state) => {
+        state.isDetailedLoading = true;
+        state.detailedError = null;
+      })
+      .addCase(fetchCoachingCenterDetails.fulfilled, (state, action) => {
+        state.isDetailedLoading = false;
+        state.detailedInfo = action.payload;
+        state.detailedError = null;
+      })
+      .addCase(fetchCoachingCenterDetails.rejected, (state, action) => {
+        state.isDetailedLoading = false;
+        state.detailedError = action.payload as string;
       });
   },
 });
@@ -670,6 +881,7 @@ export const {
   clearData,
   filterCenters,
   clearError,
+  clearDetailedInfo,
 } = coachingSlice.actions;
 
 export default coachingSlice.reducer;

@@ -12,10 +12,10 @@ const BottomNavigation: React.FC<BottomNavigationProps> = ({
   onTabPress,
 }) => {
   const tabs = [
-    { id: 'offline', label: 'Offline', icon: 'people' },
-    { id: 'online', label: 'Online', icon: 'laptop' },
-    { id: 'starred', label: 'Starred', icon: 'star' },
-    { id: 'profile', label: 'Profile', icon: 'person' },
+    { id: 'offline', label: 'Offline', icon: 'people-outline' },
+    { id: 'online', label: 'Online', icon: 'laptop-outline' },
+    { id: 'starred', label: 'Starred', icon: 'star-outline' },
+    { id: 'profile', label: 'Profile', icon: 'person-outline' },
   ] as const;
 
   return (
@@ -27,7 +27,7 @@ const BottomNavigation: React.FC<BottomNavigationProps> = ({
           style={styles.tab}
         >
           <Ionicons 
-            name={tab.icon as any} 
+            name={activeTab === tab.id ? tab.icon.replace('-outline', '') : tab.icon as any} 
             size={20} 
             color={activeTab === tab.id ? '#10b981' : '#6b7280'} 
             style={styles.tabIcon}

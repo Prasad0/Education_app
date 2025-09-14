@@ -6,7 +6,7 @@ import StudentSwitcher from './StudentSwitcher';
 interface HeaderProps {
   location: string;
   onLocationPress: () => void;
-  onSearchPress?: () => void; // Made optional since search is disabled
+  onSearchPress?: (searchTerm: string) => void; // Updated to pass search term
   userProfile?: any;
   selectedStudentId: string;
   onStudentSelect: (studentId: string) => void;
@@ -21,7 +21,7 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({
   location,
   onLocationPress,
-  onSearchPress, // Optional prop - search functionality disabled
+  onSearchPress, // Updated to handle search functionality
   userProfile,
   selectedStudentId,
   onStudentSelect,
@@ -46,6 +46,7 @@ const Header: React.FC<HeaderProps> = ({
     
     return 'Select location';
   };
+
   return (
     <View style={styles.header}>
       <View style={styles.headerContent}>
@@ -103,13 +104,25 @@ const Header: React.FC<HeaderProps> = ({
           </View>
         </View>
         
-        {/* Search bar - COMING SOON */}
-        <TouchableOpacity
-          onPress={onSearchPress}
-          style={styles.searchBarDisabled}
+        {/* Search bar - FUNCTIONAL */}
+        <TouchableOpacity 
+          style={styles.searchBar}
+          onPress={() => {
+            // Navigate to search screen when search bar is pressed
+            if (onSearchPress) {
+              onSearchPress('');
+            }
+          }}
         >
-          <Ionicons name="search" size={20} color="#d1d5db" style={styles.searchIcon} />
-          <Text style={styles.searchPlaceholderDisabled}>Search coaching centers... (Coming Soon)</Text>
+          <Ionicons 
+            name="search" 
+            size={20} 
+            color="#9ca3af" 
+            style={styles.searchIcon} 
+          />
+          <Text style={styles.searchPlaceholder}>
+            Search coaching centers...
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -204,8 +217,8 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     minHeight: 44,
   },
-  // Search styles - DISABLED
-  searchBarDisabled: {
+  // Search styles - FUNCTIONAL
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
@@ -219,10 +232,11 @@ const styles = StyleSheet.create({
   searchIcon: {
     marginRight: 8,
   },
-  searchPlaceholderDisabled: {
-    color: '#9ca3af',
-    fontSize: 16,
+  searchPlaceholder: {
     flex: 1,
+    fontSize: 16,
+    color: '#9ca3af',
+    paddingVertical: 0,
   },
 });
 

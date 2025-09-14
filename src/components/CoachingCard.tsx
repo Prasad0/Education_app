@@ -8,37 +8,18 @@ interface CoachingCardProps {
   onBookDemo: (center: CoachingCenter) => void;
   onCallNow: (center: CoachingCenter) => void;
   onToggleStar: (centerId: string) => void;
+  onViewDetails?: (center: CoachingCenter) => void;
   isStarred: boolean;
 }
 
 const { width: screenWidth } = Dimensions.get('window');
-
-// Helper function to validate image URL
-const isValidImageUrl = (url: string): boolean => {
-  try {
-    if (!url || typeof url !== 'string') return false;
-    const trimmedUrl = url.trim();
-    if (trimmedUrl === '') return false;
-    
-    // Check if it's a valid URL format
-    try {
-      const urlObj = new URL(trimmedUrl);
-      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
-    } catch {
-      // If it's not a valid URL, it might be a local asset
-      return trimmedUrl.startsWith('data:') || trimmedUrl.startsWith('file:') || trimmedUrl.startsWith('/');
-    }
-  } catch (error) {
-    console.warn('Error validating image URL:', url, error);
-    return false;
-  }
-};
 
 const CoachingCard: React.FC<CoachingCardProps> = ({
   center,
   onBookDemo,
   onCallNow,
   onToggleStar,
+  onViewDetails,
   isStarred,
 }) => {
   // State to track failed images
@@ -48,43 +29,56 @@ const CoachingCard: React.FC<CoachingCardProps> = ({
   // Filter out invalid images and failed images
   const validImages = React.useMemo(() => {
     try {
-      const images = (center.gallery_images || center.images || []);
+      // Debug: Log the center data for debugging
+      console.log(`🖼️ [CoachingCard] Processing images for center:`, {
+        id: center.id,
+        name: center.name,
+        gallery_images: center.gallery_images,
+        gallery_images_length: center.gallery_images?.length,
+        first_gallery_image: center.gallery_images?.[0],
+        center_keys: Object.keys(center)
+      });
+      
+      // Use only gallery_images, no validation
+      const images = center.gallery_images || [];
+      console.log(`🔍 [CoachingCard] Raw gallery_images:`, images);
+      
       if (!Array.isArray(images)) {
-        console.warn('Images is not an array:', images);
+        console.log(`❌ [CoachingCard] Gallery images is not an array:`, images);
         return [];
       }
       
-      // Additional safety check for array elements
-      const safeImages = images.filter(img => {
-        try {
-          return img !== null && img !== undefined && isValidImageUrl(img) && !failedImages.has(img);
-        } catch (error) {
-          console.warn('Error filtering image:', img, error);
-          return false;
+      // Simple filter - only check for null/undefined and failed images
+      const safeImages = images.filter((img, index) => {
+        const isValid = img !== null && img !== undefined && !failedImages.has(img);
+        if (index < 3) { // Log first 3 images for debugging
+          console.log(`🔍 [CoachingCard] Processing image ${index}:`, {
+            img,
+            isValid
+          });
         }
+        return isValid;
       });
       
+      console.log(`✅ [CoachingCard] Final valid images count:`, safeImages.length);
+      console.log(`✅ [CoachingCard] Final valid images:`, safeImages);
       return safeImages;
     } catch (error) {
-      console.error('Error processing images:', error);
+      console.log(`❌ [CoachingCard] Error in validImages useMemo:`, error);
       return [];
     }
-  }, [center.gallery_images, center.images, failedImages]);
+  }, [center.gallery_images, failedImages, center.id, center.name]);
   
   const handleImageError = (imageUrl: string) => {
     try {
-      console.warn('Image failed to load:', imageUrl);
       setFailedImages(prev => new Set(prev).add(imageUrl));
       setImageLoadingStates(prev => {
         const newMap = new Map(prev);
         newMap.set(imageUrl, false);
         return newMap;
       });
-      
-      // Show a toast or notification that the image failed to load
-      // This provides better user feedback
     } catch (error) {
-      console.error('Error handling image error:', error);
+      // Silent error handling
     }
   };
 
@@ -96,7 +90,7 @@ const CoachingCard: React.FC<CoachingCardProps> = ({
         return newMap;
       });
     } catch (error) {
-      console.error('Error handling image load start:', error);
+      // Silent error handling
     }
   };
 
@@ -108,12 +102,16 @@ const CoachingCard: React.FC<CoachingCardProps> = ({
         return newMap;
       });
     } catch (error) {
-      console.error('Error handling image load end:', error);
+      // Silent error handling
     }
   };
   
   return (
-    <View style={styles.card}>
+    <TouchableOpacity 
+      style={styles.card}
+      onPress={() => onViewDetails?.(center)}
+      activeOpacity={0.9}
+    >
       {/* Image Section - Scrollable */}
       <View style={styles.imageSection}>
         {(() => {
@@ -128,7 +126,6 @@ const CoachingCard: React.FC<CoachingCardProps> = ({
                   validImages.map((image, index) => {
                     try {
                       if (!image || typeof image !== 'string') {
-                        console.warn('Invalid image data at index:', index, image);
                         return (
                           <View key={`placeholder-${index}`} style={styles.imageContainer}>
                             <View style={styles.imagePlaceholder}>
@@ -157,7 +154,6 @@ const CoachingCard: React.FC<CoachingCardProps> = ({
                         </View>
                       );
                     } catch (error) {
-                      console.error('Error rendering image at index:', index, error);
                       // Return placeholder for failed images
                       return (
                         <View key={`error-${index}`} style={styles.imageContainer}>
@@ -173,14 +169,13 @@ const CoachingCard: React.FC<CoachingCardProps> = ({
                   <View style={styles.imageContainer}>
                     <View style={styles.imagePlaceholder}>
                       <Text style={styles.imagePlaceholderText}>📚</Text>
-                      <Text style={styles.imagePlaceholderSubtext}>No images available</Text>
+                      <Text style={styles.imagePlaceholderSubtext}>No image available</Text>
                     </View>
                   </View>
                 )}
               </ScrollView>
             );
           } catch (error) {
-            console.error('Error rendering image section:', error);
             // Fallback to simple placeholder if entire image section fails
             return (
               <View style={styles.imageContainer}>
@@ -227,7 +222,6 @@ const CoachingCard: React.FC<CoachingCardProps> = ({
                   />
                 );
               } catch (error) {
-                console.error('Error rendering image indicator:', error);
                 return null;
               }
             })}
@@ -285,7 +279,7 @@ const CoachingCard: React.FC<CoachingCardProps> = ({
           </TouchableOpacity>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 

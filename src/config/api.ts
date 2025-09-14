@@ -54,6 +54,7 @@ export const API_CONFIG = {
     CREATE_PROFILE: '/user_auth/users/create_profile/',
     ADD_CHILD: '/user_auth/users/add_child/',
     GET_PROFILE: '/user_auth/users/get_profile/',
+    COACHING_CENTERS: '/coachings/',
   }
 };
 
