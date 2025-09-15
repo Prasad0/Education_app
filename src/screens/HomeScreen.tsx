@@ -13,7 +13,7 @@ import BottomNavigation from '../components/BottomNavigation';
 import PromotionalBanner from '../components/PromotionalBanner';
 import CoachingCard from '../components/CoachingCard';
 import CoachingListingScreen from './CoachingListingScreen';
-import CoachingDetailScreen from './CoachingDetailScreen';
+import CoachingDetailScreen from './CoachingDetails';
 import LocationSelector from '../components/LocationSelector';
 import SearchFilterScreen from './SearchFilterScreen';
 import { CoachingCenter } from '../store/slices/coachingSlice';

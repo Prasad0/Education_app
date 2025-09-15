@@ -30,8 +30,8 @@ const getLocalIP = (): string => {
 const environments: Record<Environment, EnvironmentConfig> = {
   development: {
     name: 'development',
-    apiBaseUrl: `http://65.0.135.170/api`,
-    baseUrl: `http://65.0.135.170/`,
+    apiBaseUrl: `http://65.0.135.170:3000/api`,
+    baseUrl: `http://65.0.135.170:3000/`,
     timeout: 10000,
     logLevel: 'debug',
     allowHttp: true,

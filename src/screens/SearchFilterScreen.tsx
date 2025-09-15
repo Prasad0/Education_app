@@ -265,10 +265,12 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({ onBack, searchQ
       if (activeFilters.amenities.length > 0) {
         const centerAmenities = center.amenities || [];
         const hasAllAmenities = activeFilters.amenities.every(amenity => 
-          centerAmenities.some(centerAmenity => 
-            (typeof centerAmenity === 'string' ? centerAmenity : centerAmenity.name || centerAmenity)
-              .toLowerCase().includes(amenity.toLowerCase())
-          )
+          centerAmenities.some(centerAmenity => {
+            const amenityName = typeof centerAmenity === 'string' 
+              ? centerAmenity 
+              : (centerAmenity as any)?.name || centerAmenity;
+            return amenityName.toLowerCase().includes(amenity.toLowerCase());
+          })
         )
         if (!hasAllAmenities) return false
       }
@@ -369,7 +371,10 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({ onBack, searchQ
                 {center.name || center.branch_name || 'Coaching Center'}
               </Text>
               <Text style={styles.cardSubtitle} numberOfLines={1}>
-                {center.className || (center.subjects_offered && Array.isArray(center.subjects_offered) ? center.subjects_offered.map(subject => typeof subject === 'string' ? subject : subject.name || subject).join(', ') : '') || 'Coaching Classes'}
+                {center.className || (center.subjects_offered && Array.isArray(center.subjects_offered) ? center.subjects_offered.map(subject => {
+                  const subjectName = typeof subject === 'string' ? subject : (subject as any)?.name || subject;
+                  return subjectName;
+                }).join(', ') : '') || 'Coaching Classes'}
               </Text>
             </View>
             <View style={[
@@ -402,13 +407,16 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({ onBack, searchQ
 
           {center.amenities && center.amenities.length > 0 && (
             <View style={styles.amenitiesContainer}>
-              {center.amenities.slice(0, 3).map((amenity, index) => (
-                <View key={index} style={styles.amenityTag}>
-                  <Text style={styles.amenityText}>
-                    {typeof amenity === 'string' ? amenity : amenity.name || amenity}
-                  </Text>
-                </View>
-              ))}
+              {center.amenities.slice(0, 3).map((amenity, index) => {
+                const amenityName = typeof amenity === 'string' ? amenity : (amenity as any)?.name || amenity;
+                return (
+                  <View key={index} style={styles.amenityTag}>
+                    <Text style={styles.amenityText}>
+                      {amenityName}
+                    </Text>
+                  </View>
+                );
+              })}
               {center.amenities.length > 3 && (
                 <Text style={styles.moreAmenitiesText}>
                   +{center.amenities.length - 3} more

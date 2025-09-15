@@ -8,14 +8,14 @@ const interfaces = os.networkInterfaces();
 const localIPs = [];
 
 Object.keys(interfaces).forEach((name) => {
-  interfaces[name].forEach((interface) => {
+  interfaces[name].forEach((networkInterface) => {
     // Skip internal and non-IPv4 addresses
-    if (interface.family === 'IPv4' && !interface.internal) {
+    if (networkInterface.family === 'IPv4' && !networkInterface.internal) {
       localIPs.push({
         name: name,
-        address: interface.address,
-        netmask: interface.netmask,
-        family: interface.family
+        address: networkInterface.address,
+        netmask: networkInterface.netmask,
+        family: networkInterface.family
       });
     }
   });

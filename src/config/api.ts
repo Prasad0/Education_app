@@ -14,14 +14,14 @@ interface ExtendedAxiosRequestConfig extends InternalAxiosRequestConfig {
 // In production, use HTTPS URLs
 const ENV_CONFIG = {
   development: {
-    BASE_URL: 'http://65.0.135.170', // Development server (port 3000)
-    API_BASE_URL: 'http://65.0.135.170/api',
+    BASE_URL: 'http://13.200.17.30', // Development server (port 3000)
+    API_BASE_URL: 'http://13.200.17.30/api',
     API_TIMEOUT: 10000,
     LOG_LEVEL: 'debug' as const,
   },
   production: {
-    BASE_URL: 'http://65.0.135.170',
-    API_BASE_URL: 'http://65.0.135.170/api',
+    BASE_URL: 'http://13.200.17.30',
+    API_BASE_URL: 'http://13.200.17.30/api',
     API_TIMEOUT: 15000,
     LOG_LEVEL: 'error' as const,
   },
@@ -32,15 +32,6 @@ const isDevelopment = __DEV__;
 const currentEnv = isDevelopment ? 'development' : 'production';
 const config = ENV_CONFIG[currentEnv];
 
-console.log(`🌍 API Environment: ${currentEnv}`);
-console.log(`🔗 Base URL: ${config.BASE_URL}`);
-console.log(`📱 Platform: ${Platform.OS}`);
-console.log(`🔧 __DEV__: ${__DEV__}`);
-console.log(`🌐 Network Config:`, {
-  baseURL: config.API_BASE_URL,
-  timeout: config.API_TIMEOUT,
-  allowHttp: config.LOG_LEVEL === 'debug'
-});
 
 export const API_CONFIG = {
   BASE_URL: config.BASE_URL,
