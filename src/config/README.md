@@ -21,13 +21,13 @@ BASE_URL: 'http://13.200.17.30',
 ## Usage
 
 ```typescript
-import { getApiUrl, API_CONFIG } from '../config/api';
+import { api, getApiUrl, API_CONFIG } from '../config/api';
 
-// Get full URL for an endpoint
+// Get full URL for an endpoint (if you need the absolute URL)
 const sendOtpUrl = getApiUrl(API_CONFIG.ENDPOINTS.SEND_OTP);
 
-// Use in API calls
-const response = await axios.post(getApiUrl(API_CONFIG.ENDPOINTS.SEND_OTP), data);
+// Use centralized API instance (interceptors handle headers/tokens)
+const response = await api.post(API_CONFIG.ENDPOINTS.SEND_OTP, data);
 ```
 
 ## Adding New Endpoints
