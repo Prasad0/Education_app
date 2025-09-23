@@ -10,10 +10,11 @@ import {
   Alert,
   Animated,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { searchCoachingCenters, filterCoachingCenters } from '../store/slices/coachingSlice';
+import { searchCoachingCenters, filterCoachingCenters, fetchCoachingCenters } from '../store/slices/coachingSlice';
 import { CoachingCenter } from '../store/slices/coachingSlice';
 
 interface FilterState {
@@ -45,7 +46,7 @@ const filterOptions = {
 
 const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({ onBack, searchQuery = '' }) => {
   const dispatch = useAppDispatch();
-  const { filteredCenters, isLoading, error } = useAppSelector(state => state.coaching);
+  const { filteredCenters, isLoading, error, coachingCenters } = useAppSelector(state => state.coaching);
   const { accessToken, isAuthenticated } = useAppSelector(state => state.auth);
   const { coordinates } = useAppSelector(state => state.location);
 
@@ -107,6 +108,15 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({ onBack, searchQ
       coachingType: '',
       ratingMin: 0,
     });
+    setSearchText('');
+  };
+
+  const handleRetry = () => {
+    if (searchText.trim()) {
+      dispatch(searchCoachingCenters(searchText.trim()));
+    } else {
+      dispatch(fetchCoachingCenters({}));
+    }
   };
 
   const getActiveFilterCount = () => {
@@ -273,6 +283,16 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({ onBack, searchQ
           })
         )
         if (!hasAllAmenities) return false
+      }
+
+      // Standard filter
+      if (activeFilters.standard) {
+        const standards = center.subjects_offered || [];
+        const hasStandard = standards.some(subject => {
+          const subjectName = typeof subject === 'string' ? subject : (subject as any)?.name || subject;
+          return subjectName.toLowerCase().includes(activeFilters.standard.toLowerCase());
+        });
+        if (!hasStandard) return false;
       }
 
       return true
@@ -485,7 +505,6 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({ onBack, searchQ
           <View style={styles.filterSortRow}>
             <TouchableOpacity
               onPress={() => {
-                console.log('Filter button pressed, current showFilters:', showFilters);
                 setShowFilters(!showFilters);
               }}
               style={[
@@ -597,146 +616,164 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({ onBack, searchQ
             </ScrollView>
           )}
         </View>
-
-        {/* Expandable Filters Section */}
-        {showFilters && (
-          <View style={styles.filtersSection}>
-          <ScrollView 
-            style={styles.filtersContent} 
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.filtersContentContainer}
-          >
-            {/* Fees Range */}
-            <View style={styles.filterGroup}>
-              <Text style={styles.filterGroupTitle}>Fees Range</Text>
-              <View style={styles.filterChipsContainer}>
-                {filterOptions.feesRange.map((option) => (
-                  <FilterChip
-                    key={option}
-                    label={option}
-                    active={activeFilters.feesRange === option}
-                    onPress={() => handleFilterChange('feesRange', option)}
-                  />
-                ))}
-              </View>
-            </View>
-
-            {/* Batch Timing */}
-            <View style={styles.filterGroup}>
-              <Text style={styles.filterGroupTitle}>Batch Timing</Text>
-              <View style={styles.filterChipsContainer}>
-                {filterOptions.batchTiming.map((option) => (
-                  <FilterChip
-                    key={option}
-                    label={option}
-                    active={activeFilters.batchTiming === option}
-                    onPress={() => handleFilterChange('batchTiming', option)}
-                  />
-                ))}
-              </View>
-            </View>
-
-            {/* Distance */}
-            <View style={styles.filterGroup}>
-              <Text style={styles.filterGroupTitle}>Distance</Text>
-              <View style={styles.filterChipsContainer}>
-                {filterOptions.distance.map((option) => (
-                  <FilterChip
-                    key={option}
-                    label={option}
-                    active={activeFilters.distance === option}
-                    onPress={() => handleFilterChange('distance', option)}
-                  />
-                ))}
-              </View>
-            </View>
-
-            {/* Standard */}
-            <View style={styles.filterGroup}>
-              <Text style={styles.filterGroupTitle}>Standard</Text>
-              <View style={styles.filterChipsContainer}>
-                {filterOptions.standard.map((option) => (
-                  <FilterChip
-                    key={option}
-                    label={option}
-                    active={activeFilters.standard === option}
-                    onPress={() => handleFilterChange('standard', option)}
-                  />
-                ))}
-              </View>
-            </View>
-
-            {/* Coaching Type */}
-            <View style={styles.filterGroup}>
-              <Text style={styles.filterGroupTitle}>Coaching Type</Text>
-              <View style={styles.filterChipsContainer}>
-                {filterOptions.coachingType.map((option) => (
-                  <FilterChip
-                    key={option}
-                    label={option}
-                    active={activeFilters.coachingType === option}
-                    onPress={() => handleFilterChange('coachingType', option)}
-                  />
-                ))}
-              </View>
-            </View>
-
-            {/* Rating Minimum */}
-            <View style={styles.filterGroup}>
-              <Text style={styles.filterGroupTitle}>Minimum Rating</Text>
-              <View style={styles.filterChipsContainer}>
-                {filterOptions.ratingMin.map((option) => (
-                  <FilterChip
-                    key={option.toString()}
-                    label={`${option}+ Stars`}
-                    active={activeFilters.ratingMin === option}
-                    onPress={() => handleFilterChange('ratingMin', option)}
-                  />
-                ))}
-              </View>
-            </View>
-
-            {/* Amenities */}
-            <View style={styles.filterGroup}>
-              <Text style={styles.filterGroupTitle}>Amenities</Text>
-              <View style={styles.filterChipsContainer}>
-                {filterOptions.amenities.map((option) => (
-                  <FilterChip
-                    key={option}
-                    label={option}
-                    active={activeFilters.amenities.includes(option)}
-                    onPress={() => handleFilterChange('amenities', option)}
-                  />
-                ))}
-              </View>
-            </View>
-
-            {/* Discounts */}
-            <View style={styles.filterGroup}>
-              <Text style={styles.filterGroupTitle}>Discounts</Text>
-              <View style={styles.filterChipsContainer}>
-                {filterOptions.discounts.map((option) => (
-                  <FilterChip
-                    key={option}
-                    label={option}
-                    active={activeFilters.discounts.includes(option)}
-                    onPress={() => handleFilterChange('discounts', option)}
-                  />
-                ))}
-              </View>
-            </View>
-
-            {/* Apply Filters Button */}
-            <TouchableOpacity onPress={handleApplyFilters} style={styles.applyFiltersButton}>
-              <Text style={styles.applyFiltersButtonText}>Apply Filters</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
-        )}
       </View>
 
       {/* Results */}
       <ScrollView style={styles.resultsContainer} showsVerticalScrollIndicator={false}>
+        {/* Expandable Filters Section */}
+        {showFilters && (
+          <View style={styles.filtersSection}>
+            {/* Filter Header */}
+            <View style={styles.filterHeader}>
+              <Text style={styles.filterHeaderTitle}>Filter Options</Text>
+              <TouchableOpacity 
+                onPress={() => setShowFilters(false)}
+                style={styles.filterCloseButton}
+              >
+                <Ionicons name="close" size={20} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView 
+              style={styles.filtersContent} 
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.filtersContentContainer}
+            >
+              {/* Fees Range */}
+              <View style={styles.filterGroup}>
+                <Text style={styles.filterGroupTitle}>Fees Range</Text>
+                <View style={styles.filterChipsContainer}>
+                  {filterOptions.feesRange.map((option) => (
+                    <FilterChip
+                      key={option}
+                      label={option}
+                      active={activeFilters.feesRange === option}
+                      onPress={() => handleFilterChange('feesRange', option)}
+                    />
+                  ))}
+                </View>
+              </View>
+
+              {/* Batch Timing */}
+              <View style={styles.filterGroup}>
+                <Text style={styles.filterGroupTitle}>Batch Timing</Text>
+                <View style={styles.filterChipsContainer}>
+                  {filterOptions.batchTiming.map((option) => (
+                    <FilterChip
+                      key={option}
+                      label={option}
+                      active={activeFilters.batchTiming === option}
+                      onPress={() => handleFilterChange('batchTiming', option)}
+                    />
+                  ))}
+                </View>
+              </View>
+
+              {/* Distance */}
+              <View style={styles.filterGroup}>
+                <Text style={styles.filterGroupTitle}>Distance</Text>
+                <View style={styles.filterChipsContainer}>
+                  {filterOptions.distance.map((option) => (
+                    <FilterChip
+                      key={option}
+                      label={option}
+                      active={activeFilters.distance === option}
+                      onPress={() => handleFilterChange('distance', option)}
+                    />
+                  ))}
+                </View>
+              </View>
+
+              {/* Standard */}
+              <View style={styles.filterGroup}>
+                <Text style={styles.filterGroupTitle}>Standard</Text>
+                <View style={styles.filterChipsContainer}>
+                  {filterOptions.standard.map((option) => (
+                    <FilterChip
+                      key={option}
+                      label={option}
+                      active={activeFilters.standard === option}
+                      onPress={() => handleFilterChange('standard', option)}
+                    />
+                  ))}
+                </View>
+              </View>
+
+              {/* Coaching Type */}
+              <View style={styles.filterGroup}>
+                <Text style={styles.filterGroupTitle}>Coaching Type</Text>
+                <View style={styles.filterChipsContainer}>
+                  {filterOptions.coachingType.map((option) => (
+                    <FilterChip
+                      key={option}
+                      label={option}
+                      active={activeFilters.coachingType === option}
+                      onPress={() => handleFilterChange('coachingType', option)}
+                    />
+                  ))}
+                </View>
+              </View>
+
+              {/* Rating Minimum */}
+              <View style={styles.filterGroup}>
+                <Text style={styles.filterGroupTitle}>Minimum Rating</Text>
+                <View style={styles.filterChipsContainer}>
+                  {filterOptions.ratingMin.map((option) => (
+                    <FilterChip
+                      key={option.toString()}
+                      label={`${option}+ Stars`}
+                      active={activeFilters.ratingMin === option}
+                      onPress={() => handleFilterChange('ratingMin', option)}
+                    />
+                  ))}
+                </View>
+              </View>
+
+              {/* Amenities */}
+              <View style={styles.filterGroup}>
+                <Text style={styles.filterGroupTitle}>Amenities</Text>
+                <View style={styles.filterChipsContainer}>
+                  {filterOptions.amenities.map((option) => (
+                    <FilterChip
+                      key={option}
+                      label={option}
+                      active={activeFilters.amenities.includes(option)}
+                      onPress={() => handleFilterChange('amenities', option)}
+                    />
+                  ))}
+                </View>
+              </View>
+
+              {/* Discounts */}
+              <View style={styles.filterGroup}>
+                <Text style={styles.filterGroupTitle}>Discounts</Text>
+                <View style={styles.filterChipsContainer}>
+                  {filterOptions.discounts.map((option) => (
+                    <FilterChip
+                      key={option}
+                      label={option}
+                      active={activeFilters.discounts.includes(option)}
+                      onPress={() => handleFilterChange('discounts', option)}
+                    />
+                  ))}
+                </View>
+              </View>
+
+              {/* Apply Filters Button */}
+              <View style={styles.applyFiltersContainer}>
+                <TouchableOpacity onPress={handleApplyFilters} style={styles.applyFiltersButton}>
+                  <Ionicons name="checkmark" size={18} color="#ffffff" />
+                  <Text style={styles.applyFiltersButtonText}>Apply Filters</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={clearAllFilters} style={styles.clearFiltersButton}>
+                  <Ionicons name="refresh" size={16} color="#6b7280" />
+                  <Text style={styles.clearFiltersButtonText}>Clear All</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        )}
+
         <View style={styles.resultsHeader}>
           <Text style={styles.resultsCount}>
             {localFilteredCenters.length} results found
@@ -746,6 +783,7 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({ onBack, searchQ
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#3b82f6" />
             <Text style={styles.loadingText}>Loading coaching centers...</Text>
           </View>
         ) : localFilteredCenters.length > 0 ? (
@@ -757,13 +795,18 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({ onBack, searchQ
         ) : (
           <View style={styles.emptyState}>
             <View style={styles.emptyStateIcon}>
-              <Ionicons name="search" size={24} color="#9ca3af" />
+              <Ionicons name="search" size={48} color="#9ca3af" />
             </View>
             <Text style={styles.emptyStateTitle}>No results found</Text>
             <Text style={styles.emptyStateSubtitle}>Try adjusting your search or filters</Text>
-            <TouchableOpacity onPress={clearAllFilters} style={styles.clearFiltersButton}>
-              <Text style={styles.clearFiltersButtonText}>Clear all filters</Text>
-            </TouchableOpacity>
+            <View style={styles.emptyStateActions}>
+              <TouchableOpacity onPress={clearAllFilters} style={styles.clearFiltersButton}>
+                <Text style={styles.clearFiltersButtonText}>Clear all filters</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleRetry} style={styles.retryButton}>
+                <Text style={styles.retryButtonText}>Retry search</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
       </ScrollView>
@@ -953,10 +996,38 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   filtersSection: {
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#ffffff',
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
-    maxHeight: 500,
+    maxHeight: 600,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  filterHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+  },
+  filterHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  filterCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   filtersContent: {
     flex: 1,
@@ -980,18 +1051,50 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
+  applyFiltersContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+    marginBottom: 8,
+  },
   applyFiltersButton: {
+    flex: 1,
     backgroundColor: '#10b981',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
     borderRadius: 12,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    justifyContent: 'center',
+    gap: 8,
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   applyFiltersButtonText: {
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  clearFiltersButton: {
+    flex: 1,
+    backgroundColor: '#f3f4f6',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  clearFiltersButtonText: {
+    color: '#6b7280',
+    fontSize: 14,
+    fontWeight: '500',
   },
   resultsContainer: {
     flex: 1,
@@ -1195,17 +1298,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 16,
   },
-  clearFiltersButton: {
+  emptyStateActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+  },
+  retryButton: {
+    backgroundColor: '#3b82f6',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
+    borderRadius: 6,
   },
-  clearFiltersButtonText: {
+  retryButtonText: {
+    color: '#ffffff',
     fontSize: 14,
-    color: '#374151',
-    fontWeight: '500',
+    fontWeight: '600',
   },
 });
 

@@ -13,7 +13,6 @@
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
     "@react-native-async-storage/async-storage": "2.1.2",
-    "@react-native-community/datetimepicker": "8.4.1",
     "@react-native-picker/picker": "^2.11.1",
     "@react-navigation/native": "^7.1.6",
     "@react-navigation/stack": "^7.1.6",
@@ -21,9 +20,12 @@
     "axios": "^1.11.0",
     "canvas": "^3.2.0",
     "expo": "53.0.22",
+    "expo-constants": "~17.1.7",
+    "expo-font": "~13.3.2",
     "expo-linear-gradient": "^14.1.5",
+    "expo-linking": "~7.1.7",
     "expo-location": "^18.1.6",
-    "expo-router": "~5.1.5",
+    "expo-router": "~5.1.6",
     "expo-status-bar": "~2.2.3",
     "nativewind": "^4.1.23",
     "react": "19.0.0",
@@ -37,9 +39,7 @@
     "react-native-toast-message": "^2.3.3",
     "react-native-vector-icons": "^10.3.0",
     "react-redux": "^9.1.2",
-    "expo-font": "~13.3.2",
-    "expo-constants": "~17.1.7",
-    "expo-linking": "~7.1.7"
+    "@react-native-community/datetimepicker": "8.4.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
