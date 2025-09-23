@@ -1,6 +1,5 @@
 import {createSlice, createAsyncThunk, PayloadAction} from '@reduxjs/toolkit';
-import axios from 'axios';
-import {getApiUrl, API_CONFIG} from '../../config/api';
+import {api, getApiUrl, API_CONFIG} from '../../config/api';
 import {storeTokens, storeUser, clearStorage} from '../../utils/tokenStorage';
 
 interface AuthState {
@@ -40,12 +39,8 @@ export const sendOtp = createAsyncThunk(
   async (phoneNumber: string, {rejectWithValue}) => {
     try {
       //http://65.0.135.170/api/user_auth/users/send_otp/
-      const response = await axios.post(getApiUrl(API_CONFIG.ENDPOINTS.SEND_OTP), {
+      const response = await api.post(API_CONFIG.ENDPOINTS.SEND_OTP, {
         phone_number: phoneNumber
-      }, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
       });
       
       if (response.data.data.success) {
@@ -72,13 +67,9 @@ export const verifyOtp = createAsyncThunk(
   'auth/verifyOtp',
   async ({phoneNumber, otp}: {phoneNumber: string; otp: string}, {rejectWithValue}) => {
     try {
-      const response = await axios.post(getApiUrl(API_CONFIG.ENDPOINTS.VERIFY_OTP), {
+      const response = await api.post(API_CONFIG.ENDPOINTS.VERIFY_OTP, {
         phone_number: phoneNumber,
         otp_code: otp
-      }, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
       });
       
       if (response.data.data.success) {
@@ -113,12 +104,7 @@ export const checkProfileStatus = createAsyncThunk(
         return rejectWithValue('No access token available');
       }
 
-      const response = await axios.get(getApiUrl(API_CONFIG.ENDPOINTS.PROFILE_STATUS), {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await api.get(API_CONFIG.ENDPOINTS.PROFILE_STATUS);
       
       if (response.data.data.success) {
         return {
@@ -151,12 +137,7 @@ export const createProfile = createAsyncThunk(
         return rejectWithValue('No access token available');
       }
 
-      const response = await axios.post(getApiUrl(API_CONFIG.ENDPOINTS.CREATE_PROFILE), profileData, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await api.post(API_CONFIG.ENDPOINTS.CREATE_PROFILE, profileData);
       
       if (response.data.data.success) {
         return response.data.data;
@@ -184,12 +165,7 @@ export const addChild = createAsyncThunk(
         return rejectWithValue('No access token available');
       }
 
-      const response = await axios.post(getApiUrl(API_CONFIG.ENDPOINTS.ADD_CHILD), childrenData, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await api.post(API_CONFIG.ENDPOINTS.ADD_CHILD, childrenData);
       
       if (response.data.data.success) {
         return response.data.data;
@@ -217,12 +193,7 @@ export const fetchUserProfile = createAsyncThunk(
         return rejectWithValue('No access token available');
       }
 
-      const response = await axios.get(getApiUrl(API_CONFIG.ENDPOINTS.GET_PROFILE), {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await api.get(API_CONFIG.ENDPOINTS.GET_PROFILE);
       
       if (response.data?.data?.success && response.data?.data?.profile) {
         const profileData = response.data.data.profile;
