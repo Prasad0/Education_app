@@ -28,43 +28,26 @@ const CoachingCard: React.FC<CoachingCardProps> = ({
   
   // Filter out invalid images and failed images
   const validImages = React.useMemo(() => {
-    try {
-      // Debug: Log the center data for debugging
-      console.log(`🖼️ [CoachingCard] Processing images for center:`, {
-        id: center.id,
-        name: center.name,
-        gallery_images: center.gallery_images,
-        gallery_images_length: center.gallery_images?.length,
-        first_gallery_image: center.gallery_images?.[0],
-        center_keys: Object.keys(center)
-      });
-      
+    try {      
       // Use only gallery_images, no validation
       const images = center.gallery_images || [];
-      console.log(`🔍 [CoachingCard] Raw gallery_images:`, images);
+      
       
       if (!Array.isArray(images)) {
-        console.log(`❌ [CoachingCard] Gallery images is not an array:`, images);
+        
         return [];
       }
       
       // Simple filter - only check for null/undefined and failed images
       const safeImages = images.filter((img, index) => {
         const isValid = img !== null && img !== undefined && !failedImages.has(img);
-        if (index < 3) { // Log first 3 images for debugging
-          console.log(`🔍 [CoachingCard] Processing image ${index}:`, {
-            img,
-            isValid
-          });
-        }
         return isValid;
       });
       
-      console.log(`✅ [CoachingCard] Final valid images count:`, safeImages.length);
-      console.log(`✅ [CoachingCard] Final valid images:`, safeImages);
+      
       return safeImages;
     } catch (error) {
-      console.log(`❌ [CoachingCard] Error in validImages useMemo:`, error);
+      
       return [];
     }
   }, [center.gallery_images, failedImages, center.id, center.name]);

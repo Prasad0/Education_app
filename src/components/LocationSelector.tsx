@@ -112,15 +112,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({ onBack }) => {
       state: result.state
     }));
     
-    // Log the selected location details for debugging
-    console.log('📍 Selected Location:', {
-      name: result.name,
-      area: result.area,
-      state: result.state,
-      coordinates: result.coordinates,
-      fullAddress: result.fullAddress
-    });
-    
     onBack();
   };
 
@@ -130,7 +121,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({ onBack }) => {
     
     // Debounce search API calls
     if (text.trim().length >= 2) {
-      console.log('Starting location search for:', text.trim());
+      
       
       // Clear previous timeout
       if (searchTimeout.current) {
@@ -139,7 +130,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({ onBack }) => {
       
       // Set new timeout for search
       searchTimeout.current = setTimeout(() => {
-        console.log('Executing location search for:', text.trim());
+        
         dispatch(searchLocations(text.trim()));
       }, 500);
     } else {
@@ -172,21 +163,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({ onBack }) => {
   // Show nearby areas from searchResults if available and not searching
   const showNearbyAreas = !showSearchResults && searchResults.length > 0 && !isFetchingNearby;
   const nearbyAreas = showNearbyAreas ? searchResults : [];
-
-  // Debug logging
-  useEffect(() => {
-    console.log('Search debug:', {
-      searchText: searchText.trim(),
-      searchTextLength: searchText.trim().length,
-      searchResults: searchResults,
-      searchResultsLength: searchResults.length,
-      showSearchResults,
-      isSearching,
-      searchError,
-      showNearbyAreas,
-      nearbyAreas: nearbyAreas.length
-    });
-  }, [searchText, searchResults, showSearchResults, isSearching, searchError, showNearbyAreas, nearbyAreas]);
 
   // Format location names to show full addresses
   const formatLocationName = (location: string) => {

@@ -48,6 +48,7 @@ export interface CoachingSearchParams {
   search?: string;
   location?: string;
   city?: string;
+  state?: string;
   subject?: string;
   subjects?: string;
   board?: string;
@@ -64,6 +65,7 @@ export interface CoachingSearchParams {
   latitude?: number;
   longitude?: number;
   radius?: number;
+  child_id?: string;
 }
 
 export interface CoachingState {
@@ -149,13 +151,6 @@ const transformApiData = (apiData: any): CoachingCenter[] => {
         uuid: item.uuid,
       };
       
-      console.log('✅ [transformApiData] Transformed item:', {
-        id: transformedItem.id,
-        name: transformedItem.name,
-        gallery_images: transformedItem.gallery_images,
-        gallery_images_length: transformedItem.gallery_images?.length
-      });
-      
       return transformedItem;
     });
   } catch (error) {
@@ -166,13 +161,13 @@ const transformApiData = (apiData: any): CoachingCenter[] => {
 
 // Function to get fallback data when API fails
 const getFallbackData = (): CoachingCenter[] => {
-  console.log('🔄 [getFallbackData] Returning empty array - no fallback data');
+  
   return [];
 };
 
 // Test function to add sample data for debugging
 const getTestData = (): CoachingCenter[] => {
-  console.log('🧪 [getTestData] Returning test data with images');
+  
   return [
     {
       id: 'test-1',
@@ -214,15 +209,8 @@ export const fetchCoachingCenters = createAsyncThunk(
       const isAuthenticated = state.auth?.isAuthenticated;
       const accessToken = state.auth?.accessToken;
       
-      console.log('🔐 [fetchCoachingCenters] Auth check:', {
-        isAuthenticated,
-        hasAccessToken: !!accessToken,
-        accessTokenLength: accessToken?.length,
-        authState: state.auth
-      });
-      
       if (!isAuthenticated || !accessToken) {
-        console.log('⚠️ [fetchCoachingCenters] Not authenticated, returning test data for debugging');
+        
         return getTestData();
       }
         
@@ -281,6 +269,11 @@ export const fetchCoachingCenters = createAsyncThunk(
         apiParams.latitude = params.latitude;
         apiParams.longitude = params.longitude;
       }
+
+      // Add child_id if provided
+      if (params.child_id) {
+        apiParams.child_id = params.child_id;
+      }
        
       const response = await api.get('/coachings/', { params: apiParams });
       
@@ -290,14 +283,6 @@ export const fetchCoachingCenters = createAsyncThunk(
         const totalCount = response.data.count;
         const currentPageSize = response.data.data.length;
         const currentPage = response.data.page || 1;
-        
-        console.log('📄 [fetchCoachingCenters] Pagination info:', {
-          totalCount,
-          currentPageSize,
-          currentPage,
-          needsMorePages: currentPageSize < totalCount,
-          totalPages: Math.ceil(totalCount / 200)
-        });
         
         // If we got fewer results than total count, try to fetch more pages
         if (currentPageSize < totalCount) {
@@ -315,7 +300,7 @@ export const fetchCoachingCenters = createAsyncThunk(
               const nextPageResponse = await api.get('/coachings/', { params: nextPageParams });
               if (nextPageResponse.data?.data && Array.isArray(nextPageResponse.data.data)) {
                 allData = [...allData, ...nextPageResponse.data.data];
-                console.log(`✅ [fetchCoachingCenters] Page ${page} fetched, total results so far: ${allData.length}`);
+                
               }
             } catch (pageError: any) {
               break; // Stop fetching if we encounter an error
@@ -344,58 +329,40 @@ export const fetchCoachingCenters = createAsyncThunk(
             allData = [];
           }
         } else {
-          console.log('⚠️ [fetchCoachingCenters] No response data or invalid structure');
+          
           allData = [];
         }
       }
             
       // Validate and transform the response data
       try {
-        console.log('🔄 [fetchCoachingCenters] About to transform data:', {
-          allDataLength: allData.length,
-          allDataFirstItem: allData[0] ? Object.keys(allData[0]) : 'No items'
-        });
         
         const transformedData = transformApiData(allData);
         
-        console.log('✅ [fetchCoachingCenters] Transformation complete:', {
-          originalLength: allData.length,
-          transformedLength: transformedData.length,
-          firstTransformedItem: transformedData[0] ? {
-            id: transformedData[0].id,
-            name: transformedData[0].name,
-            images: transformedData[0].images,
-            gallery_images: transformedData[0].gallery_images,
-            imagesLength: transformedData[0].images?.length,
-            galleryImagesLength: transformedData[0].gallery_images?.length,
-            firstGalleryImage: transformedData[0].gallery_images?.[0],
-            firstImage: transformedData[0].images?.[0]
-          } : 'No items'
-        });
         
         // If transformation returns empty array and we have data, use test data
         if (transformedData.length === 0 && allData.length > 0) {
-          console.log('⚠️ [fetchCoachingCenters] Transformation returned empty array, using test data');
+          
           return getTestData();
         }
         
         // Final safety check - if we still have no data, use test data
         if (transformedData.length === 0) {
-          console.log('⚠️ [fetchCoachingCenters] No data after transformation, using test data');
+          
           return getTestData();
         }
         
         return transformedData;
       } catch (transformError) {
          // Return test data if transformation fails
-        console.log('❌ [fetchCoachingCenters] Transformation error:', transformError);
+        
         return getTestData();
       }
     } catch (error: any) {
       
       // Handle 401 Unauthorized error
       if (error.response?.status === 401) {
-        console.log('🔒 [fetchCoachingCenters] 401 Unauthorized, returning test data');
+        
         // Don't clear tokens here - let the auth slice handle logout
         // Just return test data to prevent the error from bubbling up
         return getTestData();
@@ -449,16 +416,15 @@ export const filterCoachingCenters = createAsyncThunk(
       const isAuthenticated = state.auth?.isAuthenticated;
       const accessToken = state.auth?.accessToken;
       
-      console.log('🔍 [filterCoachingCenters] Starting with filter params:', JSON.stringify(filterParams, null, 2));
-      console.log('🔍 [filterCoachingCenters] Auth status:', { isAuthenticated, hasToken: !!accessToken });
+      
       
       if (!isAuthenticated || !accessToken) {
-        console.log('⚠️ [filterCoachingCenters] Not authenticated, returning test data');
+        
         return getTestData();
       }
       
       const coordinates = state.location.coordinates;
-      console.log('📍 [filterCoachingCenters] Location coordinates:', coordinates);
+      
       
       // Map parameters to match the API format from the curl command
       const apiParams: any = {
@@ -470,6 +436,7 @@ export const filterCoachingCenters = createAsyncThunk(
       // Add all filter parameters
       if (filterParams.search) apiParams.search = filterParams.search;
       if (filterParams.city) apiParams.city = filterParams.city;
+      if (filterParams.state) apiParams.state = filterParams.state;
       if (filterParams.standards) apiParams.standards = filterParams.standards;
       if (filterParams.subjects) apiParams.subjects = filterParams.subjects;
       if (filterParams.target_exams) apiParams.target_exams = filterParams.target_exams;
@@ -477,23 +444,13 @@ export const filterCoachingCenters = createAsyncThunk(
       if (filterParams.fees_min) apiParams.fees_min = filterParams.fees_min;
       if (filterParams.fees_max) apiParams.fees_max = filterParams.fees_max;
       if (filterParams.rating_min) apiParams.rating_min = filterParams.rating_min;
+      if (filterParams.child_id) apiParams.child_id = filterParams.child_id;
       if (coordinates?.latitude && coordinates?.longitude) {
         apiParams.latitude = coordinates.latitude;
         apiParams.longitude = coordinates.longitude;
       }
       
-      console.log('📋 [filterCoachingCenters] Final API params:', JSON.stringify(apiParams, null, 2));
-      console.log('🌐 [filterCoachingCenters] Making API call to /coachings/');
-      
       const response = await api.get('/coachings/', { params: apiParams });
-      
-      console.log('📊 [filterCoachingCenters] API response received:', {
-        status: response.status,
-        hasData: !!response.data,
-        dataKeys: response.data ? Object.keys(response.data) : [],
-        count: response.data?.count,
-        resultsLength: response.data?.results?.length
-      });
       
       // Handle different possible API response structures
       let dataToTransform: any[] = [];
@@ -501,50 +458,40 @@ export const filterCoachingCenters = createAsyncThunk(
       if (response.data) {
         if (Array.isArray(response.data)) {
           dataToTransform = response.data;
-          console.log('📋 [filterCoachingCenters] Direct array response, count:', dataToTransform.length);
+          
         } else if (response.data.data && Array.isArray(response.data.data)) {
           dataToTransform = response.data.data;
-          console.log('📋 [filterCoachingCenters] Nested data response, count:', dataToTransform.length);
+          
         } else if (response.data.results && Array.isArray(response.data.results)) {
           dataToTransform = response.data.results;
-          console.log('📋 [filterCoachingCenters] Paginated response, count:', dataToTransform.length);
+          
         } else if (response.data.coaching_centers && Array.isArray(response.data.coaching_centers)) {
           dataToTransform = response.data.coaching_centers;
-          console.log('📋 [filterCoachingCenters] Specific key response, count:', dataToTransform.length);
+          
         } else {
-          console.log('⚠️ [filterCoachingCenters] Unknown response structure');
+          
         }
       } else {
-        console.log('⚠️ [filterCoachingCenters] No response data');
+        
       }
-      
-      console.log('📊 [filterCoachingCenters] Data to transform summary:', {
-        count: dataToTransform.length,
-        firstItem: dataToTransform[0] ? Object.keys(dataToTransform[0]) : []
-      });
       
       // Validate and transform the response data
       try {
         const transformedData = transformApiData(dataToTransform);
         
-        console.log('✅ [filterCoachingCenters] Successfully processed and transformed data:', {
-          originalCount: dataToTransform.length,
-          transformedCount: transformedData.length
-        });
-        
         if (transformedData.length === 0 && dataToTransform.length > 0) {
-          console.log('⚠️ [filterCoachingCenters] Transformation returned empty array, using test data');
+          
           return getTestData();
         }
         
         if (transformedData.length === 0) {
-          console.log('⚠️ [filterCoachingCenters] No data after transformation, using test data');
+          
           return getTestData();
         }
         
         return transformedData;
       } catch (transformError) {
-        console.log('❌ [filterCoachingCenters] Transformation error:', transformError);
+        
         return getTestData();
       }
     } catch (error: any) {
@@ -556,7 +503,7 @@ export const filterCoachingCenters = createAsyncThunk(
       });
       
       if (error.response?.status === 401) {
-        console.log('🔒 [filterCoachingCenters] 401 Unauthorized, returning test data');
+        
         return getTestData();
       }
       
@@ -575,16 +522,15 @@ export const searchCoachingCenters = createAsyncThunk(
       const isAuthenticated = state.auth?.isAuthenticated;
       const accessToken = state.auth?.accessToken;
       
-      console.log('🔍 [searchCoachingCenters] Starting with search term:', searchTerm);
-      console.log('🔍 [searchCoachingCenters] Auth status:', { isAuthenticated, hasToken: !!accessToken });
+      
       
       if (!isAuthenticated || !accessToken) {
-        console.log('⚠️ [searchCoachingCenters] Not authenticated, returning test data');
+        
         return getTestData();
       }
       
       const coordinates = state.location.coordinates;
-      console.log('📍 [searchCoachingCenters] Location coordinates:', coordinates);
+      
       
       // Map parameters to match the API format from the curl command
       const apiParams: any = {
@@ -599,19 +545,15 @@ export const searchCoachingCenters = createAsyncThunk(
         apiParams.latitude = coordinates.latitude;
         apiParams.longitude = coordinates.longitude;
       }
+
+      // Add child_id if available from state
+      if (state.auth?.selectedStudentId) {
+        apiParams.child_id = state.auth.selectedStudentId;
+      }
       
-      console.log('📋 [searchCoachingCenters] Final API params:', JSON.stringify(apiParams, null, 2));
-      console.log('🌐 [searchCoachingCenters] Making API call to /coachings/');
+      
       
       const response = await api.get('/coachings/', { params: apiParams });
-      
-      console.log('📊 [searchCoachingCenters] API response received:', {
-        status: response.status,
-        hasData: !!response.data,
-        dataKeys: response.data ? Object.keys(response.data) : [],
-        count: response.data?.count,
-        resultsLength: response.data?.results?.length
-      });
       
       // Handle different possible API response structures
       let dataToTransform: any[] = [];
@@ -620,57 +562,47 @@ export const searchCoachingCenters = createAsyncThunk(
         if (Array.isArray(response.data)) {
           // Direct array response
           dataToTransform = response.data;
-          console.log('📋 [searchCoachingCenters] Direct array response, count:', dataToTransform.length);
+          
         } else if (response.data.data && Array.isArray(response.data.data)) {
           // Nested data response (primary format)
           dataToTransform = response.data.data;
-          console.log('📋 [searchCoachingCenters] Nested data response, count:', dataToTransform.length);
+          
         } else if (response.data.results && Array.isArray(response.data.results)) {
           // Paginated response with results array
           dataToTransform = response.data.results;
-          console.log('📋 [searchCoachingCenters] Paginated response, count:', dataToTransform.length);
+          
         } else if (response.data.coaching_centers && Array.isArray(response.data.coaching_centers)) {
           // Specific key response
           dataToTransform = response.data.coaching_centers;
-          console.log('📋 [searchCoachingCenters] Specific key response, count:', dataToTransform.length);
+          
         } else {
           dataToTransform = [];
-          console.log('⚠️ [searchCoachingCenters] Unknown response structure');
+          
         }
       } else {
         dataToTransform = [];
-        console.log('⚠️ [searchCoachingCenters] No response data');
+        
       }
-      
-      console.log('📊 [searchCoachingCenters] Data to transform summary:', {
-        count: dataToTransform.length,
-        firstItem: dataToTransform[0] ? Object.keys(dataToTransform[0]) : []
-      });
       
       // Validate and transform the response data
       try {
         const transformedData = transformApiData(dataToTransform);
         
-        console.log('✅ [searchCoachingCenters] Successfully processed and transformed data:', {
-          originalCount: dataToTransform.length,
-          transformedCount: transformedData.length
-        });
-        
         // If transformation returns empty array and we have data, use test data
         if (transformedData.length === 0 && dataToTransform.length > 0) {
-          console.log('⚠️ [searchCoachingCenters] Transformation returned empty array, using test data');
+          
           return getTestData();
         }
         
         // Final safety check - if we still have no data, use test data
         if (transformedData.length === 0) {
-          console.log('⚠️ [searchCoachingCenters] No data after transformation, using test data');
+          
           return getTestData();
         }
         
         return transformedData;
       } catch (transformError) {
-        console.log('❌ [searchCoachingCenters] Transformation error:', transformError);
+        
         // Return test data if transformation fails
         return getTestData();
       }
@@ -684,7 +616,7 @@ export const searchCoachingCenters = createAsyncThunk(
       
       // Handle 401 Unauthorized error
       if (error.response?.status === 401) {
-        console.log('🔒 [searchCoachingCenters] 401 Unauthorized, returning test data');
+        
         // Don't clear tokens here - let the auth slice handle logout
         // Just return test data to prevent the error from bubbling up
         return getTestData();

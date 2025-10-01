@@ -100,17 +100,8 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
     checkLocationStatus();
   }, []);
 
-  // Log token for debugging
-  useEffect(() => {
-    console.log('🔑 Current Access Token:', accessToken);
-    if (accessToken) {
-      console.log('✅ Token is available');
-      console.log('📝 Token length:', accessToken.length);
-      console.log('🔍 Token preview:', accessToken.substring(0, 20) + '...');
-    } else {
-      console.log('❌ No access token available');
-    }
-  }, [accessToken]);
+  // Minimized logs
+  useEffect(() => {}, [accessToken]);
 
   const checkLocationStatus = async () => {
     try {
@@ -123,7 +114,6 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
         try {
           await getCurrentLocation();
         } catch (locationError) {
-          console.log('Location permission granted but could not get coordinates:', locationError);
           // Don't reset permission, just mark location as unavailable
           setLocation(null);
         }
@@ -148,7 +138,6 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
         try {
           await getCurrentLocation();
         } catch (locationError) {
-          console.log('Permission granted but location unavailable:', locationError);
           // Keep permission granted but mark location as unavailable
           setLocation(null);
         }

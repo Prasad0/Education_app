@@ -110,10 +110,6 @@ const StudentOnboardingScreen = ({
         try {
           await getCurrentLocation();
         } catch (locationError) {
-          console.log(
-            "Location permission granted but could not get coordinates:",
-            locationError
-          );
           // Don't reset permission, just mark location as unavailable
           setLocation(null);
         }
@@ -138,10 +134,6 @@ const StudentOnboardingScreen = ({
         try {
           await getCurrentLocation();
         } catch (locationError) {
-          console.log(
-            "Permission granted but location unavailable:",
-            locationError
-          );
           // Keep permission granted but mark location as unavailable
           setLocation(null);
         }
@@ -236,16 +228,6 @@ const StudentOnboardingScreen = ({
         longitude: roundedLongitude,
       });
 
-      console.log("Location obtained successfully:", {
-        original: {
-          latitude: currentLocation.coords.latitude,
-          longitude: currentLocation.coords.longitude,
-        },
-        rounded: {
-          latitude: roundedLatitude,
-          longitude: roundedLongitude,
-        }
-      });
     } catch (error: any) {
       console.error("Error getting current location:", error);
 
@@ -382,14 +364,9 @@ const StudentOnboardingScreen = ({
   };
 
   const handleSubmit = async () => {
-    console.log("🚀 StudentOnboarding: Complete Setup button pressed");
-    console.log("📋 Form Data:", formData);
-    console.log("📍 Location Status:", { locationPermission, location });
-    console.log("✅ Form Valid:", isFormValid());
 
     // Check location first with a clear popup
     if (!locationPermission) {
-      console.log("❌ Location Permission Required");
       Alert.alert(
         "Location Permission Required",
         "Location access is required to submit this form. This helps us find coaching centers near you.",
@@ -405,7 +382,6 @@ const StudentOnboardingScreen = ({
     }
 
     if (!location) {
-      console.log("❌ Location Not Available");
       Alert.alert(
         "Location Not Available",
         "Your current location could not be determined. Please ensure location services are enabled and try again.",
@@ -421,7 +397,6 @@ const StudentOnboardingScreen = ({
     }
 
     if (!isFormValid()) {
-      console.log("❌ Form Incomplete - Required fields missing");
       Toast.show({
         type: "error",
         text1: "Form Incomplete",
@@ -430,9 +405,7 @@ const StudentOnboardingScreen = ({
       return;
     }
 
-    console.log(
-      "✅ All validations passed, proceeding with profile creation..."
-    );
+    
 
     try {
       const profileData = {
@@ -457,10 +430,9 @@ const StudentOnboardingScreen = ({
           `${formData.currentStandard} ${formData.courseStream} Student`,
       };
 
-      console.log("📤 Dispatching createProfile with data:", profileData);
+      
       const result = await dispatch(createProfile(profileData));
-      console.log("📥 createProfile result:", result);
-      console.log("🔑 Current Access Token:", accessToken);
+      
       
       if (createProfile.fulfilled.match(result)) {
         Toast.show({
@@ -470,7 +442,6 @@ const StudentOnboardingScreen = ({
         });
         navigation.navigate("Home");
       } else if (createProfile.rejected.match(result)) {
-        console.log("❌ Profile creation failed:", result.error);
         
         // Handle specific API errors
         if (result.payload && typeof result.payload === 'object' && 'data' in result.payload) {

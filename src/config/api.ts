@@ -72,10 +72,7 @@ const logError = (error: AxiosError, context: string) => {
 
   if (config.LOG_LEVEL === 'debug') {
     console.group(`🚨 API Error: ${context}`);
-    console.log('Full Error Object:', error);
-    console.log('Error Details:', errorDetails);
-    console.log('Response Data:', error.response?.data);
-    console.log('Request Config:', error.config);
+    
     console.groupEnd();
   } else {
     console.error(`🚨 API Error: ${context}`, {
@@ -136,7 +133,7 @@ api.interceptors.request.use(
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
         if (isDevelopment) {
-          console.log('🔑 Auth token added to request');
+          
         }
       }
 

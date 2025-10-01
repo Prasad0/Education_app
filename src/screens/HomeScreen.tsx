@@ -13,11 +13,26 @@ import BottomNavigation from '../components/BottomNavigation';
 import PromotionalBanner from '../components/PromotionalBanner';
 import CoachingCard from '../components/CoachingCard';
 import CoachingListingScreen from './CoachingListingScreen';
-import CoachingDetailScreen from './CoachingDetails';
+import CoachingDetailScreen from './CoachingDetails/CoachingDetailScreen';
 import LocationSelector from '../components/LocationSelector';
 import SearchFilterScreen from './SearchFilterScreen';
 import { CoachingCenter } from '../store/slices/coachingSlice';
 import { logout } from '../store/slices/authSlice';
+
+// Filter interface for the modal
+interface FilterState {
+  search: string;
+  feesRange: string;
+  batchTiming: string;
+  distance: string;
+  amenities: string[];
+  discounts: string[];
+  standard: string[];
+  coachingType: string;
+  ratingMin: number;
+  subjects: string[];
+  targetExams: string[];
+}
 
 const promotionalBanners = [
   {
@@ -65,6 +80,8 @@ const HomeScreen: React.FC = () => {
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [selectedCoachingId, setSelectedCoachingId] = useState<string>('');
   const [spinValue] = useState(new Animated.Value(0));
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [appliedFilters, setAppliedFilters] = useState<FilterState | null>(null);
 
   // Determine which profile data to use (user or profile field)
   const actualProfile = user || profile;
@@ -279,12 +296,151 @@ const HomeScreen: React.FC = () => {
     }
   };
 
+  // Function to handle filter modal
+  const handleOpenFilterModal = () => {
+    setShowFilterModal(true);
+  };
+
+  const handleCloseFilterModal = () => {
+    setShowFilterModal(false);
+  };
+
+  const handleApplyFilters = (filters: FilterState) => {
+    setAppliedFilters(filters);
+    
+    // Convert filters to API parameters
+    const filterParams: any = {
+      radius: 2000,
+    };
+
+    // Add coordinates if available
+    if (safeCoordinates) {
+      filterParams.latitude = safeCoordinates.latitude;
+      filterParams.longitude = safeCoordinates.longitude;
+    }
+
+    // Add child_id from selected student
+    if (selectedStudentId) {
+      filterParams.child_id = selectedStudentId;
+    }
+
+    // Add search parameter
+    if (filters.search) {
+      filterParams.search = filters.search;
+    }
+
+    // Map fees range to API parameters
+    if (filters.feesRange) {
+      switch (filters.feesRange) {
+        case 'Under ₹25k':
+          filterParams.fees_min = 0;
+          filterParams.fees_max = 25000;
+          break;
+        case '₹25k - ₹50k':
+          filterParams.fees_min = 25000;
+          filterParams.fees_max = 50000;
+          break;
+        case '₹50k - ₹75k':
+          filterParams.fees_min = 50000;
+          filterParams.fees_max = 75000;
+          break;
+        case 'Above ₹75k':
+          filterParams.fees_min = 75000;
+          break;
+      }
+    }
+
+    // Map standard to API parameters (convert to comma-separated format)
+    if (filters.standard && filters.standard.length > 0) {
+      const standardMap: { [key: string]: string } = {
+        'Class 5': '5th',
+        'Class 6': '6th',
+        'Class 7': '7th',
+        'Class 8': '8th',
+        'Class 9': '9th',
+        'Class 10': '10th',
+        'Class 11': '11th',
+        'Class 12': '12th',
+      };
+      const mappedStandards = filters.standard.map(std => standardMap[std] || std).filter(Boolean);
+      if (mappedStandards.length > 0) {
+        filterParams.standards = mappedStandards.join(',');
+      }
+    }
+
+    // Map coaching type
+    if (filters.coachingType) {
+      filterParams.coaching_type = filters.coachingType.toLowerCase();
+    }
+
+    // Map rating minimum
+    if (filters.ratingMin > 0) {
+      filterParams.rating_min = filters.ratingMin;
+    }
+
+    // Map distance to radius
+    if (filters.distance) {
+      switch (filters.distance) {
+        case 'Under 1km':
+          filterParams.radius = 1000;
+          break;
+        case '1-3km':
+          filterParams.radius = 3000;
+          break;
+        case '3-5km':
+          filterParams.radius = 5000;
+          break;
+        case 'Above 5km':
+          filterParams.radius = 10000;
+          break;
+      }
+    }
+
+    // Map subjects from filter selection
+    if (filters.subjects && filters.subjects.length > 0) {
+      filterParams.subjects = filters.subjects.join(',');
+    }
+
+    // Map target exams from filter selection
+    if (filters.targetExams && filters.targetExams.length > 0) {
+      filterParams.target_exams = filters.targetExams.join(',');
+    }
+
+
+    // Add city and state if available from location
+    if (safeSelectedLocation) {
+      const locationParts = safeSelectedLocation.split(',');
+      if (locationParts.length >= 2) {
+        filterParams.city = locationParts[0].trim();
+        filterParams.state = locationParts[1].trim();
+      }
+    }
+
+    
+
+    // Apply the filters by calling the API
+    if (accessToken && authState.isAuthenticated) {
+      dispatch(filterCoachingCenters(filterParams));
+    }
+    
+    // Close the modal
+    setShowFilterModal(false);
+  };
+
 
 
   const handleClearLocation = () => {
     dispatch(deselectLocation());
     // Clear coaching centers when location is deselected - only pass radius
     // Only fetch if user is authenticated
+    if (accessToken && authState.isAuthenticated) {
+      dispatch(fetchCoachingCenters({ radius: 2000 }));
+    }
+  };
+
+  const handleClearFilters = () => {
+    setAppliedFilters(null);
+    // Clear filters and fetch with only radius - only if authenticated
     if (accessToken && authState.isAuthenticated) {
       dispatch(fetchCoachingCenters({ radius: 2000 }));
     }
@@ -332,7 +488,7 @@ const HomeScreen: React.FC = () => {
   };
 
   const handleViewDetails = (center: CoachingCenter) => {
-    console.log('Viewing details for center:', center.name, 'ID:', center.id);
+    
     setSelectedCoachingId(center.id);
     setCurrentScreen('detail');
   };
@@ -391,8 +547,14 @@ const HomeScreen: React.FC = () => {
   if (currentScreen === 'searchFilter') {
     return (
       <SearchFilterScreen
-        onBack={() => setCurrentScreen('home')}
+        visible={true}
+        onClose={() => setCurrentScreen('home')}
+        onApply={(filters) => {
+          handleApplyFilters(filters);
+          setCurrentScreen('home');
+        }}
         searchQuery=""
+        initialFilters={appliedFilters || undefined}
       />
     );
   }
@@ -773,21 +935,14 @@ const HomeScreen: React.FC = () => {
             {isLoading && <Text style={styles.loadingText}>Loading...</Text>}
             <TouchableOpacity 
               style={styles.filterButton}
-              onPress={() => {
-                // Example filter - you can customize this based on your needs
-                const exampleFilter = {
-                  standards: '11th,12th',
-                  subjects: 'Physics,Chemistry,Mathematics',
-                  target_exams: 'JEE Main,NEET',
-                  coaching_type: 'offline',
-                  fees_min: 10000,
-                  fees_max: 500000,
-                  rating_min: 4.0,
-                };
-                handleFilter(exampleFilter);
-              }}
+              onPress={handleOpenFilterModal}
             >
               <Ionicons name="filter" size={16} color="#3b82f6" />
+              {appliedFilters && (
+                <View style={styles.filterBadge}>
+                  <Text style={styles.filterBadgeText}>1</Text>
+                </View>
+              )}
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.refreshButton}
@@ -802,6 +957,60 @@ const HomeScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Applied Filters Display */}
+        {appliedFilters && (
+          <View style={styles.appliedFiltersContainer}>
+            <View style={styles.appliedFiltersHeader}>
+              <Text style={styles.appliedFiltersTitle}>Applied Filters:</Text>
+              <TouchableOpacity onPress={handleClearFilters} style={styles.clearFiltersButton}>
+                <Text style={styles.clearFiltersText}>Clear All</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.appliedFiltersScroll}>
+              {appliedFilters.search && (
+                <View style={styles.appliedFilterChip}>
+                  <Text style={styles.appliedFilterText}>Search: {appliedFilters.search}</Text>
+                </View>
+              )}
+              {appliedFilters.feesRange && (
+                <View style={styles.appliedFilterChip}>
+                  <Text style={styles.appliedFilterText}>{appliedFilters.feesRange}</Text>
+                </View>
+              )}
+              {appliedFilters.standard.map((standard) => (
+                <View key={standard} style={styles.appliedFilterChip}>
+                  <Text style={styles.appliedFilterText}>{standard}</Text>
+                </View>
+              ))}
+              {appliedFilters.coachingType && (
+                <View style={styles.appliedFilterChip}>
+                  <Text style={styles.appliedFilterText}>{appliedFilters.coachingType}</Text>
+                </View>
+              )}
+              {appliedFilters.ratingMin > 0 && (
+                <View style={styles.appliedFilterChip}>
+                  <Text style={styles.appliedFilterText}>{appliedFilters.ratingMin}+ Stars</Text>
+                </View>
+              )}
+              {appliedFilters.distance && (
+                <View style={styles.appliedFilterChip}>
+                  <Text style={styles.appliedFilterText}>{appliedFilters.distance}</Text>
+                </View>
+              )}
+              {appliedFilters.subjects && appliedFilters.subjects.length > 0 && (
+                <View style={styles.appliedFilterChip}>
+                  <Text style={styles.appliedFilterText}>{appliedFilters.subjects.join(', ')}</Text>
+                </View>
+              )}
+              {appliedFilters.targetExams && appliedFilters.targetExams.length > 0 && (
+                <View style={styles.appliedFilterChip}>
+                  <Text style={styles.appliedFilterText}>{appliedFilters.targetExams.join(', ')}</Text>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Location Controls */}
         {safeSelectedLocation && (
@@ -890,6 +1099,15 @@ const HomeScreen: React.FC = () => {
         activeTab={activeTab}
         onTabPress={handleTabPress}
       />
+
+      {/* Filter Modal */}
+      <SearchFilterScreen
+        visible={showFilterModal}
+        onClose={handleCloseFilterModal}
+        onApply={handleApplyFilters}
+        searchQuery=""
+        initialFilters={appliedFilters || undefined}
+      />
     </SafeAreaView>
   );
 };
@@ -968,6 +1186,71 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: '#f3f4f6',
     marginRight: 8,
+    position: 'relative',
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#ef4444',
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterBadgeText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  appliedFiltersContainer: {
+    backgroundColor: '#ffffff',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    padding: 12,
+  },
+  appliedFiltersHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  appliedFiltersTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  clearFiltersButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: '#fef2f2',
+    borderRadius: 6,
+  },
+  clearFiltersText: {
+    fontSize: 12,
+    color: '#dc2626',
+    fontWeight: '500',
+  },
+  appliedFiltersScroll: {
+    flexDirection: 'row',
+  },
+  appliedFilterChip: {
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: '#10b981',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginRight: 8,
+  },
+  appliedFilterText: {
+    fontSize: 12,
+    color: '#059669',
+    fontWeight: '500',
   },
 
   // New styles for Profile Screen

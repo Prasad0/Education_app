@@ -7,8 +7,8 @@ This directory contains the API configuration for the coaching finder app.
 The app uses environment variables stored in the `.env` file at the root of the project:
 
 ```env
-BASE_URL: 'http://13.200.17.30',
-  API_BASE_URL: 'http://13.200.17.30/api',
+BASE_URL: 'https://learn.crusheducation.in',
+  API_BASE_URL: 'https://learn.crusheducation.in/api',
  
 ```
 

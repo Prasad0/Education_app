@@ -47,7 +47,7 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
 
   useEffect(() => {
     if (coachingId) {
-      console.log('Fetching details for coaching ID:', coachingId);
+      
       dispatch(fetchCoachingCenterDetails(coachingId));
     }
     
@@ -255,10 +255,10 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
                     style={styles.galleryImage}
                     resizeMode="cover"
                     onError={(error) => {
-                      console.log('Image load error:', error.nativeEvent.error);
+                      
                     }}
                     onLoad={() => {
-                      console.log('Image loaded successfully');
+                      
                     }}
                     defaultSource={require('../../../assets/icon.png')}
                   />

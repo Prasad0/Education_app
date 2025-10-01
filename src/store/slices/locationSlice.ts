@@ -113,15 +113,15 @@ export const searchLocations = createAsyncThunk(
         return [];
       }
 
-      console.log('Searching for:', query);
+      
       
       // Try Google Maps first (better accuracy)
       if (SEARCH_CONFIG.PRIMARY_PROVIDER === 'google') {
         try {
-          console.log('Trying Google Maps API first...');
+          
           const googleResults = await searchWithGoogleMaps(query);
           if (googleResults && googleResults.length > 0) {
-            console.log('Google Maps results:', googleResults);
+            
             return googleResults;
           }
         } catch (googleError) {
@@ -130,7 +130,7 @@ export const searchLocations = createAsyncThunk(
       }
 
       // Fallback to OpenStreetMap (always works, free)
-      console.log('Using OpenStreetMap fallback...');
+      
       return await searchWithOpenStreetMap(query);
     } catch (error: any) {
       console.error('Location search error:', error);
@@ -146,7 +146,7 @@ async function searchWithGoogleMaps(query: string) {
     const searchQuery = encodeURIComponent(`${query}, India`);
     const url = `${GOOGLE_MAPS_ENDPOINTS.PLACES_AUTOCOMPLETE}`;
     
-    console.log('Google Maps Autocomplete URL:', url);
+    
     
     const requestBody = {
       input: `${query}, India`,
@@ -165,8 +165,7 @@ async function searchWithGoogleMaps(query: string) {
       body: JSON.stringify(requestBody),
     });
     
-    console.log('Google Maps response status:', response.status);
-    console.log('Google Maps response ok:', response.ok);
+    
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -175,10 +174,10 @@ async function searchWithGoogleMaps(query: string) {
     }
 
     const data = await response.json();
-    console.log('Google Maps response data:', data);
+    
     
     if (!data.places || data.places.length === 0) {
-      console.log('No places found in Google Maps response');
+      
       return [];
     }
 
@@ -222,7 +221,7 @@ async function searchWithGoogleMaps(query: string) {
       .filter((result: any) => result !== null && result.name && result.name !== ', ')
       .slice(0, 8);
 
-    console.log('Formatted Google Maps results:', formattedResults);
+    
     return formattedResults;
     
   } catch (error) {
@@ -237,7 +236,7 @@ async function searchWithOpenStreetMap(query: string) {
     const searchQuery = encodeURIComponent(`${query}, India`);
     const url = `${OPENSTREETMAP_CONFIG.BASE_URL}?q=${searchQuery}&countrycodes=${OPENSTREETMAP_CONFIG.PARAMS.countrycodes}&format=${OPENSTREETMAP_CONFIG.PARAMS.format}&limit=${OPENSTREETMAP_CONFIG.PARAMS.limit}&addressdetails=${OPENSTREETMAP_CONFIG.PARAMS.addressdetails}`;
     
-    console.log('Searching with OpenStreetMap:', url);
+    
     
     const response = await fetch(url, {
       headers: OPENSTREETMAP_CONFIG.HEADERS,
@@ -250,7 +249,7 @@ async function searchWithOpenStreetMap(query: string) {
     }
     
     const results = await response.json();
-    console.log('OpenStreetMap results:', results);
+    
     
     if (!Array.isArray(results)) {
       throw new Error('OpenStreetMap returned invalid data format');
@@ -285,7 +284,7 @@ async function searchWithOpenStreetMap(query: string) {
       .filter((result: any) => result.name && result.name !== ', ')
       .slice(0, 8);
 
-    console.log('Formatted results:', formattedResults);
+    
     return formattedResults;
   } catch (error: any) {
     console.error('OpenStreetMap search error:', error);
@@ -342,7 +341,7 @@ export const getNearbyLocations = createAsyncThunk(
   'location/getNearbyLocations',
   async (coordinates: { latitude: number; longitude: number }, { rejectWithValue }: any) => {
     try {
-      console.log('Getting nearby locations for:', coordinates);
+      
       
       // Simple OpenStreetMap search within 10km radius
       const url = `https://nominatim.openstreetmap.org/search?format=json&q=&lat=${coordinates.latitude}&lon=${coordinates.longitude}&radius=10000&limit=20`;
@@ -358,10 +357,10 @@ export const getNearbyLocations = createAsyncThunk(
       }
       
       const data = await response.json();
-      console.log('OpenStreetMap response:', data);
+      
       
       if (!Array.isArray(data) || data.length === 0) {
-        console.log('No nearby areas found');
+        
         return [];
       }
       
@@ -395,7 +394,7 @@ export const getNearbyLocations = createAsyncThunk(
         .sort((a, b) => a.distance - b.distance) // Sort by distance
         .slice(0, 10); // Limit to 10 results
       
-      console.log('Found nearby areas:', nearbyAreas.length);
+      
       return nearbyAreas;
       
     } catch (error: any) {

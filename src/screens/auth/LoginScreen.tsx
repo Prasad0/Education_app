@@ -47,7 +47,7 @@ const LoginScreen = ({navigation}: any) => {
   };
 
   const handleSocialLogin = (provider: string) => {
-    console.log(`Login with ${provider}`);
+    
     // In a real app, this would handle OAuth flow
     Alert.alert('Info', `${provider} login coming soon!`);
   };

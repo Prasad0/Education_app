@@ -272,7 +272,10 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack })
                     styles.filterOption,
                     searchParams.subject === subject && styles.filterOptionSelected
                   ]}
-                  onPress={() => handleFilterChange('subject', searchParams.subject === subject ? undefined : subject)}
+                  onPress={() => {
+                    handleFilterChange('subject', searchParams.subject === subject ? undefined : subject);
+                  }}
+                  activeOpacity={0.7}
                 >
                   <Text style={[
                     styles.filterOptionText,
@@ -295,7 +298,10 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack })
                     styles.filterOption,
                     searchParams.rating_min === rating && styles.filterOptionSelected
                   ]}
-                  onPress={() => handleFilterChange('rating_min', searchParams.rating_min === rating ? undefined : rating)}
+                  onPress={() => {
+                    handleFilterChange('rating_min', searchParams.rating_min === rating ? undefined : rating);
+                  }}
+                  activeOpacity={0.7}
                 >
                   <Text style={[
                     styles.filterOptionText,
@@ -318,7 +324,10 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack })
                     styles.filterOption,
                     searchParams.distance_max === distance && styles.filterOptionSelected
                   ]}
-                  onPress={() => handleFilterChange('distance_max', searchParams.distance_max === distance ? undefined : distance)}
+                  onPress={() => {
+                    handleFilterChange('distance_max', searchParams.distance_max === distance ? undefined : distance);
+                  }}
+                  activeOpacity={0.7}
                 >
                   <Text style={[
                     styles.filterOptionText,
