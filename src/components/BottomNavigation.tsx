@@ -3,8 +3,8 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface BottomNavigationProps {
-  activeTab: 'offline' | 'online' | 'starred' | 'profile';
-  onTabPress: (tab: 'offline' | 'online' | 'starred' | 'profile') => void;
+  activeTab: 'offline' | 'online' | 'private' | 'chat' | 'profile';
+  onTabPress: (tab: 'offline' | 'online' | 'private' | 'chat' | 'profile') => void;
 }
 
 const BottomNavigation: React.FC<BottomNavigationProps> = ({
@@ -14,7 +14,8 @@ const BottomNavigation: React.FC<BottomNavigationProps> = ({
   const tabs = [
     { id: 'offline', label: 'Offline', icon: 'people-outline' },
     { id: 'online', label: 'Online', icon: 'laptop-outline' },
-    { id: 'starred', label: 'Starred', icon: 'star-outline' },
+    { id: 'private', label: 'Private', icon: 'school-outline' },
+    { id: 'chat', label: 'Chat', icon: 'chatbubbles-outline' },
     { id: 'profile', label: 'Profile', icon: 'person-outline' },
   ] as const;
 
@@ -25,6 +26,8 @@ const BottomNavigation: React.FC<BottomNavigationProps> = ({
           key={tab.id}
           onPress={() => onTabPress(tab.id)}
           style={styles.tab}
+          activeOpacity={0.7}
+          delayPressIn={0}
         >
           <Ionicons 
             name={activeTab === tab.id ? tab.icon.replace('-outline', '') : tab.icon as any} 
@@ -55,6 +58,12 @@ const styles = StyleSheet.create({
     borderTopColor: '#e5e7eb',
     paddingBottom: 40, // Increased padding bottom for better spacing
     paddingTop: 12,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    elevation: 10, // For Android
   },
   tab: {
     flex: 1,

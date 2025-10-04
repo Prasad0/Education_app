@@ -24,8 +24,8 @@ ip addr show
 ### 2. Update Configuration Files
 
 The configuration now uses the same server for both environments:
-- **Development**: `http://65.0.135.170/api` (port 3000)
-- **Production**: `http://65.0.135.170/api` (default port 80)
+- **Development**: `http://13.200.17.30/api` (port 3000)
+- **Production**: `http://13.200.17.30/api` (default port 80)
 
 No manual IP updates needed - the configuration automatically switches between ports.
 
@@ -59,8 +59,8 @@ android/
 
 ### Environment Files
 
-- **Development**: Uses HTTP with development port (e.g., `http://65.0.135.170:3000`)
-- **Production**: Uses HTTP with production port (e.g., `http://65.0.135.170`)
+- **Development**: Uses HTTP with development port (e.g., `http://13.200.17.30:3000`)
+- **Production**: Uses HTTP with production port (e.g., `http://13.200.17.30`)
 
 ### Automatic Environment Detection
 

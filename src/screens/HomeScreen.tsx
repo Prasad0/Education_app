@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, Alert, Linking, TouchableOpacity, RefreshControl, Animated } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
@@ -17,6 +17,8 @@ import CoachingDetailScreen from './CoachingDetails/CoachingDetailScreen';
 import LocationSelector from '../components/LocationSelector';
 import SearchFilterScreen from './SearchFilterScreen';
 import { CoachingCenter } from '../store/slices/coachingSlice';
+import OnlineScreen from './OnlineScreen';
+import PrivateCoachingScreen from './PrivateCoachingScreen';
 import { logout } from '../store/slices/authSlice';
 
 // Filter interface for the modal
@@ -76,12 +78,13 @@ const HomeScreen: React.FC = () => {
   const safeCoordinates = coordinates || null;
   const safeSelectedLocationData = selectedLocationData || null;
   
-  const [currentScreen, setCurrentScreen] = useState<'home' | 'search' | 'listing' | 'location' | 'profile' | 'detail' | 'searchFilter'>('home');
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'search' | 'listing' | 'location' | 'profile' | 'detail' | 'searchFilter' | 'online' | 'private'>('home');
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [selectedCoachingId, setSelectedCoachingId] = useState<string>('');
   const [spinValue] = useState(new Animated.Value(0));
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState<FilterState | null>(null);
+  const forceUpdateRef = useRef(0);
 
   // Determine which profile data to use (user or profile field)
   const actualProfile = user || profile;
@@ -241,6 +244,7 @@ const HomeScreen: React.FC = () => {
     }
   }, [actualProfile, mockUserProfile.students]);
 
+
   // Start spinning animation when loading
   useEffect(() => {
     if (isLoading) {
@@ -256,19 +260,50 @@ const HomeScreen: React.FC = () => {
     }
   }, [isLoading, spinValue]);
 
-  const handleTabPress = (tab: 'offline' | 'online' | 'starred' | 'profile') => {
-         if (tab === 'profile') {
-       // Navigate to profile screen
-       setCurrentScreen('profile');
-       return;
-     }
+  // Force re-render when currentScreen changes
+  useEffect(() => {
+    console.log('currentScreen changed to:', currentScreen);
+  }, [currentScreen]);
+  
+  // Force re-render when activeTab changes
+  useEffect(() => {
+    console.log('activeTab changed to:', activeTab);
+  }, [activeTab]);
+
+  const handleTabPress = (tab: 'offline' | 'online' | 'private' | 'chat' | 'profile') => {
+    console.log('Tab pressed:', tab, 'Current screen:', currentScreen);
     
-    if (tab === 'offline' || tab === 'online' || tab === 'starred') {
-      // For coaching-related tabs, go back to home screen and set active tab
-      setCurrentScreen('home');
+    // Force immediate update
+    forceUpdateRef.current += 1;
+    
+    // Update Redux state first for immediate UI feedback
+    if (tab !== 'profile') {
       dispatch(setActiveTab(tab));
-      return;
     }
+    
+    // Update local state immediately
+    switch (tab) {
+      case 'profile':
+        setCurrentScreen('profile');
+        break;
+      case 'online':
+        console.log('Setting currentScreen to online');
+        setCurrentScreen('online');
+        break;
+      case 'private':
+        console.log('Setting currentScreen to private');
+        setCurrentScreen('private');
+        break;
+      case 'offline':
+      case 'chat':
+        console.log('Setting currentScreen to home');
+        setCurrentScreen('home');
+        break;
+      default:
+        setCurrentScreen('home');
+    }
+    
+    console.log('After tab press - currentScreen will be:', tab === 'offline' || tab === 'chat' ? 'home' : tab);
   };
 
   const handleLocationPress = () => {
@@ -446,6 +481,25 @@ const HomeScreen: React.FC = () => {
     }
   };
 
+  // Helper function to check if there are any active filters
+  const hasActiveFilters = (filters: FilterState | null): boolean => {
+    if (!filters) return false;
+    
+    return !!(
+      filters.search ||
+      filters.feesRange ||
+      filters.batchTiming ||
+      filters.distance ||
+      filters.coachingType ||
+      filters.ratingMin > 0 ||
+      (filters.amenities && filters.amenities.length > 0) ||
+      (filters.discounts && filters.discounts.length > 0) ||
+      (filters.standard && filters.standard.length > 0) ||
+      (filters.subjects && filters.subjects.length > 0) ||
+      (filters.targetExams && filters.targetExams.length > 0)
+    );
+  };
+
   const handleBookDemo = (center: CoachingCenter) => {
     Alert.alert(
       'Book Demo',
@@ -519,6 +573,23 @@ const HomeScreen: React.FC = () => {
     );
   }
 
+  // Check for online screen first
+  if (currentScreen === 'online') {
+    console.log('Rendering OnlineScreen, currentScreen:', currentScreen, 'activeTab:', activeTab);
+    return (
+      <OnlineScreen
+        onBack={() => {
+          console.log('OnlineScreen onBack called');
+          setCurrentScreen('home');
+        }}
+        onViewDetails={(center: CoachingCenter) => {
+          setSelectedCoachingId(center.id);
+          setCurrentScreen('detail');
+        }}
+      />
+    );
+  }
+
   if (currentScreen === 'detail') {
     return (
       <CoachingDetailScreen
@@ -540,6 +611,15 @@ const HomeScreen: React.FC = () => {
           // Handle view teacher profile
           Alert.alert('Teacher Profile', `Teacher profile for ${teacherId} coming soon!`);
         }}
+      />
+    );
+  }
+
+  if (currentScreen === 'private') {
+    console.log('Rendering PrivateCoachingScreen, currentScreen:', currentScreen, 'activeTab:', activeTab);
+    return (
+      <PrivateCoachingScreen
+        onBack={() => setCurrentScreen('home')}
       />
     );
   }
@@ -889,15 +969,26 @@ const HomeScreen: React.FC = () => {
 
         {/* Bottom Navigation - Fixed */}
         <BottomNavigation
-          activeTab="profile"
+          activeTab={activeTab}
           onTabPress={handleTabPress}
+          key={`bottom-nav-${activeTab}-${forceUpdateRef.current}`}
         />
       </SafeAreaView>
     );
   }
 
+  console.log('HomeScreen render - currentScreen:', currentScreen, 'activeTab:', activeTab);
+  
+  // Debug: Check if there's a mismatch between activeTab and currentScreen
+  console.log('Debug - activeTab:', activeTab, 'currentScreen:', currentScreen);
+  
+  // Debug: Check if we're rendering home screen when we should be rendering online/private
+  if (currentScreen === 'home' && (activeTab === 'online' || activeTab === 'private')) {
+    console.warn('WARNING: Rendering home screen but activeTab is', activeTab);
+  }
+  
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView key={`${currentScreen}-${forceUpdateRef.current}`} style={styles.container}>
       {/* Header - Fixed */}
       <Header
         location={safeSelectedLocation}
@@ -924,6 +1015,10 @@ const HomeScreen: React.FC = () => {
             tintColor="#3b82f6"
           />
         }
+        // Web-specific scroll properties
+        nestedScrollEnabled={true}
+        scrollEventThrottle={16}
+        removeClippedSubviews={false}
       >
         {/* Promotional banners */}
         <PromotionalBanner banners={promotionalBanners} />
@@ -959,7 +1054,7 @@ const HomeScreen: React.FC = () => {
         </View>
 
         {/* Applied Filters Display */}
-        {appliedFilters && (
+        {hasActiveFilters(appliedFilters) && appliedFilters && (
           <View style={styles.appliedFiltersContainer}>
             <View style={styles.appliedFiltersHeader}>
               <Text style={styles.appliedFiltersTitle}>Applied Filters:</Text>
@@ -967,7 +1062,13 @@ const HomeScreen: React.FC = () => {
                 <Text style={styles.clearFiltersText}>Clear All</Text>
               </TouchableOpacity>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.appliedFiltersScroll}>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false} 
+              style={styles.appliedFiltersScroll}
+              nestedScrollEnabled={true}
+              scrollEventThrottle={16}
+            >
               {appliedFilters.search && (
                 <View style={styles.appliedFilterChip}>
                   <Text style={styles.appliedFilterText}>Search: {appliedFilters.search}</Text>

@@ -40,41 +40,41 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack })
     ]
   };
 
-  // Remove automatic API call - only fetch when explicitly requested
-  // useEffect(() => {
-  //   console.log('📍 [CoachingListingScreen] LOCATION CHANGED - useEffect triggered');
-  //   console.log('📍 [CoachingListingScreen] New selectedLocation:', selectedLocation);
-  //   console.log('📍 [CoachingListingScreen] New coordinates:', coordinates);
-  //   
-  //   // Fetch coaching centers using selected location
-  //   if (selectedLocation) {
-  //     // Extract area name from selected location (e.g., "Borivali, Maharashtra, India" -> "Borivali")
-  //     const areaName = selectedLocation.split(',')[0].trim();
-  //     
-  //     console.log('📍 [CoachingListingScreen] Using selected location:', selectedLocation);
-  //     console.log('🔍 [CoachingListingScreen] Area name for search:', areaName);
-  //     console.log('📍 [CoachingListingScreen] Coordinates:', coordinates);
-  //     
-  //     // Use the area name for search and include coordinates directly
-  //     const params = { 
-  //       search: areaName,
-  //       latitude: coordinates?.latitude,
-  //       longitude: coordinates?.longitude
-  //     };
-  //     
-  //     console.log('📋 [CoachingListingScreen] Dispatching fetchCoachingCenters with params:', JSON.stringify(params, null, 2));
-  //     dispatch(fetchCoachingCenters(params));
-  //   } else {
-  //     // Fallback to default location if no location selected
-  //     const params = { 
-  //       location: 'Koramangala',
-  //       city: 'Bangalore'
-  //     };
-  //     
-  //     console.log('📋 [CoachingListingScreen] No location selected, using default params:', JSON.stringify(params, null, 2));
-  //     dispatch(fetchCoachingCenters(params));
-  //   }
-  // }, [dispatch, selectedLocation, coordinates]);
+  // Fetch coaching centers when component mounts or location changes
+  useEffect(() => {
+    console.log('📍 [CoachingListingScreen] LOCATION CHANGED - useEffect triggered');
+    console.log('📍 [CoachingListingScreen] New selectedLocation:', selectedLocation);
+    console.log('📍 [CoachingListingScreen] New coordinates:', coordinates);
+    
+    // Fetch coaching centers using selected location
+    if (selectedLocation) {
+      // Extract area name from selected location (e.g., "Borivali, Maharashtra, India" -> "Borivali")
+      const areaName = selectedLocation.split(',')[0].trim();
+      
+      console.log('📍 [CoachingListingScreen] Using selected location:', selectedLocation);
+      console.log('🔍 [CoachingListingScreen] Area name for search:', areaName);
+      console.log('📍 [CoachingListingScreen] Coordinates:', coordinates);
+      
+      // Use the area name for search and include coordinates directly
+      const params = { 
+        search: areaName,
+        latitude: coordinates?.latitude,
+        longitude: coordinates?.longitude
+      };
+      
+      console.log('📋 [CoachingListingScreen] Dispatching fetchCoachingCenters with params:', JSON.stringify(params, null, 2));
+      dispatch(fetchCoachingCenters(params));
+    } else {
+      // Fallback to default location if no location selected
+      const params = { 
+        location: 'Koramangala',
+        city: 'Bangalore'
+      };
+      
+      console.log('📋 [CoachingListingScreen] No location selected, using default params:', JSON.stringify(params, null, 2));
+      dispatch(fetchCoachingCenters(params));
+    }
+  }, [dispatch, selectedLocation, coordinates]);
 
   useEffect(() => {
     // Set initial student if available
@@ -98,7 +98,7 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack })
     }
   }, [error, dispatch]);
 
-  const handleTabPress = (tab: 'offline' | 'online' | 'starred' | 'profile') => {
+  const handleTabPress = (tab: 'offline' | 'online' | 'private' | 'chat' | 'profile') => {
     if (tab === 'profile') {
       return;
     }

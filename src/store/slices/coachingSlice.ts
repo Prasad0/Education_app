@@ -74,7 +74,7 @@ export interface CoachingState {
   isLoading: boolean;
   error: string | null;
   searchParams: CoachingSearchParams;
-  activeTab: 'offline' | 'online' | 'starred';
+  activeTab: 'offline' | 'online' | 'private' | 'chat';
   starredCenters: string[]; // Array of coaching center IDs
   detailedInfo: any | null; // Detailed coaching center info
   isDetailedLoading: boolean;
@@ -168,22 +168,7 @@ const getFallbackData = (): CoachingCenter[] => {
 // Test function to add sample data for debugging
 const getTestData = (): CoachingCenter[] => {
   
-  return [
-    {
-      id: 'test-1',
-      name: 'Test Academy',
-      tagline: 'Test with images',
-      className: 'Test Class',
-      fees: '₹10,000',
-      rating: 4.5,
-      reviews: 10,
-      images: ['https://picsum.photos/400/300?random=1'],
-      gallery_images: ['https://picsum.photos/400/300?random=1', 'https://picsum.photos/400/300?random=2'],
-      location: 'Test City',
-      phone: '+91 99999 99999',
-      subjects: ['Math', 'Science'],
-    }
-  ];
+  return [];
 };
 
 const initialState: CoachingState = {
@@ -631,16 +616,35 @@ const coachingSlice = createSlice({
   name: 'coaching',
   initialState,
   reducers: {
-    setActiveTab: (state, action: PayloadAction<'offline' | 'online' | 'starred'>) => {
+    setActiveTab: (state, action: PayloadAction<'offline' | 'online' | 'private' | 'chat'>) => {
       state.activeTab = action.payload;
       // Filter centers based on active tab
-      if (action.payload === 'starred') {
+      if (action.payload === 'private') {
+        // Show starred centers
         state.filteredCenters = state.coachingCenters.filter(center => 
           state.starredCenters.includes(center.id)
         );
-      } else {
-        state.filteredCenters = state.coachingCenters;
+        return;
       }
+
+      if (action.payload === 'online') {
+        // Show only online coaching
+        state.filteredCenters = state.coachingCenters.filter(center =>
+          (center.coaching_type || '').toLowerCase() === 'online'
+        );
+        return;
+      }
+
+      if (action.payload === 'offline') {
+        // Show only offline coaching
+        state.filteredCenters = state.coachingCenters.filter(center =>
+          (center.coaching_type || '').toLowerCase() === 'offline'
+        );
+        return;
+      }
+
+      // Default behavior for other tabs (e.g., chat)
+      state.filteredCenters = state.coachingCenters;
     },
     setSearchParams: (state, action: PayloadAction<Partial<CoachingSearchParams>>) => {
       state.searchParams = { ...state.searchParams, ...action.payload };
@@ -655,8 +659,8 @@ const coachingSlice = createSlice({
       } else {
         state.starredCenters.push(centerId);
       }
-      // Update filtered centers if on starred tab
-      if (state.activeTab === 'starred') {
+      // Update filtered centers if on starred tab (now handled by private tab)
+      if (state.activeTab === 'private') {
         state.filteredCenters = state.coachingCenters.filter(center => 
           state.starredCenters.includes(center.id)
         );

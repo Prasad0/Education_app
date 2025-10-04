@@ -166,7 +166,7 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({
   };
 
   const clearAllFilters = () => {
-    setActiveFilters({
+    const clearedFilters = {
       search: '',
       feesRange: '',
       batchTiming: '',
@@ -178,8 +178,13 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({
       ratingMin: 0,
       subjects: [],
       targetExams: [],
-    });
+    };
+    
+    setActiveFilters(clearedFilters);
     setSearchText('');
+    
+    // Apply the cleared filters to update the parent component
+    onApply(clearedFilters);
   };
 
 
@@ -255,7 +260,13 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({
 
             {/* Active Filters Row */}
             {activeFilterCount > 0 && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.activeFiltersContainer}>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false} 
+                style={styles.activeFiltersContainer}
+                nestedScrollEnabled={true}
+                scrollEventThrottle={16}
+              >
                 {activeFilters.search && (
                   <FilterChip
                     label={`Search: ${activeFilters.search}`}
@@ -370,7 +381,13 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({
         </View>
 
         {/* Filters Section */}
-        <ScrollView style={styles.filtersContainer} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          style={styles.filtersContainer} 
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled={true}
+          scrollEventThrottle={16}
+          removeClippedSubviews={false}
+        >
           <View style={styles.filtersContent}>
             {/* Fees Range */}
             <View style={styles.filterGroup}>

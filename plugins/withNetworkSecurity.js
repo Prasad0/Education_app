@@ -23,7 +23,7 @@ const withNetworkSecurity = (config) => {
 <network-security-config>
     <!-- Allow HTTP traffic for your API server -->
     <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">65.0.135.170</domain>
+        <domain includeSubdomains="true">13.200.17.30</domain>
     </domain-config>
     
     <!-- Allow HTTP for local development -->

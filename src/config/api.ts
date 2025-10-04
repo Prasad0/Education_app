@@ -46,6 +46,7 @@ export const API_CONFIG = {
     ADD_CHILD: '/user_auth/users/add_child/',
     GET_PROFILE: '/user_auth/users/get_profile/',
     COACHING_CENTERS: '/coachings/',
+    ONLINE_COURSES: '/online-courses/courses/',
   }
 };
 

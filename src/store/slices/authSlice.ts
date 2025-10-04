@@ -38,7 +38,7 @@ export const sendOtp = createAsyncThunk(
   'auth/sendOtp',
   async (phoneNumber: string, {rejectWithValue}) => {
     try {
-      //http://65.0.135.170/api/user_auth/users/send_otp/
+      //http://13.200.17.30/api/user_auth/users/send_otp/
       const response = await api.post(API_CONFIG.ENDPOINTS.SEND_OTP, {
         phone_number: phoneNumber
       });

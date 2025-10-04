@@ -23,15 +23,15 @@ interface EnvironmentConfig {
 const getLocalIP = (): string => {
   // Using the same server for development and production
   // Development uses port 3000, production uses default port 80
-  return '65.0.135.170';
+  return '13.200.17.30';
 };
 
 // Environment configurations
 const environments: Record<Environment, EnvironmentConfig> = {
   development: {
     name: 'development',
-    apiBaseUrl: `http://65.0.135.170:3000/api`,
-    baseUrl: `http://65.0.135.170:3000/`,
+    apiBaseUrl: `http://13.200.17.30:3000/api`,
+    baseUrl: `http://13.200.17.30:3000/`,
     timeout: 10000,
     logLevel: 'debug',
     allowHttp: true,
@@ -43,8 +43,8 @@ const environments: Record<Environment, EnvironmentConfig> = {
   },
   staging: {
     name: 'staging',
-    apiBaseUrl: 'http://65.0.135.170/api',
-    baseUrl: 'http://65.0.135.170/',
+    apiBaseUrl: 'http://13.200.17.30/api',
+    baseUrl: 'http://13.200.17.30/',
     timeout: 15000,
     logLevel: 'info',
     allowHttp: false,
@@ -56,8 +56,8 @@ const environments: Record<Environment, EnvironmentConfig> = {
   },
   production: {
     name: 'production',
-    apiBaseUrl: 'http://65.0.135.170/api',
-    baseUrl: 'http://65.0.135.170',
+    apiBaseUrl: 'http://13.200.17.30/api',
+    baseUrl: 'http://13.200.17.30',
     timeout: 15000,
     logLevel: 'error',
     allowHttp: true,
