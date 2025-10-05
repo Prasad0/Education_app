@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "364418263771",
+    "project_id": "coaching-finder-f277f",
+    "storage_bucket": "coaching-finder-f277f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:364418263771:android:c4492e042553dfb09e7afe",
+        "android_client_info": {
+          "package_name": "com.prasad01.coachingfinderapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCHdKDY2w1thx8JZIBqFfmm_uVJ49nKBDI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
