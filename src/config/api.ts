@@ -47,11 +47,17 @@ export const API_CONFIG = {
     GET_PROFILE: '/user_auth/users/get_profile/',
     COACHING_CENTERS: '/coachings/',
     ONLINE_COURSES: '/online-courses/courses/',
+    COURSE_DETAIL: '/online-courses/courses/', // Will be appended with courseId
   }
 };
 
 export const getApiUrl = (endpoint: string) => {
   return `${API_CONFIG.API_BASE_URL}${endpoint}`;
+};
+
+// Utility function to get course detail URL
+export const getCourseDetailUrl = (courseId: number | string) => {
+  return `${getApiUrl(API_CONFIG.ENDPOINTS.COURSE_DETAIL)}${courseId}/`;
 };
 
 // Enhanced error logging function

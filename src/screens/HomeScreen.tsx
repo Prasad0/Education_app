@@ -281,7 +281,7 @@ const HomeScreen: React.FC = () => {
       dispatch(setActiveTab(tab));
     }
     
-    // Update local state immediately
+    // Update local state immediately - directly set the value instead of using callback
     switch (tab) {
       case 'profile':
         setCurrentScreen('profile');

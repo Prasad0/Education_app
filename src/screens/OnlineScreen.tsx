@@ -1,10 +1,12 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import React, { useState, useMemo, useEffect } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import BottomNavigation from '../components/BottomNavigation';
 import { CoachingCenter, toggleStarred } from '../store/slices/coachingSlice';
-import { CoursesTab, MyCoursesTab, MaterialsTab, OnlineCoaching } from './OnlineScreen/';
+import { fetchCourseDetail, clearCourseDetail } from '../store/slices/onlineCoursesSlice';
+import { testCourseDetailAPI } from '../utils/testCourseApi';
+import { CoursesTab, MyCoursesTab, MaterialsTab, CourseDetailScreen, OnlineCoaching } from './OnlineScreen/';
 
 
 interface OnlineScreenProps {
@@ -15,6 +17,7 @@ interface OnlineScreenProps {
 const OnlineScreen: React.FC<OnlineScreenProps> = ({ onBack, onViewDetails }) => {
   const dispatch = useAppDispatch();
   const { coachingCenters, starredCenters } = useAppSelector(state => state.coaching);
+  const { selectedCourse: courseDetail, courseDetailLoading, courseDetailError } = useAppSelector(state => state.onlineCourses);
   
   const [activeCategory, setActiveCategory] = useState<'coaching' | 'materials' | 'purchased'>('coaching');
   const [searchQuery, setSearchQuery] = useState('');
@@ -26,6 +29,19 @@ const OnlineScreen: React.FC<OnlineScreenProps> = ({ onBack, onViewDetails }) =>
       (center.coaching_type || '').toLowerCase() === 'online'
     );
   }, [coachingCenters]);
+
+  // Fetch course details when a course is selected
+  useEffect(() => {
+    console.log('OnlineScreen - selectedCourse changed:', selectedCourse);
+    if (selectedCourse) {
+      console.log('OnlineScreen - Fetching course details for ID:', selectedCourse.id);
+      dispatch(fetchCourseDetail(selectedCourse.id));
+    }
+    
+    return () => {
+      dispatch(clearCourseDetail());
+    };
+  }, [selectedCourse, dispatch]);
 
   const categories = [
     { id: 'coaching', label: 'Courses', icon: 'videocam-outline' },
@@ -52,27 +68,27 @@ const OnlineScreen: React.FC<OnlineScreenProps> = ({ onBack, onViewDetails }) =>
   };
 
   if (selectedCourse) {
-    // Course detail screen would go here
+    console.log('OnlineScreen - Rendering course detail screen');
+    console.log('OnlineScreen - courseDetail:', courseDetail);
+    console.log('OnlineScreen - courseDetailLoading:', courseDetailLoading);
+    console.log('OnlineScreen - courseDetailError:', courseDetailError);
+    
+    // Use the detailed course data if available, otherwise use the basic course data
+    const courseToDisplay = courseDetail || selectedCourse;
+    
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => setSelectedCourse(null)}>
-            <Ionicons name="arrow-back" size={24} color="#111827" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>{selectedCourse.title}</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-        <View style={styles.content}>
-          <Text style={styles.detailPlaceholder}>Course details coming soon...</Text>
-        </View>
-        <BottomNavigation
-          activeTab="online"
-          onTabPress={(tab) => {
-            if (tab === 'online') return;
-            onBack();
-          }}
-        />
-      </SafeAreaView>
+      <CourseDetailScreen
+        course={courseToDisplay}
+        onBack={() => setSelectedCourse(null)}
+        activeTab="online"
+        onTabSelect={(tab) => {
+          if (tab === 'online') return;
+          onBack();
+        }}
+        onJoinLiveClass={(courseId) => {
+          Alert.alert('Join Live Class', `Joining live class for course ID: ${courseId}`);
+        }}
+      />
     );
   }
 
@@ -84,7 +100,19 @@ const OnlineScreen: React.FC<OnlineScreenProps> = ({ onBack, onViewDetails }) =>
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Online Learning</Text>
-        <View style={styles.headerSpacer} />
+        <TouchableOpacity 
+          style={styles.testButton}
+          onPress={async () => {
+            try {
+              const result = await testCourseDetailAPI(1);
+              Alert.alert('API Test', `Course details loaded successfully!\nTitle: ${result.title}`);
+            } catch (error) {
+              Alert.alert('API Test Error', `Failed to load course details: ${error}`);
+            }
+          }}
+        >
+          <Text style={styles.testButtonText}>Test API</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Search Bar */}
@@ -134,7 +162,10 @@ const OnlineScreen: React.FC<OnlineScreenProps> = ({ onBack, onViewDetails }) =>
         {activeCategory === 'coaching' && (
           <CoursesTab 
             searchQuery={searchQuery} 
-            onCourseSelect={setSelectedCourse}
+            onCourseSelect={(course) => {
+              console.log('OnlineScreen - Course selected from CoursesTab:', course.title, 'ID:', course.id);
+              setSelectedCourse(course);
+            }}
           />
         )}
 
@@ -186,6 +217,17 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 40,
+  },
+  testButton: {
+    backgroundColor: '#059669',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  testButtonText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
   },
   searchContainer: {
     paddingHorizontal: 16,

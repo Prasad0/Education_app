@@ -50,17 +50,22 @@ const CoursesTab: React.FC<TabComponentProps> = ({ searchQuery, onCourseSelect }
 
   const CourseCard = ({ course }: { course: OnlineCoaching }) => {
     const isFree = course.is_free;
-    const isThirdParty = course.platform.is_third_party;
-    const levelColors = getLevelColor(course.level.name);
-    const primarySubject = course.subjects[0]?.name || 'General';
-    const priceText = isFree ? 'FREE' : `₹${parseFloat(course.price).toLocaleString()}`;
+    const isThirdParty = course.platform?.is_third_party;
+    const levelColors = getLevelColor(course.level?.name || 'Beginner');
+    const primarySubject = course.subjects?.[0]?.name || 'General';
+    const priceText = isFree ? 'FREE' : `₹${parseFloat(course.price || '0').toLocaleString()}`;
     const originalPriceText = course.original_price ? `₹${parseFloat(course.original_price).toLocaleString()}` : null;
     const discountText = course.discount_percentage > 0 ? `${course.discount_percentage}% OFF` : null;
+
+    const handleCoursePress = () => {
+      console.log('CoursesTab - Course pressed:', course.title, 'ID:', course.id);
+      onCourseSelect?.(course);
+    };
 
     return (
       <TouchableOpacity 
         style={styles.courseCard}
-        onPress={() => onCourseSelect?.(course)}
+        onPress={handleCoursePress}
         activeOpacity={0.9}
       >
         <View style={styles.courseImageContainer}>
@@ -104,22 +109,22 @@ const CoursesTab: React.FC<TabComponentProps> = ({ searchQuery, onCourseSelect }
                 <Text style={styles.subjectBadgeText}>{primarySubject}</Text>
               </View>
             </View>
-            <Text style={styles.courseTitle} numberOfLines={2}>{course.title}</Text>
-            <Text style={styles.courseInstructor}>by {course.instructor.name}</Text>
+            <Text style={styles.courseTitle} numberOfLines={2}>{course.title || 'Untitled Course'}</Text>
+            <Text style={styles.courseInstructor}>by {course.instructor?.name || 'Unknown Instructor'}</Text>
           </View>
 
           <View style={styles.courseStats}>
             <View style={styles.courseStat}>
               <Ionicons name="star" size={12} color="#fbbf24" />
-              <Text style={styles.courseStatText}>{course.rating}</Text>
+              <Text style={styles.courseStatText}>{course.rating || '0'}</Text>
             </View>
             <View style={styles.courseStat}>
               <Ionicons name="people-outline" size={12} color="#6b7280" />
-              <Text style={styles.courseStatText}>{course.enrolled_students.toLocaleString()}</Text>
+              <Text style={styles.courseStatText}>{(course.enrolled_students || 0).toLocaleString()}</Text>
             </View>
             <View style={styles.courseStat}>
               <Ionicons name="time-outline" size={12} color="#6b7280" />
-              <Text style={styles.courseStatText}>{course.duration_months} months</Text>
+              <Text style={styles.courseStatText}>{course.duration_months || 0} months</Text>
             </View>
           </View>
 
@@ -133,7 +138,7 @@ const CoursesTab: React.FC<TabComponentProps> = ({ searchQuery, onCourseSelect }
             <Ionicons name="chevron-forward" size={16} color="#9ca3af" />
           </View>
           
-          {course.next_class_datetime && (
+          {course.next_class_datetime && course.next_class_topic && (
             <Text style={styles.nextClassText}>Next class: {course.next_class_topic}</Text>
           )}
         </View>
