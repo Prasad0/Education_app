@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Linking, Image, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Linking, Image, SafeAreaView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
 import { OnlineCoaching } from './types';
 import BottomNavigation from '../../components/BottomNavigation';
+import { api, getCourseEnrollUrl, getEnrollmentErrorMessage } from '../../config/api';
 
 interface CourseDetailScreenProps {
   course: OnlineCoaching;
@@ -23,6 +24,7 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
   const [showCouponCode, setShowCouponCode] = useState(false);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const [isVideoLoading, setIsVideoLoading] = useState(false);
+  const [isEnrolling, setIsEnrolling] = useState(false);
   const videoRef = useRef<Video>(null);
   
   // Safety check for course object
@@ -86,13 +88,19 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
     courseVideoUrl = `http://13.200.17.30${courseVideoUrl}`;
   }
   
-  // Debug logging for video URL
-  console.log('CourseDetailScreen - Video URL:', courseVideoUrl);
-  console.log('CourseDetailScreen - Full video field:', course.video);
-  console.log('CourseDetailScreen - Display video field:', course.video_url_display);
   
   // Get course description - use description if available, fallback to short_description
   const courseDescription = course.description || course.short_description || '';
+  
+  // Debug logging for enrollment status
+  console.log('CourseDetailScreen - Enrollment Status Debug:', {
+    courseId: course.id,
+    courseTitle: course.title,
+    is_enrollment_open: course.is_enrollment_open,
+    enrollment_status: course.enrollment_status,
+    enrollment_details: course.enrollment_details,
+    is_free: course.is_free
+  });
 
   const handleCopyCoupon = () => {
     // In React Native, we'll use Alert instead of clipboard
@@ -103,7 +111,7 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
     setTimeout(() => setShowCouponCode(false), 2000);
   };
 
-  const handleCourseAction = () => {
+  const handleCourseAction = async () => {
     if (course.is_live && onJoinLiveClass) {
       onJoinLiveClass(course.id);
     } else if (course.platform?.is_third_party && course.platform.name !== 'CourseHub') {
@@ -113,7 +121,72 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
         Alert.alert('Error', 'Could not open the link');
       });
     } else {
-      Alert.alert('Enroll', 'Course enrollment functionality will be implemented soon!');
+      // Handle enrollment for CourseHub courses
+      await handleEnrollment();
+    }
+  };
+
+  const handleEnrollment = async () => {
+    if (isEnrolling) return; // Prevent multiple enrollment attempts
+    
+    setIsEnrolling(true);
+    
+    try {
+      console.log('=== ENROLLMENT ATTEMPT DEBUG ===');
+      console.log('Course ID:', course.id);
+      console.log('Course title:', course.title);
+      console.log('Course enrollment_status:', course.enrollment_status);
+      console.log('Course is_enrollment_open:', course.is_enrollment_open);
+      
+      const enrollUrl = getCourseEnrollUrl(course.id);
+      console.log('Enrollment URL:', enrollUrl);
+      
+      console.log('Making POST request to:', enrollUrl);
+      const response = await api.post(enrollUrl);
+      
+      console.log('Enrollment successful:', response.data);
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
+      
+      // Show success message
+      Alert.alert(
+        'Enrollment Successful! 🎉',
+        `You have successfully enrolled in "${course.title}". You can now start learning!`,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Optionally refresh course data or navigate back
+              // You might want to update the course status here
+            }
+          }
+        ]
+      );
+      
+    } catch (error: any) {
+      console.error('=== ENROLLMENT ERROR DEBUG ===');
+      console.error('Full error object:', JSON.stringify(error, null, 2));
+      console.error('Error response:', error.response);
+      console.error('Error response data:', error.response?.data);
+      console.error('Error response status:', error.response?.status);
+      console.error('Error response headers:', error.response?.headers);
+      console.error('Error message:', error.message);
+      console.error('Error config:', error.config);
+      console.error('Course ID:', course.id);
+      console.error('Course title:', course.title);
+      console.error('Enrollment URL:', getCourseEnrollUrl(course.id));
+      console.error('=== END ENROLLMENT ERROR DEBUG ===');
+      
+      // Use the specialized enrollment error handler
+      const errorMessage = getEnrollmentErrorMessage(error);
+      
+      Alert.alert(
+        'Enrollment Failed',
+        errorMessage,
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsEnrolling(false);
     }
   };
 
@@ -127,6 +200,34 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
 
   const handleMoreOptions = () => {
     Alert.alert('More Options', 'More options menu will be implemented soon!');
+  };
+
+  // Debug function to test enrollment API
+  const testEnrollmentAPI = async () => {
+    try {
+      console.log('=== TESTING ENROLLMENT API ===');
+      const enrollUrl = getCourseEnrollUrl(course.id);
+      console.log('Testing URL:', enrollUrl);
+      
+      // Test with a simple GET request first to see if endpoint exists
+      try {
+        const testResponse = await api.get(enrollUrl.replace('/enroll/', '/'));
+        console.log('Course detail response:', testResponse.status);
+      } catch (testError: any) {
+        console.log('Course detail test error:', testError.response?.status);
+      }
+      
+      // Now test the actual enrollment
+      const response = await api.post(enrollUrl);
+      console.log('Enrollment test successful:', response.data);
+      
+    } catch (error: any) {
+      console.error('=== ENROLLMENT API TEST FAILED ===');
+      console.error('Error:', error);
+      console.error('Response:', error.response);
+      console.error('Status:', error.response?.status);
+      console.error('Data:', error.response?.data);
+    }
   };
 
   const handleVideoPlay = async () => {
@@ -171,6 +272,10 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
             {course.title || 'Untitled Course'}
           </Text>
         </View>
+        
+        <TouchableOpacity onPress={testEnrollmentAPI} style={styles.debugButton}>
+          <Ionicons name="bug" size={20} color="#ef4444" />
+        </TouchableOpacity>
       </View>
 
       {/* Content */}
@@ -343,30 +448,66 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
               </View>
             )}
 
-            <View style={styles.actionButtons}>
-              <View 
-                style={[
-                  styles.primaryButton,
-                  styles.primaryButtonDisabled,
-                  course.is_free && styles.primaryButtonFree,
-                  isPhysicsWallah && styles.primaryButtonPhysicsWallah,
-                  course.enrollment_status && styles.primaryButtonEnrolled
-                ]}
-              >
-                <Ionicons name={course.enrollment_status ? "checkmark-circle" : "play"} size={20} color="#ffffff" />
-                <Text style={styles.primaryButtonText}>
-                  {course.enrollment_status 
-                    ? 'Continue Learning'
-                    : course.is_live 
-                      ? 'Join Live Class' 
-                      : course.is_free 
-                        ? 'Start Free Course'
-                        : course.platform?.is_third_party && course.platform.name !== 'CourseHub'
-                          ? `Visit ${course.platform.name}`
-                          : 'Enroll Now'
-                  }
-                </Text>
-              </View>
+            <View style={styles.actionButtons}>           
+              {(course.is_enrollment_open === true) ? (
+                <TouchableOpacity 
+                  onPress={handleCourseAction}
+                  style={[
+                    styles.primaryButton,
+                    course.is_free && styles.primaryButtonFree,
+                    isPhysicsWallah && styles.primaryButtonPhysicsWallah,
+                    course.enrollment_status && styles.primaryButtonEnrolled,
+                    isEnrolling && styles.primaryButtonDisabled
+                  ]}
+                  activeOpacity={0.8}
+                  disabled={isEnrolling}
+                >
+                  {isEnrolling ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <Ionicons 
+                      name={
+                        course.enrollment_status 
+                          ? "checkmark-circle" 
+                          : course.is_live 
+                            ? "videocam" 
+                            : "play"
+                      } 
+                      size={20} 
+                      color="#ffffff" 
+                    />
+                  )}
+                  <Text style={styles.primaryButtonText}>
+                    {isEnrolling 
+                      ? 'Enrolling...'
+                      : course.enrollment_status 
+                        ? 'Continue Learning'
+                        : course.is_live 
+                          ? 'Join Live Class' 
+                          : course.is_free 
+                            ? 'Start Free Course'
+                            : course.platform?.is_third_party && course.platform.name !== 'CourseHub'
+                              ? `Visit ${course.platform.name}`
+                              : 'Enroll Now'
+                    }
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <View 
+                  style={[
+                    styles.primaryButton,
+                    styles.primaryButtonDisabled,
+                    course.is_free && styles.primaryButtonFree,
+                    isPhysicsWallah && styles.primaryButtonPhysicsWallah,
+                    course.enrollment_status && styles.primaryButtonEnrolled
+                  ]}
+                >
+                  <Ionicons name="lock-closed" size={20} color="#9ca3af" />
+                  <Text style={[styles.primaryButtonText, styles.primaryButtonTextDisabled]}>
+                    Enrollment Closed
+                  </Text>
+                </View>
+              )}
               
               {isPhysicsWallah && (
                 <TouchableOpacity 
@@ -501,7 +642,10 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
 
       {/* Bottom Navigation */}
       {onTabSelect && (
-        <BottomNavigation activeTab={activeTab} onTabPress={onTabSelect} />
+        <BottomNavigation 
+          activeTab={activeTab as 'offline' | 'online' | 'private' | 'chat' | 'profile'} 
+          onTabPress={onTabSelect} 
+        />
       )}
     </SafeAreaView>
   );
@@ -539,6 +683,13 @@ const styles = StyleSheet.create({
   headerContent: {
     flex: 1,
     paddingRight: 12,
+  },
+  debugButton: {
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
   },
   headerTitle: {
     fontSize: 18,
@@ -852,6 +1003,9 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  primaryButtonTextDisabled: {
+    color: '#ffffff',
   },
   secondaryButton: {
     borderWidth: 1,

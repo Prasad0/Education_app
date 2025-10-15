@@ -5,7 +5,6 @@ import { useAppDispatch, useAppSelector } from '../store/hooks';
 import BottomNavigation from '../components/BottomNavigation';
 import { CoachingCenter, toggleStarred } from '../store/slices/coachingSlice';
 import { fetchCourseDetail, clearCourseDetail } from '../store/slices/onlineCoursesSlice';
-import { testCourseDetailAPI } from '../utils/testCourseApi';
 import { CoursesTab, MyCoursesTab, MaterialsTab, CourseDetailScreen, OnlineCoaching } from './OnlineScreen/';
 
 
@@ -100,19 +99,6 @@ const OnlineScreen: React.FC<OnlineScreenProps> = ({ onBack, onViewDetails }) =>
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Online Learning</Text>
-        <TouchableOpacity 
-          style={styles.testButton}
-          onPress={async () => {
-            try {
-              const result = await testCourseDetailAPI(1);
-              Alert.alert('API Test', `Course details loaded successfully!\nTitle: ${result.title}`);
-            } catch (error) {
-              Alert.alert('API Test Error', `Failed to load course details: ${error}`);
-            }
-          }}
-        >
-          <Text style={styles.testButtonText}>Test API</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Search Bar */}
@@ -217,17 +203,6 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 40,
-  },
-  testButton: {
-    backgroundColor: '#059669',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  testButtonText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '600',
   },
   searchContainer: {
     paddingHorizontal: 16,

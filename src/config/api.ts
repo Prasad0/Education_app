@@ -14,14 +14,14 @@ interface ExtendedAxiosRequestConfig extends InternalAxiosRequestConfig {
 // In production, use HTTPS URLs
 const ENV_CONFIG = {
   development: {
-    BASE_URL: 'http://13.200.17.30', // Development server (port 3000)
-    API_BASE_URL: 'http://13.200.17.30/api',
+    BASE_URL: 'https://learn.crusheducation.in', // Development server (port 3000)
+    API_BASE_URL: 'https://learn.crusheducation.in/api',
     API_TIMEOUT: 10000,
     LOG_LEVEL: 'debug' as const,
   },
   production: {
-    BASE_URL: 'http://13.200.17.30',
-    API_BASE_URL: 'http://13.200.17.30/api',
+    BASE_URL: 'https://learn.crusheducation.in',
+    API_BASE_URL: 'https://learn.crusheducation.in/api',
     API_TIMEOUT: 15000,
     LOG_LEVEL: 'error' as const,
   },
@@ -48,6 +48,9 @@ export const API_CONFIG = {
     COACHING_CENTERS: '/coachings/',
     ONLINE_COURSES: '/online-courses/courses/',
     COURSE_DETAIL: '/online-courses/courses/', // Will be appended with courseId
+    COURSE_ENROLL: '/online-courses/courses/', // Will be appended with courseId/enroll/
+    ENROLLMENTS: '/online-courses/enrollments/',
+    STUDY_MATERIALS: '/online-courses/study-materials/',
   }
 };
 
@@ -58,6 +61,11 @@ export const getApiUrl = (endpoint: string) => {
 // Utility function to get course detail URL
 export const getCourseDetailUrl = (courseId: number | string) => {
   return `${getApiUrl(API_CONFIG.ENDPOINTS.COURSE_DETAIL)}${courseId}/`;
+};
+
+// Utility function to get course enrollment URL
+export const getCourseEnrollUrl = (courseId: number | string) => {
+  return `${getApiUrl(API_CONFIG.ENDPOINTS.COURSE_ENROLL)}${courseId}/enroll/`;
 };
 
 // Enhanced error logging function
@@ -79,13 +87,20 @@ const logError = (error: AxiosError, context: string) => {
 
   if (config.LOG_LEVEL === 'debug') {
     console.group(`🚨 API Error: ${context}`);
-    
+    console.error('Full error details:', errorDetails);
+    console.error('Error response data:', error.response?.data);
+    console.error('Error response status:', error.response?.status);
+    console.error('Error response headers:', error.response?.headers);
+    console.error('Request URL:', error.config?.url);
+    console.error('Request method:', error.config?.method);
+    console.error('Request data:', error.config?.data);
     console.groupEnd();
   } else {
     console.error(`🚨 API Error: ${context}`, {
       message: error.message,
       status: error.response?.status,
       url: error.config?.url,
+      data: error.response?.data,
     });
   }
 
@@ -261,11 +276,64 @@ export const getUserFriendlyErrorMessage = (error: any): string => {
     return 'The requested resource was not found.';
   }
   
+  if (error.response?.status === 409) {
+    return 'Conflict: This action cannot be completed due to a conflict with the current state.';
+  }
+  
   if (error.response?.status >= 500) {
     return 'Server error: Please try again later.';
   }
   
   return error.userMessage || 'An unexpected error occurred. Please try again.';
+};
+
+// Utility function to get enrollment-specific error message
+export const getEnrollmentErrorMessage = (error: any): string => {
+  if (isNetworkError(error)) {
+    return 'Network error: Please check your internet connection and try again.';
+  }
+  
+  if (error.response?.status === 400) {
+    const errorData = error.response.data;
+    if (errorData?.detail || errorData?.message) {
+      return errorData.detail || errorData.message;
+    } else if (errorData?.non_field_errors) {
+      return errorData.non_field_errors[0] || 'Invalid enrollment request';
+    } else {
+      return 'You may already be enrolled in this course or the enrollment request is invalid.';
+    }
+  }
+  
+  if (error.response?.status === 401) {
+    return 'Session expired. Please log in again.';
+  }
+  
+  if (error.response?.status === 403) {
+    return 'Access denied. You don\'t have permission to enroll in this course.';
+  }
+  
+  if (error.response?.status === 404) {
+    return 'Course not found.';
+  }
+  
+  if (error.response?.status === 409) {
+    return 'You are already enrolled in this course!';
+  }
+  
+  if (error.response?.status === 500) {
+    const errorData = error.response.data;
+    if (errorData?.detail && (
+      errorData.detail.toLowerCase().includes('already enrolled') ||
+      errorData.detail.toLowerCase().includes('duplicate') ||
+      errorData.detail.toLowerCase().includes('exists')
+    )) {
+      return 'You are already enrolled in this course!';
+    } else {
+      return 'Server error occurred during enrollment. Please try again later.';
+    }
+  }
+  
+  return 'An unexpected error occurred during enrollment. Please try again.';
 };
 
 // Export environment info for debugging
