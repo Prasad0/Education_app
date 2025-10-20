@@ -202,33 +202,6 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
     Alert.alert('More Options', 'More options menu will be implemented soon!');
   };
 
-  // Debug function to test enrollment API
-  const testEnrollmentAPI = async () => {
-    try {
-      console.log('=== TESTING ENROLLMENT API ===');
-      const enrollUrl = getCourseEnrollUrl(course.id);
-      console.log('Testing URL:', enrollUrl);
-      
-      // Test with a simple GET request first to see if endpoint exists
-      try {
-        const testResponse = await api.get(enrollUrl.replace('/enroll/', '/'));
-        console.log('Course detail response:', testResponse.status);
-      } catch (testError: any) {
-        console.log('Course detail test error:', testError.response?.status);
-      }
-      
-      // Now test the actual enrollment
-      const response = await api.post(enrollUrl);
-      console.log('Enrollment test successful:', response.data);
-      
-    } catch (error: any) {
-      console.error('=== ENROLLMENT API TEST FAILED ===');
-      console.error('Error:', error);
-      console.error('Response:', error.response);
-      console.error('Status:', error.response?.status);
-      console.error('Data:', error.response?.data);
-    }
-  };
 
   const handleVideoPlay = async () => {
     if (videoRef.current) {
@@ -273,9 +246,6 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
           </Text>
         </View>
         
-        <TouchableOpacity onPress={testEnrollmentAPI} style={styles.debugButton}>
-          <Ionicons name="bug" size={20} color="#ef4444" />
-        </TouchableOpacity>
       </View>
 
       {/* Content */}
@@ -683,13 +653,6 @@ const styles = StyleSheet.create({
   headerContent: {
     flex: 1,
     paddingRight: 12,
-  },
-  debugButton: {
-    padding: 8,
-    borderRadius: 6,
-    backgroundColor: '#fef2f2',
-    borderWidth: 1,
-    borderColor: '#fecaca',
   },
   headerTitle: {
     fontSize: 18,

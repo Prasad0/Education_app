@@ -6,7 +6,7 @@ import { RootState, AppDispatch } from '../../store/store';
 import { fetchStudyMaterials, refreshStudyMaterials, downloadStudyMaterial, clearError, clearDownloadError } from '../../store/slices/studyMaterialsSlice';
 import { StudyMaterial as ApiStudyMaterial } from '../../store/slices/studyMaterialsSlice';
 import { TabComponentProps } from './types';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG } from '../../config/api';
@@ -53,14 +53,24 @@ const MaterialsTab: React.FC<TabComponentProps> = ({ searchQuery }) => {
 
   const handleDownload = async (material: ApiStudyMaterial) => {
     try {
+      console.log('=== DOWNLOAD DEBUG START ===');
+      console.log('Material:', material.title);
+      console.log('Material file:', material.file);
+      console.log('Material ID:', material.id);
+
       // Ask server for a secure download URL (tracks count, auth, etc.)
       const result = await dispatch(downloadStudyMaterial(material.id) as any).unwrap?.()
         // Fallback if unwrap isn't available due to typings
         ?? (await (dispatch(downloadStudyMaterial(material.id)) as unknown as Promise<any>));
 
+      console.log('Download result from server:', result);
+
       const serverUrl: string | undefined = result?.downloadUrl;
       const rawUrl = serverUrl || material.file || '';
+      console.log('Raw URL:', rawUrl);
+      
       if (!rawUrl) {
+        console.log('No URL available for download');
         Alert.alert('Error', 'No file available for download');
         return;
       }
@@ -69,39 +79,51 @@ const MaterialsTab: React.FC<TabComponentProps> = ({ searchQuery }) => {
       const sourceUrl = /^https?:\/\//i.test(rawUrl)
         ? rawUrl
         : `${API_CONFIG.BASE_URL}${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}`;
+      
+      console.log('Final source URL:', sourceUrl);
 
       // Output path
       const filename = material.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.pdf';
-      const fileUri = (FileSystem as any).documentDirectory + filename;
+      const fileUri = FileSystem.documentDirectory + filename;
+      console.log('File URI:', fileUri);
 
       // Auth header if token exists
       let headers: Record<string, string> | undefined;
       try {
         const token = await AsyncStorage.getItem('accessToken');
-        if (token) headers = { Authorization: `Bearer ${token}` };
-      } catch {}
+        if (token) {
+          headers = { Authorization: `Bearer ${token}` };
+          console.log('Auth token found, adding headers');
+        } else {
+          console.log('No auth token found');
+        }
+      } catch (error) {
+        console.log('Error getting token:', error);
+      }
 
-      // Download the file using createDownloadResumable (non-deprecated approach)
-      const downloadResumable = FileSystem.createDownloadResumable(
-        sourceUrl,
-        fileUri,
-        headers ? { headers } : undefined
-      );
+      console.log('Starting download...');
+      // Download the file using the legacy API
+      const downloadResult = await FileSystem.downloadAsync(sourceUrl, fileUri, {
+        headers: headers
+      });
 
-      const downloadResult = await downloadResumable.downloadAsync();
+      console.log('Download result:', downloadResult);
 
-      if (downloadResult && downloadResult.status === 200) {
+      if (downloadResult.status === 200) {
+        console.log('Download successful, sharing file...');
         if (await Sharing.isAvailableAsync()) {
           await Sharing.shareAsync(downloadResult.uri);
+          console.log('File shared successfully');
         } else {
+          console.log('Sharing not available, showing success message');
           Alert.alert('Success', 'File downloaded successfully');
         }
       } else {
-        throw new Error(`Download failed with status ${downloadResult?.status}`);
+        console.log('Download failed with status:', downloadResult.status);
+        throw new Error(`Download failed with status ${downloadResult.status}`);
       }
     } catch (error) {
-      console.error('Download error:', error);
-      Alert.alert('Error', 'Failed to download file');
+      console.error('=== DOWNLOAD ERROR ===');
     }
   };
 
