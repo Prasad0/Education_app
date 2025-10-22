@@ -6,6 +6,7 @@ import BottomNavigation from '../components/BottomNavigation';
 import { CoachingCenter, toggleStarred } from '../store/slices/coachingSlice';
 import { fetchCourseDetail, clearCourseDetail } from '../store/slices/onlineCoursesSlice';
 import { CoursesTab, MyCoursesTab, MaterialsTab, CourseDetailScreen, OnlineCoaching } from './OnlineScreen/';
+import VideoPlayerScreen from '../screens/VideoPlayerScreen';
 
 
 interface OnlineScreenProps {
@@ -21,6 +22,12 @@ const OnlineScreen: React.FC<OnlineScreenProps> = ({ onBack, onViewDetails }) =>
   const [activeCategory, setActiveCategory] = useState<'coaching' | 'materials' | 'purchased'>('coaching');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCourse, setSelectedCourse] = useState<OnlineCoaching | null>(null);
+  const [videoPlayerData, setVideoPlayerData] = useState<{
+    videoUrl: string;
+    courseTitle: string;
+    instructorName: string;
+    courseDescription: string;
+  } | null>(null);
 
   // Filter online-only centers
   const onlineCenters = useMemo(() => {
@@ -160,7 +167,10 @@ const OnlineScreen: React.FC<OnlineScreenProps> = ({ onBack, onViewDetails }) =>
         )}
 
         {activeCategory === 'purchased' && (
-          <MyCoursesTab searchQuery={searchQuery} />
+          <MyCoursesTab 
+            searchQuery={searchQuery} 
+            onVideoPress={(videoData) => setVideoPlayerData(videoData)}
+          />
         )}
       </View>
 
@@ -172,6 +182,17 @@ const OnlineScreen: React.FC<OnlineScreenProps> = ({ onBack, onViewDetails }) =>
           onBack();
         }}
       />
+
+      {/* Video Player Screen */}
+      {videoPlayerData && (
+        <VideoPlayerScreen
+          videoUrl={videoPlayerData.videoUrl}
+          courseTitle={videoPlayerData.courseTitle}
+          instructorName={videoPlayerData.instructorName}
+          courseDescription={videoPlayerData.courseDescription}
+          onBack={() => setVideoPlayerData(null)}
+        />
+      )}
     </SafeAreaView>
   );
 };

@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Linking, Image, SafeAreaView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Linking, Image, SafeAreaView, ActivityIndicator, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { OnlineCoaching } from './types';
 import BottomNavigation from '../../components/BottomNavigation';
 import { api, getCourseEnrollUrl, getEnrollmentErrorMessage } from '../../config/api';
@@ -22,9 +23,10 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
   onJoinLiveClass 
 }) => {
   const [showCouponCode, setShowCouponCode] = useState(false);
+  const [isEnrolling, setIsEnrolling] = useState(false);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const [isVideoLoading, setIsVideoLoading] = useState(false);
-  const [isEnrolling, setIsEnrolling] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const videoRef = useRef<Video>(null);
   
   // Safety check for course object
@@ -215,6 +217,20 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
     }
   };
 
+  const toggleFullscreen = async () => {
+    try {
+      if (!isFullscreen) {
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+        setIsFullscreen(true);
+      } else {
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+        setIsFullscreen(false);
+      }
+    } catch (error) {
+      console.error('Error toggling fullscreen:', error);
+    }
+  };
+
   const handleVideoLoad = () => {
     console.log('Video loaded successfully:', courseVideoUrl);
     setIsVideoLoading(false);
@@ -252,14 +268,14 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.contentContainer}>
           {/* Course Video */}
-          <View style={styles.courseImageContainer}>
+          <View style={[styles.courseImageContainer, isVideoPlaying && styles.fullscreenVideoContainer]}>
             {courseVideoUrl ? (
               <Video
                 ref={videoRef}
                 source={{ uri: courseVideoUrl }}
-                style={styles.courseVideo}
+                style={[styles.courseVideo, isVideoPlaying && styles.fullscreenVideo]}
                 resizeMode={ResizeMode.COVER}
-                shouldPlay={false}
+                shouldPlay={isVideoPlaying}
                 isLooping={false}
                 onLoadStart={() => setIsVideoLoading(true)}
                 onLoad={handleVideoLoad}
@@ -269,6 +285,7 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
                     setIsVideoPlaying(status.isPlaying);
                   }
                 }}
+                useNativeControls={false}
               />
             ) : courseImageUrl ? (
               <Image 
@@ -288,18 +305,36 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
               </View>
             )}
             
-            {courseVideoUrl && (
-              <TouchableOpacity 
-                style={styles.playButton}
-                onPress={handleVideoPlay}
-                activeOpacity={0.8}
-              >
-                <Ionicons 
-                  name={isVideoPlaying ? "pause" : "play"} 
-                  size={24} 
-                  color="#111827" 
-                />
-              </TouchableOpacity>
+            {courseVideoUrl && !isVideoPlaying && (
+              <View style={styles.videoControls}>
+                <TouchableOpacity 
+                  style={styles.playButton}
+                  onPress={handleVideoPlay}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons 
+                    name="play" 
+                    size={24} 
+                    color="#111827" 
+                  />
+                </TouchableOpacity>
+              </View>
+            )}
+            
+            {courseVideoUrl && isVideoPlaying && (
+              <View style={styles.fullscreenControls}>
+                <TouchableOpacity 
+                  style={styles.pauseButton}
+                  onPress={handleVideoPlay}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons 
+                    name="pause" 
+                    size={32} 
+                    color="#ffffff" 
+                  />
+                </TouchableOpacity>
+              </View>
             )}
             
             {course.is_live && (
@@ -690,6 +725,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  videoControls: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    flexDirection: 'row',
+    gap: 8,
+  },
   playButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     width: 64,
@@ -697,7 +739,14 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 4,
+  },
+  fullscreenButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   loadingOverlay: {
     position: 'absolute',
@@ -714,6 +763,34 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '500',
+  },
+  fullscreenVideoContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
+    zIndex: 1000,
+  },
+  fullscreenVideo: {
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
+  },
+  fullscreenControls: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginTop: -25,
+    marginLeft: -25,
+    zIndex: 1001,
+  },
+  pauseButton: {
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   liveBadge: {
     position: 'absolute',

@@ -21,7 +21,16 @@ const formatDate = (dateString: string): string => {
   }
 };
 
-const MyCoursesTab: React.FC<TabComponentProps> = ({ searchQuery }) => {
+interface MyCoursesTabProps extends TabComponentProps {
+  onVideoPress?: (videoData: {
+    videoUrl: string;
+    courseTitle: string;
+    instructorName: string;
+    courseDescription: string;
+  }) => void;
+}
+
+const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ searchQuery, onVideoPress }) => {
   const dispatch = useDispatch<AppDispatch>();
   const { enrollments, loading, error, refreshing } = useSelector((state: RootState) => state.enrollments);
 
@@ -44,6 +53,33 @@ const MyCoursesTab: React.FC<TabComponentProps> = ({ searchQuery }) => {
     dispatch(refreshEnrollments());
   };
 
+  const handleCoursePress = (enrollment: Enrollment) => {
+    if (enrollment.course?.video && onVideoPress) {
+      // Construct full video URL if it's relative
+      let videoUrl = enrollment.course.video;
+      if (videoUrl && videoUrl.startsWith('/')) {
+        videoUrl = `http://13.200.17.30${videoUrl}`;
+      }
+      
+      console.log('MyCoursesTab - Opening video:', {
+        courseTitle: enrollment.course.title,
+        originalVideoUrl: enrollment.course.video,
+        finalVideoUrl: videoUrl,
+        hasVideo: !!enrollment.course.video
+      });
+      
+      onVideoPress({
+        videoUrl: videoUrl,
+        courseTitle: enrollment.course.title || 'Untitled Course',
+        instructorName: enrollment.course.instructor?.name || 'Unknown Instructor',
+        courseDescription: enrollment.course.short_description || 'Course video content',
+      });
+    } else {
+      console.log('MyCoursesTab - No video available for course:', enrollment.course?.title);
+      // You could show an alert here or navigate to course details instead
+    }
+  };
+
   const filteredEnrollments = enrollments.filter(enrollment => {
     if (!enrollment.course) return false;
     
@@ -62,7 +98,11 @@ const MyCoursesTab: React.FC<TabComponentProps> = ({ searchQuery }) => {
     }
 
     return (
-      <TouchableOpacity style={styles.purchasedCard} activeOpacity={0.9}>
+      <TouchableOpacity 
+        style={styles.purchasedCard} 
+        activeOpacity={0.9}
+        onPress={() => handleCoursePress(enrollment)}
+      >
         <View style={styles.purchasedImageContainer}>
           {enrollment.course.thumbnail ? (
             <View style={styles.purchasedImagePlaceholder}>
@@ -79,6 +119,12 @@ const MyCoursesTab: React.FC<TabComponentProps> = ({ searchQuery }) => {
               {enrollment.course.platform?.name || 'Unknown Platform'}
             </Text>
           </View>
+
+          {enrollment.course.video && (
+            <View style={styles.playButtonOverlay}>
+              <Ionicons name="play" size={24} color="#ffffff" />
+            </View>
+          )}
         </View>
 
         <View style={styles.purchasedContent}>
@@ -108,9 +154,14 @@ const MyCoursesTab: React.FC<TabComponentProps> = ({ searchQuery }) => {
             </Text>
           </View>
 
-          <TouchableOpacity style={styles.continueButton}>
+          <TouchableOpacity 
+            style={styles.continueButton}
+            onPress={() => handleCoursePress(enrollment)}
+          >
             <Ionicons name="play-outline" size={16} color="#ffffff" />
-            <Text style={styles.continueButtonText}>Continue Learning</Text>
+            <Text style={styles.continueButtonText}>
+              {enrollment.course.video ? 'Watch Video' : 'Continue Learning'}
+            </Text>
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -334,6 +385,18 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '500',
+  },
+  playButtonOverlay: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -20 }, { translateY: -20 }],
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 
