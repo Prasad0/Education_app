@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchOnlineCourses, loadMoreCourses, refreshCourses } from '../../store/slices/onlineCoursesSlice';
@@ -50,23 +50,43 @@ const CoursesTab: React.FC<TabComponentProps> = ({ searchQuery, onCourseSelect }
 
   const CourseCard = ({ course }: { course: OnlineCoaching }) => {
     const isFree = course.is_free;
-    const isThirdParty = course.platform.is_third_party;
-    const levelColors = getLevelColor(course.level.name);
-    const primarySubject = course.subjects[0]?.name || 'General';
-    const priceText = isFree ? 'FREE' : `₹${parseFloat(course.price).toLocaleString()}`;
+    const isThirdParty = course.platform?.is_third_party;
+    const levelColors = getLevelColor(course.level?.name || 'Beginner');
+    const primarySubject = course.subjects?.[0]?.name || 'General';
+    const priceText = isFree ? 'FREE' : `₹${parseFloat(course.price || '0').toLocaleString()}`;
     const originalPriceText = course.original_price ? `₹${parseFloat(course.original_price).toLocaleString()}` : null;
     const discountText = course.discount_percentage > 0 ? `${course.discount_percentage}% OFF` : null;
+    
+    // Get thumbnail URL - prioritize thumbnail_url_display, then thumbnail, then thumbnail_url
+    let thumbnailUrl = course.thumbnail_url_display || course.thumbnail || course.thumbnail_url;
+    
+    // Convert relative URLs to full URLs
+    if (thumbnailUrl && thumbnailUrl.startsWith('/')) {
+      thumbnailUrl = `http://13.200.17.30${thumbnailUrl}`;
+    }
+
+    const handleCoursePress = () => {
+      onCourseSelect?.(course);
+    };
 
     return (
       <TouchableOpacity 
         style={styles.courseCard}
-        onPress={() => onCourseSelect?.(course)}
+        onPress={handleCoursePress}
         activeOpacity={0.9}
       >
         <View style={styles.courseImageContainer}>
-          <View style={styles.courseImagePlaceholder}>
-            <Ionicons name="videocam-outline" size={32} color="#9ca3af" />
-          </View>
+          {thumbnailUrl ? (
+            <Image 
+              source={{ uri: thumbnailUrl }} 
+              style={styles.courseImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.courseImagePlaceholder}>
+              <Ionicons name="videocam-outline" size={32} color="#9ca3af" />
+            </View>
+          )}
           
           {course.is_live && (
             <View style={styles.liveBadge}>
@@ -92,6 +112,13 @@ const CoursesTab: React.FC<TabComponentProps> = ({ searchQuery, onCourseSelect }
               <Text style={styles.discountBadgeText}>{discountText}</Text>
             </View>
           )}
+          
+          {!course.is_enrollment_open && (
+            <View style={styles.enrollmentClosedBadge}>
+              <Ionicons name="lock-closed" size={12} color="#ffffff" />
+              <Text style={styles.enrollmentClosedBadgeText}>CLOSED</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.courseContent}>
@@ -104,22 +131,22 @@ const CoursesTab: React.FC<TabComponentProps> = ({ searchQuery, onCourseSelect }
                 <Text style={styles.subjectBadgeText}>{primarySubject}</Text>
               </View>
             </View>
-            <Text style={styles.courseTitle} numberOfLines={2}>{course.title}</Text>
-            <Text style={styles.courseInstructor}>by {course.instructor.name}</Text>
+            <Text style={styles.courseTitle} numberOfLines={2}>{course.title || 'Untitled Course'}</Text>
+            <Text style={styles.courseInstructor}>by {course.instructor?.name || 'Unknown Instructor'}</Text>
           </View>
 
           <View style={styles.courseStats}>
             <View style={styles.courseStat}>
               <Ionicons name="star" size={12} color="#fbbf24" />
-              <Text style={styles.courseStatText}>{course.rating}</Text>
+              <Text style={styles.courseStatText}>{course.rating || '0'}</Text>
             </View>
             <View style={styles.courseStat}>
               <Ionicons name="people-outline" size={12} color="#6b7280" />
-              <Text style={styles.courseStatText}>{course.enrolled_students.toLocaleString()}</Text>
+              <Text style={styles.courseStatText}>{(course.enrolled_students || 0).toLocaleString()}</Text>
             </View>
             <View style={styles.courseStat}>
               <Ionicons name="time-outline" size={12} color="#6b7280" />
-              <Text style={styles.courseStatText}>{course.duration_months} months</Text>
+              <Text style={styles.courseStatText}>{course.duration_months || 0} months</Text>
             </View>
           </View>
 
@@ -133,7 +160,7 @@ const CoursesTab: React.FC<TabComponentProps> = ({ searchQuery, onCourseSelect }
             <Ionicons name="chevron-forward" size={16} color="#9ca3af" />
           </View>
           
-          {course.next_class_datetime && (
+          {course.next_class_datetime && course.next_class_topic && (
             <Text style={styles.nextClassText}>Next class: {course.next_class_topic}</Text>
           )}
         </View>
@@ -218,6 +245,10 @@ const styles = StyleSheet.create({
     height: 120,
     backgroundColor: '#f3f4f6',
   },
+  courseImage: {
+    width: '100%',
+    height: '100%',
+  },
   courseImagePlaceholder: {
     flex: 1,
     justifyContent: 'center',
@@ -278,6 +309,23 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   discountBadgeText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  enrollmentClosedBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#6b7280',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  enrollmentClosedBadgeText: {
     color: '#ffffff',
     fontSize: 12,
     fontWeight: '600',

@@ -1,108 +1,235 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { StudyMaterial, TabComponentProps } from './types';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState, AppDispatch } from '../../store/store';
+import { fetchStudyMaterials, refreshStudyMaterials, downloadStudyMaterial, clearError, clearDownloadError } from '../../store/slices/studyMaterialsSlice';
+import { StudyMaterial as ApiStudyMaterial } from '../../store/slices/studyMaterialsSlice';
+import { TabComponentProps } from './types';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_CONFIG } from '../../config/api';
 
-// Mock data for study materials
-const studyMaterials: StudyMaterial[] = [
-  {
-    id: '1',
-    title: 'JEE Main Previous Year Papers (2020-2024)',
-    subject: 'All Subjects',
-    type: 'PDF',
-    downloads: 15420,
-    size: '45 MB',
-    image: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400',
-    isFree: true
-  },
-  {
-    id: '2',
-    title: 'NEET Biology Important Notes',
-    subject: 'Biology',
-    type: 'Notes',
-    downloads: 8965,
-    size: '22 MB',
-    image: 'https://images.unsplash.com/photo-1532012197267-da84d127e765?w=400',
-    isFree: true
-  },
-  {
-    id: '3',
-    title: 'Physics Formula Bank & Quick Revision',
-    subject: 'Physics',
-    type: 'PDF',
-    downloads: 12378,
-    size: '18 MB',
-    image: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=400',
-    isFree: false,
-    price: '₹199'
+// Helper function to format file size
+const formatFileSize = (sizeInMB: string): string => {
+  const size = parseFloat(sizeInMB);
+  if (size >= 1024) {
+    return `${(size / 1024).toFixed(1)} GB`;
   }
-];
+  return `${size} MB`;
+};
+
+// Helper function to get subjects display text
+const getSubjectsText = (subjects: any[]): string => {
+  if (!subjects || subjects.length === 0) return 'General';
+  if (subjects.length === 1) return subjects[0].name;
+  if (subjects.length <= 3) return subjects.map(s => s.name).join(', ');
+  return `${subjects[0].name} +${subjects.length - 1} more`;
+};
 
 const MaterialsTab: React.FC<TabComponentProps> = ({ searchQuery }) => {
-  const filteredMaterials = studyMaterials.filter(material =>
-    material.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    material.subject.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const dispatch = useDispatch<AppDispatch>();
+  const { materials, loading, error, refreshing, downloading, downloadError } = useSelector((state: RootState) => state.studyMaterials);
+
+  useEffect(() => {
+    dispatch(fetchStudyMaterials(1));
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (error) {
+      console.error('Study materials error:', error);
+      // Clear error after 5 seconds
+      const timer = setTimeout(() => {
+        dispatch(clearError());
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error, dispatch]);
+
+  const handleRefresh = () => {
+    dispatch(refreshStudyMaterials());
+  };
+
+  const handleDownload = async (material: ApiStudyMaterial) => {
+    try {
+      console.log('=== DOWNLOAD DEBUG START ===');
+      console.log('Material:', material.title);
+      console.log('Material file:', material.file);
+      console.log('Material ID:', material.id);
+
+      // Ask server for a secure download URL (tracks count, auth, etc.)
+      const result = await dispatch(downloadStudyMaterial(material.id) as any).unwrap?.()
+        // Fallback if unwrap isn't available due to typings
+        ?? (await (dispatch(downloadStudyMaterial(material.id)) as unknown as Promise<any>));
+
+      console.log('Download result from server:', result);
+
+      const serverUrl: string | undefined = result?.downloadUrl;
+      const rawUrl = serverUrl || material.file || '';
+      console.log('Raw URL:', rawUrl);
+      
+      if (!rawUrl) {
+        console.log('No URL available for download');
+        Alert.alert('Error', 'No file available for download');
+        return;
+      }
+
+      // Ensure absolute URL
+      const sourceUrl = /^https?:\/\//i.test(rawUrl)
+        ? rawUrl
+        : `${API_CONFIG.BASE_URL}${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}`;
+      
+      console.log('Final source URL:', sourceUrl);
+
+      // Output path
+      const filename = material.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.pdf';
+      const fileUri = FileSystem.documentDirectory + filename;
+      console.log('File URI:', fileUri);
+
+      // Auth header if token exists
+      let headers: Record<string, string> | undefined;
+      try {
+        const token = await AsyncStorage.getItem('accessToken');
+        if (token) {
+          headers = { Authorization: `Bearer ${token}` };
+          console.log('Auth token found, adding headers');
+        } else {
+          console.log('No auth token found');
+        }
+      } catch (error) {
+        console.log('Error getting token:', error);
+      }
+
+      console.log('Starting download...');
+      // Download the file using the legacy API
+      const downloadResult = await FileSystem.downloadAsync(sourceUrl, fileUri, {
+        headers: headers
+      });
+
+      console.log('Download result:', downloadResult);
+
+      if (downloadResult.status === 200) {
+        console.log('Download successful, sharing file...');
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(downloadResult.uri);
+          console.log('File shared successfully');
+        } else {
+          console.log('Sharing not available, showing success message');
+          Alert.alert('Success', 'File downloaded successfully');
+        }
+      } else {
+        console.log('Download failed with status:', downloadResult.status);
+        throw new Error(`Download failed with status ${downloadResult.status}`);
+      }
+    } catch (error) {
+      console.error('=== DOWNLOAD ERROR ===');
+    }
+  };
+
+  const filteredMaterials = materials.filter(material => {
+    if (!material) return false;
+    
+    const titleMatch = material.title?.toLowerCase().includes(searchQuery.toLowerCase()) || false;
+    const subjectMatch = material.subjects?.some(subject => 
+      subject.name?.toLowerCase().includes(searchQuery.toLowerCase())
+    ) || false;
+    const typeMatch = material.material_type?.toLowerCase().includes(searchQuery.toLowerCase()) || false;
+    
+    return titleMatch || subjectMatch || typeMatch;
+  });
 
   const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'PDF':
+    switch (type?.toLowerCase()) {
+      case 'pdf':
         return 'document-text-outline';
-      case 'Video':
+      case 'video':
         return 'videocam-outline';
-      case 'Notes':
+      case 'notes':
         return 'book-outline';
+      case 'formula':
+        return 'calculator-outline';
       default:
         return 'document-text-outline';
     }
   };
 
-  const MaterialCard = ({ material }: { material: StudyMaterial }) => (
-    <TouchableOpacity style={styles.materialCard} activeOpacity={0.9}>
-      <View style={styles.materialContent}>
-        <View style={styles.materialIconContainer}>
-          <Ionicons name={getTypeIcon(material.type)} size={20} color="#6b7280" />
-        </View>
-        
-        <View style={styles.materialInfo}>
-          <View style={styles.materialHeader}>
-            <Text style={styles.materialTitle} numberOfLines={2}>{material.title}</Text>
-            {material.isFree ? (
-              <View style={styles.freeMaterialBadge}>
-                <Text style={styles.freeMaterialBadgeText}>FREE</Text>
+  const MaterialCard = ({ material }: { material: ApiStudyMaterial }) => {
+    if (!material) return null;
+
+    const isDownloading = downloading[material.id] || false;
+    const downloadErr = downloadError[material.id];
+
+    return (
+      <TouchableOpacity style={styles.materialCard} activeOpacity={0.9}>
+        <View style={styles.materialContent}>
+          <View style={styles.materialIconContainer}>
+            <Ionicons name={getTypeIcon(material.material_type)} size={20} color="#6b7280" />
+          </View>
+          
+          <View style={styles.materialInfo}>
+            <View style={styles.materialHeader}>
+              <Text style={styles.materialTitle} numberOfLines={2}>
+                {material.title || 'Untitled Material'}
+              </Text>
+              {material.is_free ? (
+                <View style={styles.freeMaterialBadge}>
+                  <Text style={styles.freeMaterialBadgeText}>FREE</Text>
+                </View>
+              ) : (
+                <View style={styles.paidMaterialBadge}>
+                  <Ionicons name="star-outline" size={12} color="#3b82f6" />
+                  <Text style={styles.paidMaterialBadgeText}>₹{material.price}</Text>
+                </View>
+              )}
+            </View>
+            
+            <Text style={styles.materialSubject}>
+              {getSubjectsText(material.subjects)} • {material.material_type?.toUpperCase() || 'DOCUMENT'}
+            </Text>
+            
+            <View style={styles.materialStats}>
+              <View style={styles.materialStat}>
+                <Ionicons name="download-outline" size={12} color="#6b7280" />
+                <Text style={styles.materialStatText}>
+                  {material.download_count?.toLocaleString() || 0} downloads
+                </Text>
               </View>
-            ) : (
-              <View style={styles.paidMaterialBadge}>
-                <Ionicons name="star-outline" size={12} color="#3b82f6" />
-                <Text style={styles.paidMaterialBadgeText}>{material.price}</Text>
-              </View>
+              <Text style={styles.materialSize}>
+                {formatFileSize(material.file_size_mb || '0')}
+              </Text>
+            </View>
+
+            {downloadErr && (
+              <Text style={styles.downloadErrorText}>{downloadErr}</Text>
             )}
           </View>
-          
-          <Text style={styles.materialSubject}>{material.subject} • {material.type}</Text>
-          
-          <View style={styles.materialStats}>
-            <View style={styles.materialStat}>
-              <Ionicons name="download-outline" size={12} color="#6b7280" />
-              <Text style={styles.materialStatText}>{material.downloads.toLocaleString()} downloads</Text>
-            </View>
-            <Text style={styles.materialSize}>{material.size}</Text>
-          </View>
         </View>
-      </View>
 
-      <TouchableOpacity 
-        style={[styles.downloadButton, material.isFree ? styles.downloadButtonFree : styles.downloadButtonPaid]}
-      >
-        <Ionicons name="download-outline" size={16} color="#ffffff" />
-        <Text style={styles.downloadButtonText}>
-          {material.isFree ? 'Download Free' : 'Buy & Download'}
-        </Text>
+        <TouchableOpacity 
+          style={[
+            styles.downloadButton, 
+            material.is_free ? styles.downloadButtonFree : styles.downloadButtonPaid,
+            isDownloading && styles.downloadButtonDisabled
+          ]}
+          onPress={() => handleDownload(material)}
+          disabled={isDownloading || !material.file}
+        >
+          {isDownloading ? (
+            <ActivityIndicator size="small" color="#ffffff" />
+          ) : (
+            <Ionicons name="download-outline" size={16} color="#ffffff" />
+          )}
+          <Text style={styles.downloadButtonText}>
+            {isDownloading ? 'Downloading...' : 
+             material.is_free ? 'Download Free' : 'Buy & Download'}
+          </Text>
+        </TouchableOpacity>
       </TouchableOpacity>
-    </TouchableOpacity>
-  );
+    );
+  };
 
-  const renderMaterial = ({ item }: { item: StudyMaterial }) => (
+  const renderMaterial = ({ item }: { item: ApiStudyMaterial }) => (
     <MaterialCard material={item} />
   );
 
@@ -110,17 +237,52 @@ const MaterialsTab: React.FC<TabComponentProps> = ({ searchQuery }) => {
     <View style={styles.emptyContainer}>
       <Ionicons name="document-text-outline" size={48} color="#9ca3af" />
       <Text style={styles.emptyTitle}>No materials found</Text>
+      <Text style={styles.emptySubtitle}>Start exploring study materials to see them here</Text>
     </View>
   );
+
+  const renderLoading = () => (
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="large" color="#059669" />
+      <Text style={styles.loadingText}>Loading study materials...</Text>
+    </View>
+  );
+
+  const renderError = () => (
+    <View style={styles.errorContainer}>
+      <Ionicons name="alert-circle-outline" size={48} color="#ef4444" />
+      <Text style={styles.errorTitle}>Failed to load materials</Text>
+      <Text style={styles.errorSubtitle}>{error}</Text>
+      <TouchableOpacity style={styles.retryButton} onPress={() => dispatch(fetchStudyMaterials(1))}>
+        <Text style={styles.retryButtonText}>Try Again</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  if (loading && materials.length === 0) {
+    return renderLoading();
+  }
+
+  if (error && materials.length === 0) {
+    return renderError();
+  }
 
   return (
     <FlatList
       data={filteredMaterials}
       renderItem={renderMaterial}
-      keyExtractor={(item) => item.id}
+      keyExtractor={(item) => item.id.toString()}
       contentContainerStyle={styles.materialsList}
       ListEmptyComponent={renderEmpty}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          colors={['#059669']}
+          tintColor="#059669"
+        />
+      }
     />
   );
 };
@@ -237,6 +399,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+  downloadButtonDisabled: {
+    opacity: 0.6,
+  },
+  downloadErrorText: {
+    fontSize: 12,
+    color: '#ef4444',
+    marginTop: 4,
+  },
   emptyContainer: {
     alignItems: 'center',
     paddingVertical: 60,
@@ -247,6 +417,52 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#6b7280',
     marginTop: 12,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#9ca3af',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#6b7280',
+    marginTop: 12,
+  },
+  errorContainer: {
+    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 16,
+  },
+  errorTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ef4444',
+    marginTop: 12,
+  },
+  errorSubtitle: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginTop: 4,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: '#059669',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
 
