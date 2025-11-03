@@ -1,7 +1,17 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Modal, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import BottomNavigation from '../components/BottomNavigation';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { 
+  fetchPrivateTutors, 
+  fetchTutorAvailability, 
+  createBooking,
+  clearAvailability,
+  clearBookingState,
+  AvailabilitySlot,
+  PrivateTutorApiItem 
+} from '../store/slices/privateTutorsSlice';
 
 interface PrivateCoachingScreenProps {
   onBack: () => void;
@@ -26,54 +36,88 @@ interface PrivateTutor {
   teachingStyle: string[];
 }
 
-const mockPrivateTutors: PrivateTutor[] = [
-  {
-    id: '1',
-    name: 'Dr. Rajesh Kumar',
-    qualification: 'Ph.D in Physics, IIT Delhi',
-    experience: '8 years',
-    subjects: ['Physics', 'Mathematics', 'JEE Advanced'],
-    rating: 4.9,
-    reviews: 124,
-    hourlyRate: '₹800-1200',
-    languages: ['English', 'Hindi'],
-    location: 'Koramangala',
-    distance: '0.5 km',
-    availability: ['Morning', 'Evening'],
-    verified: true,
-    responseTime: '< 2 hours',
-    completedSessions: 450,
-    teachingStyle: ['Problem Solving', 'Concept Building']
-  },
-  {
-    id: '2',
-    name: 'Ms. Priya Sharma',
-    qualification: 'M.Sc Chemistry, Delhi University',
-    experience: '6 years',
-    subjects: ['Chemistry', 'NEET Biology', 'Class 12'],
-    rating: 4.8,
-    reviews: 98,
-    hourlyRate: '₹600-900',
-    languages: ['English', 'Hindi', 'Punjabi'],
-    location: 'BTM Layout',
-    distance: '1.2 km',
-    availability: ['Afternoon', 'Evening'],
-    verified: true,
-    responseTime: '< 1 hour',
-    completedSessions: 320,
-    teachingStyle: ['Interactive', 'Exam Focused']
-  },
-];
+// Map API item to UI model used by the screen
+const mapApiToUi = (item: any): PrivateTutor => ({
+  id: String(item.id),
+  name: item.teacher?.name || 'Unknown',
+  qualification: item.teacher?.qualification || '',
+  experience: item.teacher?.experience_display || '',
+  subjects: [
+    ...(item.teacher?.specialization ? [item.teacher.specialization] : []),
+    ...((item.target_exams || []).map((e: any) => e.name))
+  ],
+  rating: parseFloat(item.average_rating || '0') || 0,
+  reviews: item.total_reviews || 0,
+  hourlyRate: item.hourly_rate_display || '',
+  languages: (item.languages || []).map((l: any) => l.name),
+  location: item.location || item.teacher?.city || '',
+  distance: item.distance_from_user || '',
+  availability: item.availability_summary || [],
+  verified: !!item.is_verified,
+  responseTime: item.response_time_hours ? `< ${item.response_time_hours} hours` : '',
+  completedSessions: item.total_sessions_completed || 0,
+  teachingStyle: (item.teaching_styles || []).map((s: any) => s.name),
+});
 
 const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack }) => {
+  const dispatch = useAppDispatch();
+  const { items, loading, error, availability, availabilityLoading, availabilityError, bookingLoading, bookingSuccess, bookingError } = useAppSelector(state => state.privateTutors);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [showBookingDrawer, setShowBookingDrawer] = useState(false);
+  const [selectedTutor, setSelectedTutor] = useState<PrivateTutorApiItem | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot | null>(null);
+
+  useEffect(() => {
+    dispatch(fetchPrivateTutors());
+  }, [dispatch]);
+
+  useEffect(() => {
+    console.log('Booking state changed - Success:', bookingSuccess, 'Error:', bookingError);
+    
+    if (bookingSuccess) {
+      console.log('Showing success alert');
+      Alert.alert(
+        'Success', 
+        'Slot has been booked!',
+        [
+          { 
+            text: 'OK', 
+            onPress: () => {
+              dispatch(clearBookingState());
+            }
+          }
+        ],
+        { cancelable: false }
+      );
+    }
+    
+    if (bookingError) {
+      console.log('Showing error alert:', bookingError);
+      Alert.alert(
+        'Booking Failed', 
+        bookingError,
+        [
+          { 
+            text: 'OK', 
+            onPress: () => {
+              dispatch(clearBookingState());
+            }
+          }
+        ],
+        { cancelable: false }
+      );
+    }
+  }, [bookingSuccess, bookingError, dispatch]);
+
+  const uiTutors: PrivateTutor[] = useMemo(() => items.map(mapApiToUi), [items]);
 
   const subjects = useMemo(() => ['all', 'Physics', 'Chemistry', 'Mathematics', 'Biology', 'Computer Science', 'JEE', 'NEET'], []);
 
   const filteredTutors = useMemo(() => {
-    return mockPrivateTutors.filter(tutor => {
+    return uiTutors.filter(tutor => {
       const q = searchQuery.toLowerCase();
       const matchesSearch = tutor.name.toLowerCase().includes(q) ||
         tutor.subjects.some(s => s.toLowerCase().includes(q));
@@ -81,7 +125,114 @@ const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack })
         tutor.subjects.some(s => s.toLowerCase().includes(selectedSubject.toLowerCase()));
       return matchesSearch && matchesSubject;
     });
-  }, [searchQuery, selectedSubject]);
+  }, [searchQuery, selectedSubject, uiTutors]);
+
+  const handleBookSession = async (tutor: PrivateTutorApiItem) => {
+    setSelectedTutor(tutor);
+    setShowBookingDrawer(true);
+    dispatch(clearAvailability());
+    dispatch(fetchTutorAvailability(tutor.id));
+  };
+
+  const handleSlotSelect = async (slot: AvailabilitySlot) => {
+    if (!slot.is_available || !selectedTutor || bookingLoading) return;
+    
+    setSelectedSlot(slot);
+    
+    // Show confirmation dialog
+    Alert.alert(
+      'Confirm Booking',
+      `Do you want to book this session?\n\n${slot.day_display}\n${slot.time_slot_display}`,
+      [
+        {
+          text: 'No',
+          style: 'cancel',
+          onPress: () => {
+            setSelectedSlot(null);
+          },
+        },
+        {
+          text: 'Yes',
+          onPress: () => {
+            if (!selectedTutor) return;
+            
+            // Store tutor ID before clearing state
+            const tutorId = selectedTutor.id;
+            
+            // Calculate session date (next occurrence of the day)
+            const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+            const slotDayIndex = days.indexOf(slot.day_of_week.toLowerCase());
+            const today = new Date();
+            const currentDay = today.getDay();
+            let daysUntilSlot = (slotDayIndex - currentDay + 7) % 7;
+            if (daysUntilSlot === 0) daysUntilSlot = 7; // Next week if today
+            
+            const sessionDate = new Date(today);
+            sessionDate.setDate(today.getDate() + daysUntilSlot);
+            const sessionDateStr = sessionDate.toISOString().split('T')[0];
+            
+            // Calculate duration
+            const [startHour, startMin] = slot.start_time.split(':').map(Number);
+            const [endHour, endMin] = slot.end_time.split(':').map(Number);
+            const startMinutes = startHour * 60 + startMin;
+            const endMinutes = endHour * 60 + endMin;
+            const durationHours = (endMinutes - startMinutes) / 60;
+            
+            // Create booking data
+            const bookingData = {
+              tutor: tutorId,
+              session_date: sessionDateStr,
+              start_time: slot.start_time,
+              end_time: slot.end_time,
+              duration_hours: durationHours,
+              notes: `Session with ${selectedTutor.teacher.name} - ${slot.day_display} ${slot.time_slot_display}`,
+              is_online: true, // Default to online, can be made configurable
+            };
+            
+            // Close drawer immediately
+            setShowBookingDrawer(false);
+            setSelectedTutor(null);
+            setSelectedSlot(null);
+            dispatch(clearAvailability());
+            
+            // Create booking (this is async)
+            dispatch(createBooking(bookingData)).then((result) => {
+              // This will be handled by the useEffect watching bookingSuccess
+              console.log('Booking result:', result);
+            }).catch((error) => {
+              console.error('Booking error:', error);
+            });
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  // Group availability by day
+  const groupedAvailability = useMemo(() => {
+    const grouped: { [key: string]: AvailabilitySlot[] } = {};
+    availability.forEach(slot => {
+      if (!grouped[slot.day_display]) {
+        grouped[slot.day_display] = [];
+      }
+      grouped[slot.day_display].push(slot);
+    });
+    
+    // Sort days and time slots
+    const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const timeOrder = ['morning', 'afternoon', 'evening'];
+    
+    Object.keys(grouped).forEach(day => {
+      grouped[day].sort((a, b) => {
+        return timeOrder.indexOf(a.time_slot) - timeOrder.indexOf(b.time_slot);
+      });
+    });
+    
+    return dayOrder
+      .filter(day => grouped[day])
+      .map(day => ({ day, slots: grouped[day] }));
+  }, [availability]);
 
   const TutorCard = ({ tutor }: { tutor: PrivateTutor }) => (
     <View style={styles.card}>
@@ -164,7 +315,15 @@ const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack })
       </View>
 
       <View style={styles.actionsRow}>
-        <TouchableOpacity style={styles.primaryButton}>
+        <TouchableOpacity 
+          style={styles.primaryButton}
+          onPress={() => {
+            const apiTutor = items.find(t => String(t.id) === tutor.id);
+            if (apiTutor) {
+              handleBookSession(apiTutor);
+            }
+          }}
+        >
           <Ionicons name="calendar-outline" size={16} color="#ffffff" />
           <Text style={styles.primaryButtonText}>Book Session</Text>
         </TouchableOpacity>
@@ -235,13 +394,36 @@ const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack })
           <Text style={styles.statsText}>{filteredTutors.length} tutors available</Text>
         </View>
 
-        <View>
-          {filteredTutors.map(t => (
-            <TutorCard key={t.id} tutor={t} />
-          ))}
-        </View>
+        {loading && (
+          <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#059669" />
+            <Text style={{ marginTop: 8, color: '#6b7280' }}>Loading tutors...</Text>
+          </View>
+        )}
 
-        {filteredTutors.length === 0 && (
+        {!loading && error && (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="alert-circle-outline" size={48} color="#ef4444" />
+            <Text style={styles.emptyTitle}>Failed to load tutors</Text>
+            <Text style={styles.emptySubtitle}>{error}</Text>
+            <TouchableOpacity
+              style={styles.clearFiltersButton}
+              onPress={() => dispatch(fetchPrivateTutors())}
+            >
+              <Text style={styles.clearFiltersText}>Try Again</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {!loading && !error && (
+          <View>
+            {filteredTutors.map(t => (
+              <TutorCard key={t.id} tutor={t} />
+            ))}
+          </View>
+        )}
+
+        {!loading && !error && filteredTutors.length === 0 && (
           <View style={styles.emptyContainer}>
             <Ionicons name="book-outline" size={48} color="#d1d5db" />
             <Text style={styles.emptyTitle}>No tutors found</Text>
@@ -264,6 +446,119 @@ const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack })
           onBack();
         }}
       />
+
+      {/* Booking Drawer */}
+      <Modal
+        visible={showBookingDrawer}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => {
+          setShowBookingDrawer(false);
+          setSelectedTutor(null);
+          setSelectedSlot(null);
+          dispatch(clearAvailability());
+          dispatch(clearBookingState());
+        }}
+      >
+        <View style={styles.drawerOverlay}>
+          <View style={styles.drawerContainer}>
+            {/* Drawer Header */}
+            <View style={styles.drawerHeader}>
+              <Text style={styles.drawerTitle}>Book Session</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowBookingDrawer(false);
+                  setSelectedTutor(null);
+                  setSelectedSlot(null);
+                  dispatch(clearAvailability());
+                  dispatch(clearBookingState());
+                }}
+                style={styles.drawerCloseButton}
+              >
+                <Ionicons name="close" size={24} color="#111827" />
+              </TouchableOpacity>
+            </View>
+
+            {selectedTutor && (
+              <View style={styles.drawerTutorInfo}>
+                <Text style={styles.drawerTutorName}>{selectedTutor.teacher.name}</Text>
+                <Text style={styles.drawerTutorQual}>{selectedTutor.teacher.qualification}</Text>
+                <Text style={styles.drawerTutorRate}>{selectedTutor.hourly_rate_display}/hr</Text>
+              </View>
+            )}
+
+            {/* Availability */}
+            <ScrollView style={styles.drawerContent}>
+              {availabilityLoading && (
+                <View style={styles.drawerLoading}>
+                  <ActivityIndicator size="large" color="#059669" />
+                  <Text style={styles.drawerLoadingText}>Loading availability...</Text>
+                </View>
+              )}
+
+              {availabilityError && (
+                <View style={styles.drawerError}>
+                  <Ionicons name="alert-circle-outline" size={32} color="#ef4444" />
+                  <Text style={styles.drawerErrorText}>{availabilityError}</Text>
+                  <TouchableOpacity
+                    style={styles.retryButton}
+                    onPress={() => selectedTutor && dispatch(fetchTutorAvailability(selectedTutor.id))}
+                  >
+                    <Text style={styles.retryButtonText}>Retry</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {!availabilityLoading && !availabilityError && groupedAvailability.length === 0 && (
+                <View style={styles.drawerEmpty}>
+                  <Ionicons name="calendar-outline" size={48} color="#d1d5db" />
+                  <Text style={styles.drawerEmptyText}>No availability slots found</Text>
+                </View>
+              )}
+
+              {!availabilityLoading && !availabilityError && groupedAvailability.map(({ day, slots }) => (
+                <View key={day} style={styles.dayGroup}>
+                  <Text style={styles.dayGroupTitle}>{day}</Text>
+                  <View style={styles.slotsContainer}>
+                    {slots.map((slot) => (
+                      <TouchableOpacity
+                        key={slot.id}
+                        style={[
+                          styles.slotButton,
+                          !slot.is_available && styles.slotButtonDisabled,
+                          selectedSlot?.id === slot.id && styles.slotButtonSelected,
+                        ]}
+                        onPress={() => handleSlotSelect(slot)}
+                        disabled={!slot.is_available || bookingLoading}
+                      >
+                        <Text
+                          style={[
+                            styles.slotText,
+                            !slot.is_available && styles.slotTextDisabled,
+                            selectedSlot?.id === slot.id && styles.slotTextSelected,
+                          ]}
+                        >
+                          {slot.time_slot_display}
+                        </Text>
+                        {!slot.is_available && (
+                          <Text style={styles.slotUnavailableText}>Unavailable</Text>
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+
+            {bookingLoading && (
+              <View style={styles.bookingLoading}>
+                <ActivityIndicator size="small" color="#059669" />
+                <Text style={styles.bookingLoadingText}>Creating booking...</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -340,6 +635,167 @@ const styles = StyleSheet.create({
   emptySubtitle: { fontSize: 14, color: '#9ca3af', marginTop: 4, textAlign: 'center' },
   clearFiltersButton: { marginTop: 12, backgroundColor: '#ffffff', borderColor: '#e5e7eb', borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
   clearFiltersText: { color: '#374151', fontSize: 14, fontWeight: '500' },
+  drawerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  drawerContainer: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+    minHeight: '60%',
+  },
+  drawerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  drawerTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  drawerCloseButton: {
+    padding: 4,
+  },
+  drawerTutorInfo: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#f9fafb',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  drawerTutorName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  drawerTutorQual: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 4,
+  },
+  drawerTutorRate: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#059669',
+  },
+  drawerContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  drawerLoading: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  drawerLoadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  drawerError: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  drawerErrorText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#ef4444',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  drawerEmpty: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  drawerEmptyText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  dayGroup: {
+    marginBottom: 24,
+  },
+  dayGroupTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 12,
+  },
+  slotsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  slotButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    minWidth: '45%',
+  },
+  slotButtonDisabled: {
+    backgroundColor: '#f3f4f6',
+    borderColor: '#e5e7eb',
+    opacity: 0.5,
+  },
+  slotButtonSelected: {
+    backgroundColor: '#059669',
+    borderColor: '#059669',
+  },
+  slotText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    textAlign: 'center',
+  },
+  slotTextDisabled: {
+    color: '#9ca3af',
+  },
+  slotTextSelected: {
+    color: '#ffffff',
+  },
+  slotUnavailableText: {
+    fontSize: 10,
+    color: '#ef4444',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  bookingLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+  },
+  bookingLoadingText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  retryButton: {
+    backgroundColor: '#059669',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
 });
 
 export default PrivateCoachingScreen;

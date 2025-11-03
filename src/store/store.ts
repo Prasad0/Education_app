@@ -5,6 +5,7 @@ import locationReducer from './slices/locationSlice';
 import onlineCoursesReducer from './slices/onlineCoursesSlice';
 import enrollmentsReducer from './slices/enrollmentsSlice';
 import studyMaterialsReducer from './slices/studyMaterialsSlice';
+import privateTutorsReducer from './slices/privateTutorsSlice';
 
 export const store = configureStore({
   reducer: {
@@ -14,6 +15,7 @@ export const store = configureStore({
     onlineCourses: onlineCoursesReducer,
     enrollments: enrollmentsReducer,
     studyMaterials: studyMaterialsReducer,
+    privateTutors: privateTutorsReducer,
   },
 });
 
