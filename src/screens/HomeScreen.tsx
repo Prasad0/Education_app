@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { fetchCoachingCenters, searchCoachingCenters, filterCoachingCenters, setActiveTab, toggleStarred, clearData } from '../store/slices/coachingSlice';
 import { getCurrentLocation as getLocationFromSlice, deselectLocation } from '../store/slices/locationSlice';
-import { fetchUserProfile } from '../store/slices/authSlice';
+import { fetchUserProfile, setSelectedChildId, logout } from '../store/slices/authSlice';
 import Header from '../components/Header';
 import BottomNavigation from '../components/BottomNavigation';
 import PromotionalBanner from '../components/PromotionalBanner';
@@ -19,7 +19,6 @@ import SearchFilterScreen from './SearchFilterScreen';
 import { CoachingCenter } from '../store/slices/coachingSlice';
 import OnlineScreen from './OnlineScreen';
 import PrivateCoachingScreen from './PrivateCoachingScreen';
-import { logout } from '../store/slices/authSlice';
 
 // Filter interface for the modal
 interface FilterState {
@@ -79,8 +78,8 @@ const HomeScreen: React.FC = () => {
   const safeSelectedLocationData = selectedLocationData || null;
   
   const [currentScreen, setCurrentScreen] = useState<'home' | 'search' | 'listing' | 'location' | 'profile' | 'detail' | 'searchFilter' | 'online' | 'private'>('home');
-  const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [selectedCoachingId, setSelectedCoachingId] = useState<string>('');
+  const { selectedChildId } = useAppSelector(state => state.auth);
   const [spinValue] = useState(new Animated.Value(0));
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState<FilterState | null>(null);
@@ -92,10 +91,15 @@ const HomeScreen: React.FC = () => {
   // Mock user profile for now - this should come from your auth state
   const mockUserProfile = actualProfile ? {
     user_type: actualProfile.user_type,
-    students: actualProfile.children && actualProfile.children.length > 0 ? actualProfile.children : []
+    students: actualProfile.children && actualProfile.children.length > 0 ? actualProfile.children : [],
+    children: actualProfile.children || [] // Also include children directly for compatibility
   } : {
     user_type: 'parent',
     students: [
+      { id: '1', name: 'Rahul Kumar', current_standard: '12th', target_exam: 'JEE Main' },
+      { id: '2', name: 'Priya Sharma', current_standard: '10th', target_exam: 'Board Exam' },
+    ],
+    children: [
       { id: '1', name: 'Rahul Kumar', current_standard: '12th', target_exam: 'JEE Main' },
       { id: '2', name: 'Priya Sharma', current_standard: '10th', target_exam: 'Board Exam' },
     ]
@@ -234,15 +238,14 @@ const HomeScreen: React.FC = () => {
 
 
   useEffect(() => {
-    // Set initial student if available
-    if (actualProfile?.children && actualProfile.children.length > 0) {
-      // Use real profile data
-      setSelectedStudentId(actualProfile.children[0].id || '1');
-    } else if (mockUserProfile.students && mockUserProfile.students.length > 0) {
-      // Fallback to mock data
-      setSelectedStudentId(mockUserProfile.students[0].id);
+    // Set initial child if available and not already set in Redux
+    if (actualProfile?.user_type === 'parent' && actualProfile?.children && actualProfile.children.length > 0) {
+      if (!selectedChildId) {
+        // Set first child as default
+        dispatch(setSelectedChildId(actualProfile.children[0].id));
+      }
     }
-  }, [actualProfile, mockUserProfile.students]);
+  }, [actualProfile, selectedChildId, dispatch]);
 
 
   // Start spinning animation when loading
@@ -355,8 +358,8 @@ const HomeScreen: React.FC = () => {
     }
 
     // Add child_id from selected student
-    if (selectedStudentId) {
-      filterParams.child_id = selectedStudentId;
+    if (selectedChildId) {
+      filterParams.child_id = String(selectedChildId);
     }
 
     // Add search parameter
@@ -846,24 +849,48 @@ const HomeScreen: React.FC = () => {
             </View>
           )}
 
-          {/* Children Section - Only show if user is parent and has children */}
-          {actualProfile?.user_type === 'parent' && actualProfile?.children && actualProfile.children.length > 0 && (
+          {/* Selected Child Section - Only show if user is parent and has children */}
+          {actualProfile?.user_type === 'parent' && actualProfile?.children && actualProfile.children.length > 0 && selectedChildId && (
             <View style={styles.profileSection}>
-              <Text style={styles.sectionTitle}>Children ({actualProfile.children.length})</Text>
-              {actualProfile.children.map((child: any, index: number) => (
-                <View key={child.id || index} style={styles.childCard}>
-                  <View style={styles.childHeader}>
-                    <Ionicons name="person-circle-outline" size={24} color="#3b82f6" />
-                    <Text style={styles.childName}>{child.name || `Child ${index + 1}`}</Text>
+              <Text style={styles.sectionTitle}>Active Child</Text>
+              {(() => {
+                const selectedChild = actualProfile.children.find((c: any) => c.id === selectedChildId);
+                if (!selectedChild) return null;
+                const targetExamsDisplay = selectedChild.target_exams && selectedChild.target_exams.length > 0
+                  ? selectedChild.target_exams.join(', ')
+                  : selectedChild.target_exam || 'Not specified';
+                const subjectsDisplay = selectedChild.subjects_interested && selectedChild.subjects_interested.length > 0
+                  ? selectedChild.subjects_interested.join(', ')
+                  : 'Not specified';
+                
+                return (
+                  <View style={styles.childCard}>
+                    <View style={styles.childHeader}>
+                      <Ionicons name="person-circle-outline" size={24} color="#3b82f6" />
+                      <Text style={styles.childName}>{selectedChild.name}</Text>
+                    </View>
+                    {selectedChild.current_standard && (
+                      <Text style={styles.childDetail}>Standard: {selectedChild.current_standard}</Text>
+                    )}
+                    {selectedChild.board && (
+                      <Text style={styles.childDetail}>Board: {selectedChild.board}</Text>
+                    )}
+                    {selectedChild.stream && (
+                      <Text style={styles.childDetail}>Stream: {selectedChild.stream}</Text>
+                    )}
+                    <Text style={styles.childDetail}>Target Exams: {targetExamsDisplay}</Text>
+                    <Text style={styles.childDetail}>Subjects: {subjectsDisplay}</Text>
+                    {selectedChild.budget_min && selectedChild.budget_max && (
+                      <Text style={styles.childDetail}>Budget: ₹{selectedChild.budget_min} - ₹{selectedChild.budget_max}/month</Text>
+                    )}
                   </View>
-                  {child.current_standard && (
-                    <Text style={styles.childDetail}>Standard: {child.current_standard}</Text>
-                  )}
-                  {child.target_exam && (
-                    <Text style={styles.childDetail}>Target: {child.target_exam}</Text>
-                  )}
-                </View>
-              ))}
+                );
+              })()}
+              {actualProfile.children.length > 1 && (
+                <Text style={styles.switchChildHint}>
+                  Tap the child switcher in the header to switch between children
+                </Text>
+              )}
             </View>
           )}
 
@@ -911,6 +938,38 @@ const HomeScreen: React.FC = () => {
               </View>
               <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
             </TouchableOpacity>
+
+            {/* Logout Button in Account Section */}
+            <TouchableOpacity 
+              style={styles.logoutOption}
+              onPress={() => {
+                Alert.alert(
+                  'Logout',
+                  'Are you sure you want to logout?',
+                  [
+                    { 
+                      text: 'Cancel', 
+                      style: 'cancel' 
+                    },
+                    { 
+                      text: 'Logout', 
+                      style: 'destructive',
+                      onPress: () => {
+                        dispatch(logout());
+                        // User will be redirected to login screen automatically via AuthNavigator
+                      }
+                    }
+                  ],
+                  { cancelable: true }
+                );
+              }}
+            >
+              <View style={styles.optionLeft}>
+                <Ionicons name="log-out-outline" size={20} color="#dc2626" />
+                <Text style={styles.logoutOptionText}>Logout</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+            </TouchableOpacity>
           </View>
 
           {/* App Info Section */}
@@ -934,32 +993,6 @@ const HomeScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
 
-          {/* Logout Section */}
-          <View style={styles.profileSection}>
-            <TouchableOpacity 
-              style={styles.logoutButton}
-              onPress={() => {
-                Alert.alert(
-                  'Logout',
-                  'Are you sure you want to logout?',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    { 
-                      text: 'Logout', 
-                      style: 'destructive',
-                      onPress: () => {
-                        dispatch(logout());
-                                                 // Navigate to auth screen or reset the app
-                      }
-                    }
-                  ]
-                );
-              }}
-            >
-              <Ionicons name="log-out-outline" size={20} color="#dc2626" />
-              <Text style={styles.logoutText}>Logout</Text>
-            </TouchableOpacity>
-          </View>
 
           {/* App Version */}
           <View style={styles.versionContainer}>
@@ -995,8 +1028,8 @@ const HomeScreen: React.FC = () => {
         onLocationPress={handleLocationPress}
         onSearchPress={handleSearchPress}
         userProfile={mockUserProfile}
-        selectedStudentId={selectedStudentId || ''}
-        onStudentSelect={setSelectedStudentId}
+        selectedStudentId={selectedChildId ? String(selectedChildId) : ''}
+        onStudentSelect={(id) => dispatch(setSelectedChildId(Number(id)))}
         isLocationLoading={safeIsLocationLoading}
         coordinates={safeCoordinates}
         selectedLocationData={safeSelectedLocationData}
@@ -1448,21 +1481,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#374151',
   },
-  logoutButton: {
+  logoutOption: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 8,
     backgroundColor: '#fef2f2',
-    marginTop: 16,
   },
-  logoutText: {
-    color: '#dc2626',
+  logoutOptionText: {
     fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
+    color: '#dc2626',
+    fontWeight: '500',
   },
   versionContainer: {
     alignItems: 'center',
@@ -1580,6 +1612,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#4b5563',
     marginTop: 4,
+  },
+  switchChildHint: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontStyle: 'italic',
+    marginTop: 8,
+    textAlign: 'center',
   },
 
   // New styles for Profile Loading State

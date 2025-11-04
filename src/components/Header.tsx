@@ -47,17 +47,22 @@ const Header: React.FC<HeaderProps> = ({
     return 'Select location';
   };
 
+  const hasChildren = userProfile?.user_type === 'parent' && (() => {
+    const childrenList = userProfile.children || userProfile.students || [];
+    return childrenList.length > 0;
+  })();
+
   return (
     <View style={styles.header}>
       <View style={styles.headerContent}>
         {/* Top Row - Student Switcher + Location */}
         <View style={styles.topRow}>
           {/* Student Switcher (for parents with multiple students) */}
-          {userProfile?.user_type === 'parent' && userProfile.students && userProfile.students.length > 0 && (
+          {hasChildren && (
             <View style={styles.studentSwitcherContainer}>
               <StudentSwitcher 
-                students={userProfile.students}
-                currentStudentId={selectedStudentId}
+                students={userProfile.children || userProfile.students || []}
+                currentStudentId={selectedStudentId || ''}
                 onStudentSelect={onStudentSelect}
               />
             </View>
@@ -66,9 +71,7 @@ const Header: React.FC<HeaderProps> = ({
           {/* Location selector */}
           <View style={[
             styles.locationContainer,
-            userProfile?.user_type === 'parent' && userProfile.students && userProfile.students.length > 1 
-              ? styles.locationContainerWithSwitcher 
-              : styles.locationContainerFull
+            hasChildren ? styles.locationContainerWithSwitcher : styles.locationContainerFull
           ]}>
             <View style={[
               styles.locationIconContainer,
@@ -144,22 +147,28 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+    width: '100%',
   },
   studentSwitcherContainer: {
-    flex: 1,
-    minWidth: 0,
+    flexShrink: 0,
+    width: 110, // Fixed width for student switcher
+    maxWidth: 110,
   },
   locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    minWidth: 0,
   },
   locationContainerWithSwitcher: {
-    flexShrink: 0,
+    flex: 1,
+    minWidth: 0,
+    flexShrink: 1,
   },
   locationContainerFull: {
     flex: 1,
+    minWidth: 0,
   },
   locationIconContainer: {
     width: 32,
@@ -182,6 +191,7 @@ const styles = StyleSheet.create({
   locationTextContainer: {
     flex: 1,
     minWidth: 0,
+    flexShrink: 1, // Allow it to shrink if needed
   },
   locationLabel: {
     fontSize: 12,
@@ -216,6 +226,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     minHeight: 44,
+    flexShrink: 0, // Prevent button from shrinking
   },
   // Search styles - FUNCTIONAL
   searchBar: {

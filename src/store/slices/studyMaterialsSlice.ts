@@ -75,9 +75,17 @@ const initialState: StudyMaterialsState = {
 // Async thunks
 export const fetchStudyMaterials = createAsyncThunk(
   'studyMaterials/fetchStudyMaterials',
-  async (page: number = 1, { rejectWithValue }) => {
+  async (page: number = 1, { getState, rejectWithValue }) => {
     try {
-      const url = `${getApiUrl(API_CONFIG.ENDPOINTS.STUDY_MATERIALS)}?page=${page}`;
+      const state = getState() as any;
+      let url = `${getApiUrl(API_CONFIG.ENDPOINTS.STUDY_MATERIALS)}?page=${page}`;
+      
+      // Add child_id if parent user has selected a child
+      const userType = state.auth?.user?.user_type || state.auth?.profile?.user_type || state.auth?.profileStatus?.userType;
+      if (userType === 'parent' && state.auth?.selectedChildId) {
+        url += `&child_id=${state.auth.selectedChildId}`;
+      }
+      
       const response = await api.get(url);
       return response.data;
     } catch (error: any) {
@@ -90,7 +98,7 @@ export const loadMoreStudyMaterials = createAsyncThunk(
   'studyMaterials/loadMore',
   async (_, { getState, rejectWithValue }) => {
     try {
-      const state = getState() as { studyMaterials: StudyMaterialsState };
+      const state = getState() as any;
       const { currentPage, hasNextPage } = state.studyMaterials;
       
       if (!hasNextPage) {
@@ -98,7 +106,14 @@ export const loadMoreStudyMaterials = createAsyncThunk(
       }
 
       const nextPage = currentPage + 1;
-      const url = `${getApiUrl(API_CONFIG.ENDPOINTS.STUDY_MATERIALS)}?page=${nextPage}`;
+      let url = `${getApiUrl(API_CONFIG.ENDPOINTS.STUDY_MATERIALS)}?page=${nextPage}`;
+      
+      // Add child_id if parent user has selected a child
+      const userType = state.auth?.user?.user_type || state.auth?.profile?.user_type || state.auth?.profileStatus?.userType;
+      if (userType === 'parent' && state.auth?.selectedChildId) {
+        url += `&child_id=${state.auth.selectedChildId}`;
+      }
+      
       const response = await api.get(url);
       return response.data;
     } catch (error: any) {
@@ -109,9 +124,18 @@ export const loadMoreStudyMaterials = createAsyncThunk(
 
 export const refreshStudyMaterials = createAsyncThunk(
   'studyMaterials/refresh',
-  async (_, { rejectWithValue }) => {
+  async (_, { getState, rejectWithValue }) => {
     try {
-      const response = await api.get(`${getApiUrl(API_CONFIG.ENDPOINTS.STUDY_MATERIALS)}?page=1`);
+      const state = getState() as any;
+      let url = `${getApiUrl(API_CONFIG.ENDPOINTS.STUDY_MATERIALS)}?page=1`;
+      
+      // Add child_id if parent user has selected a child
+      const userType = state.auth?.user?.user_type || state.auth?.profile?.user_type || state.auth?.profileStatus?.userType;
+      if (userType === 'parent' && state.auth?.selectedChildId) {
+        url += `&child_id=${state.auth.selectedChildId}`;
+      }
+      
+      const response = await api.get(url);
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to refresh study materials');

@@ -155,9 +155,17 @@ const initialState: EnrollmentsState = {
 // Async thunks
 export const fetchEnrollments = createAsyncThunk(
   'enrollments/fetchEnrollments',
-  async (_, { rejectWithValue }) => {
+  async (_, { getState, rejectWithValue }) => {
     try {
-      const url = getApiUrl(API_CONFIG.ENDPOINTS.ENROLLMENTS);
+      const state = getState() as any;
+      let url = getApiUrl(API_CONFIG.ENDPOINTS.ENROLLMENTS);
+      
+      // Add child_id if parent user has selected a child
+      const userType = state.auth?.user?.user_type || state.auth?.profile?.user_type || state.auth?.profileStatus?.userType;
+      if (userType === 'parent' && state.auth?.selectedChildId) {
+        url += `?child_id=${state.auth.selectedChildId}`;
+      }
+      
       const response = await api.get(url);
       return response.data;
     } catch (error: any) {
@@ -168,9 +176,17 @@ export const fetchEnrollments = createAsyncThunk(
 
 export const refreshEnrollments = createAsyncThunk(
   'enrollments/refreshEnrollments',
-  async (_, { rejectWithValue }) => {
+  async (_, { getState, rejectWithValue }) => {
     try {
-      const url = getApiUrl(API_CONFIG.ENDPOINTS.ENROLLMENTS);
+      const state = getState() as any;
+      let url = getApiUrl(API_CONFIG.ENDPOINTS.ENROLLMENTS);
+      
+      // Add child_id if parent user has selected a child
+      const userType = state.auth?.user?.user_type || state.auth?.profile?.user_type || state.auth?.profileStatus?.userType;
+      if (userType === 'parent' && state.auth?.selectedChildId) {
+        url += `?child_id=${state.auth.selectedChildId}`;
+      }
+      
       const response = await api.get(url);
       return response.data;
     } catch (error: any) {

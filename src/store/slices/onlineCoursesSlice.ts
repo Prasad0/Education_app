@@ -203,9 +203,17 @@ const initialState: OnlineCoursesState = {
 // Async thunks
 export const fetchOnlineCourses = createAsyncThunk(
   'onlineCourses/fetchCourses',
-  async (page: number = 1, { rejectWithValue }) => {
+  async (page: number = 1, { getState, rejectWithValue }) => {
     try {
-      const url = `${getApiUrl(API_CONFIG.ENDPOINTS.ONLINE_COURSES)}?page=${page}`;
+      const state = getState() as any;
+      let url = `${getApiUrl(API_CONFIG.ENDPOINTS.ONLINE_COURSES)}?page=${page}`;
+      
+      // Add child_id if parent user has selected a child
+      const userType = state.auth?.user?.user_type || state.auth?.profile?.user_type || state.auth?.profileStatus?.userType;
+      if (userType === 'parent' && state.auth?.selectedChildId) {
+        url += `&child_id=${state.auth.selectedChildId}`;
+      }
+      
       const response = await api.get(url);
       return response.data;
     } catch (error: any) {
@@ -218,7 +226,7 @@ export const loadMoreCourses = createAsyncThunk(
   'onlineCourses/loadMore',
   async (_, { getState, rejectWithValue }) => {
     try {
-      const state = getState() as { onlineCourses: OnlineCoursesState };
+      const state = getState() as any;
       const { currentPage, hasNextPage } = state.onlineCourses;
       
       if (!hasNextPage) {
@@ -226,7 +234,14 @@ export const loadMoreCourses = createAsyncThunk(
       }
 
       const nextPage = currentPage + 1;
-      const url = `${getApiUrl(API_CONFIG.ENDPOINTS.ONLINE_COURSES)}?page=${nextPage}`;
+      let url = `${getApiUrl(API_CONFIG.ENDPOINTS.ONLINE_COURSES)}?page=${nextPage}`;
+      
+      // Add child_id if parent user has selected a child
+      const userType = state.auth?.user?.user_type || state.auth?.profile?.user_type || state.auth?.profileStatus?.userType;
+      if (userType === 'parent' && state.auth?.selectedChildId) {
+        url += `&child_id=${state.auth.selectedChildId}`;
+      }
+      
       const response = await api.get(url);
       return response.data;
     } catch (error: any) {
@@ -237,9 +252,18 @@ export const loadMoreCourses = createAsyncThunk(
 
 export const refreshCourses = createAsyncThunk(
   'onlineCourses/refresh',
-  async (_, { rejectWithValue }) => {
+  async (_, { getState, rejectWithValue }) => {
     try {
-      const response = await api.get(`${getApiUrl(API_CONFIG.ENDPOINTS.ONLINE_COURSES)}?page=1`);
+      const state = getState() as any;
+      let url = `${getApiUrl(API_CONFIG.ENDPOINTS.ONLINE_COURSES)}?page=1`;
+      
+      // Add child_id if parent user has selected a child
+      const userType = state.auth?.user?.user_type || state.auth?.profile?.user_type || state.auth?.profileStatus?.userType;
+      if (userType === 'parent' && state.auth?.selectedChildId) {
+        url += `&child_id=${state.auth.selectedChildId}`;
+      }
+      
+      const response = await api.get(url);
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to refresh courses');

@@ -18,6 +18,7 @@ interface AuthState {
     nextSteps: string[];
   } | null;
   profile: any | null;
+  selectedChildId: number | null; // ID of the currently selected child (for parents)
 }
 
 const initialState: AuthState = {
@@ -31,6 +32,7 @@ const initialState: AuthState = {
   user: null,
   profileStatus: null,
   profile: null,
+  selectedChildId: null,
 };
 
 // Async thunk for sending OTP
@@ -256,9 +258,13 @@ const authSlice = createSlice({
       state.user = null;
       state.profileStatus = null;
       state.profile = null;
+      state.selectedChildId = null;
       
       // Clear stored tokens and user data
       clearStorage();
+    },
+    setSelectedChildId: (state, action: PayloadAction<number | null>) => {
+      state.selectedChildId = action.payload;
     },
     clearCoachingData: (state) => {
       // This action will be used to clear coaching data when logging out
@@ -320,13 +326,19 @@ const authSlice = createSlice({
       })
       .addCase(createProfile.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.profile = action.payload;
+        const profileData = action.payload.profile || action.payload;
+        state.profile = profileData;
         state.profileStatus = {
           hasProfile: true,
           isCompleted: true,
-          userType: action.payload.user_type,
+          userType: profileData.user_type,
           nextSteps: []
         };
+        
+        // Set first child as default if parent has children
+        if (profileData.user_type === 'parent' && profileData.children && profileData.children.length > 0) {
+          state.selectedChildId = profileData.children[0].id;
+        }
       })
       .addCase(createProfile.rejected, (state, action) => {
         state.isLoading = false;
@@ -352,6 +364,14 @@ const authSlice = createSlice({
       .addCase(fetchUserProfile.fulfilled, (state, action) => {
         state.isLoading = false;
         state.user = action.payload;
+        state.profile = action.payload;
+        
+        // Set first child as default if parent has children and no child is selected
+        if (action.payload.user_type === 'parent' && action.payload.children && action.payload.children.length > 0) {
+          if (!state.selectedChildId) {
+            state.selectedChildId = action.payload.children[0].id;
+          }
+        }
       })
       .addCase(fetchUserProfile.rejected, (state, action) => {
         state.isLoading = false;
@@ -362,7 +382,8 @@ const authSlice = createSlice({
 });
 
 export const {
-  setPhoneNumber, 
+  setPhoneNumber,
+  setSelectedChildId, 
   setOtp, 
   clearError, 
   setTokens, 

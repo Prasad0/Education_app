@@ -169,7 +169,11 @@ const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack })
             
             const sessionDate = new Date(today);
             sessionDate.setDate(today.getDate() + daysUntilSlot);
-            const sessionDateStr = sessionDate.toISOString().split('T')[0];
+            // Format date as DD-MM-YYYY
+            const day = String(sessionDate.getDate()).padStart(2, '0');
+            const month = String(sessionDate.getMonth() + 1).padStart(2, '0');
+            const year = sessionDate.getFullYear();
+            const sessionDateStr = `${day}-${month}-${year}`;
             
             // Calculate duration
             const [startHour, startMin] = slot.start_time.split(':').map(Number);
@@ -181,8 +185,8 @@ const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack })
             // Create booking data
             const bookingData = {
               tutor: tutorId,
-              session_date: sessionDateStr,
-              start_time: slot.start_time,
+              scheduled_date: sessionDateStr,
+              scheduled_time: slot.start_time,
               end_time: slot.end_time,
               duration_hours: durationHours,
               notes: `Session with ${selectedTutor.teacher.name} - ${slot.day_display} ${slot.time_slot_display}`,

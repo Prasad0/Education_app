@@ -75,8 +75,8 @@ export interface AvailabilitySlot {
 
 export interface BookingRequest {
   tutor: number;
-  session_date: string;
-  start_time: string;
+  scheduled_date: string;
+  scheduled_time: string;
   end_time: string;
   duration_hours: number;
   notes?: string;

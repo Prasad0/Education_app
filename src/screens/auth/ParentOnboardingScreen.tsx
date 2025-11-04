@@ -24,15 +24,21 @@ interface ParentOnboardingFormProps {
   navigation: any;
 }
 
+// Relationship choices matching API
 const relationships = [
   { label: 'Father', value: 'father' },
   { label: 'Mother', value: 'mother' },
   { label: 'Guardian', value: 'guardian' },
-  { label: 'Uncle/Aunt', value: 'uncle_aunt' },
-  { label: 'Grandparent', value: 'grandparent' },
+  { label: 'Brother', value: 'brother' },
+  { label: 'Sister', value: 'sister' },
+  { label: 'Uncle', value: 'uncle' },
+  { label: 'Aunt', value: 'aunt' },
+  { label: 'Grandfather', value: 'grandfather' },
+  { label: 'Grandmother', value: 'grandmother' },
   { label: 'Other', value: 'other' }
 ];
 
+// Board choices (simplified - using common values)
 const boards = [
   { label: 'CBSE', value: 'cbse' },
   { label: 'ICSE', value: 'icse' },
@@ -40,21 +46,55 @@ const boards = [
   { label: 'International Board', value: 'international' }
 ];
 
-const competitiveExams = [
-  { label: 'JEE Main & Advanced', value: 'jee_main' },
+// Stream choices matching API
+const streams = [
+  { label: 'Science (PCM+B)', value: 'science_pcmb' },
+  { label: 'Science (PCB)', value: 'science_pcb' },
+  { label: 'Science (PCM)', value: 'science_pcm' },
+  { label: 'Commerce (with Maths)', value: 'commerce_maths' },
+  { label: 'Commerce (without Maths)', value: 'commerce_no_maths' },
+  { label: 'Arts/Humanities', value: 'arts_humanities' },
+  { label: 'Vocational', value: 'vocational' },
+  { label: 'Other', value: 'other' }
+];
+
+// Target exam choices matching API exactly
+const targetExams = [
+  { label: 'JEE Main', value: 'jee_main' },
+  { label: 'JEE Advanced', value: 'jee_advanced' },
   { label: 'NEET', value: 'neet' },
-  { label: 'CET', value: 'cet' },
   { label: 'BITSAT', value: 'bitsat' },
+  { label: 'COMEDK', value: 'comedk' },
+  { label: 'MHT CET', value: 'mht_cet' },
+  { label: 'WBJEE', value: 'wbjee' },
+  { label: 'KCET', value: 'kcet' },
+  { label: 'EAMCET', value: 'eamcet' },
+  { label: 'KEAM', value: 'keam' },
+  { label: 'GUJCET', value: 'gujcet' },
+  { label: 'CA Foundation', value: 'ca_foundation' },
+  { label: 'CS Foundation', value: 'cs_foundation' },
   { label: 'CLAT', value: 'clat' },
   { label: 'NDA', value: 'nda' },
-  { label: 'CA Foundation', value: 'ca_foundation' },
-  { label: 'Board Exam Focus', value: 'board_exam' },
-  { label: 'Foundation Building', value: 'foundation' },
-  { label: 'General Improvement', value: 'general' }
+  { label: 'KVPY', value: 'kvpy' },
+  { label: 'Olympiads', value: 'olympiads' },
+  { label: 'Board Exam Preparation', value: 'boards_preparation' },
+  { label: 'Other', value: 'other' }
 ];
 
 const subjects = [
   'Physics', 'Chemistry', 'Mathematics', 'Biology', 'English', 'Hindi', 'Social Studies', 'Science'
+];
+
+// Standard/Class options
+const standards = [
+  { label: '5th', value: '5th' },
+  { label: '6th', value: '6th' },
+  { label: '7th', value: '7th' },
+  { label: '8th', value: '8th' },
+  { label: '9th', value: '9th' },
+  { label: '10th', value: '10th' },
+  { label: '11th', value: '11th' },
+  { label: '12th', value: '12th' },
 ];
 
 const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
@@ -79,16 +119,16 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
 
   const [children, setChildren] = useState([{
     name: '',
-    dateOfBirth: '',
+    date_of_birth: '',
     gender: '',
-    currentStandard: '',
+    current_standard: '',
     board: '',
-    currentSchool: '',
-    subjectsInterested: [] as string[],
-    weakSubjects: [] as string[],
-    targetExams: [] as string[],
-    preferredCoachingType: '',
-    preferredBatchTiming: ''
+    stream: '',
+    current_school: '',
+    subjects_interested: [] as string[],
+    target_exams: [] as string[],
+    budget_min: '',
+    budget_max: ''
   }]);
 
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -335,16 +375,16 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
   const addChild = () => {
     setChildren(prev => [...prev, {
       name: '',
-      dateOfBirth: '',
+      date_of_birth: '',
       gender: '',
-      currentStandard: '',
+      current_standard: '',
       board: '',
-      currentSchool: '',
-      subjectsInterested: [],
-      weakSubjects: [],
-      targetExams: [],
-      preferredCoachingType: '',
-      preferredBatchTiming: ''
+      stream: '',
+      current_school: '',
+      subjects_interested: [],
+      target_exams: [],
+      budget_min: '',
+      budget_max: ''
     }]);
   };
 
@@ -404,50 +444,29 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
   };
 
   const isFormValid = () => {
-    const parentValid = formData.fullName && formData.relationshipWithChild;
+    // At least one child is required
+    if (children.length === 0) return false;
+    
+    const parentValid = formData.fullName && formData.relationshipWithChild && formData.dateOfBirth && formData.gender && formData.city && formData.state && formData.pincode;
     const childrenValid = children.every(child => 
-      child.name && child.currentStandard
+      child.name && child.date_of_birth && child.gender && child.current_standard && child.board && child.target_exams.length > 0
     );
-    return parentValid && childrenValid && locationPermission && location;
+    return parentValid && childrenValid;
   };
 
   const handleSubmit = async () => {
     console.log('🚀 ParentOnboarding: Complete Setup button pressed');
     console.log('📋 Parent Form Data:', formData);
     console.log('👶 Children Data:', children);
-    console.log('📍 Location Status:', { locationPermission, location });
     console.log('✅ Form Valid:', isFormValid());
     
-    // Check location first with a clear popup
-    if (!locationPermission) {
-      console.log('❌ Location Permission Required');
-      Alert.alert(
-        'Location Permission Required',
-        'Location access is required to submit this form. This helps us find coaching centers near you.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Enable Location', 
-            onPress: () => requestLocationPermission() 
-          }
-        ]
-      );
-      return;
-    }
-
-    if (!location) {
-      console.log('❌ Location Not Available');
-      Alert.alert(
-        'Location Not Available',
-        'Your current location could not be determined. Please ensure location services are enabled and try again.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Retry Location', 
-            onPress: () => getCurrentLocation() 
-          }
-        ]
-      );
+    // Validate at least one child
+    if (children.length === 0) {
+      Toast.show({
+        type: 'error',
+        text1: 'At Least One Child Required',
+        text2: 'Please add at least one child before submitting.',
+      });
       return;
     }
 
@@ -456,7 +475,7 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
       Toast.show({
         type: 'error',
         text1: 'Form Incomplete',
-        text2: 'Please fill all required fields.',
+        text2: 'Please fill all required fields for parent and all children.',
       });
       return;
     }
@@ -464,7 +483,21 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
     console.log('✅ All validations passed, proceeding with profile creation...');
     
     try {
-      // First create parent profile
+      // Prepare children data in API format
+      const childrenData = children.map(child => ({
+        name: child.name,
+        date_of_birth: child.date_of_birth,
+        gender: child.gender,
+        current_standard: child.current_standard,
+        board: child.board,
+        stream: child.stream || null,
+        subjects_interested: child.subjects_interested,
+        target_exams: child.target_exams,
+        budget_min: child.budget_min ? parseInt(child.budget_min) : null,
+        budget_max: child.budget_max ? parseInt(child.budget_max) : null,
+      }));
+
+      // Create parent profile with children in single API call
       const profileData = {
         user_type: 'parent',
         full_name: formData.fullName,
@@ -474,108 +507,25 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
         city: formData.city,
         state: formData.state,
         pincode: formData.pincode,
-        address: formData.address,
-        latitude: location!.latitude,
-        longitude: location!.longitude,
         occupation: formData.occupation || null,
-        education_level: formData.educationLevel || null,
-        preferred_search_radius_km: parseInt(formData.preferredSearchRadius),
         budget_min: formData.budgetMin ? parseInt(formData.budgetMin) : null,
-        budget_max: formData.budgetMax ? parseInt(formData.budgetMax) : null
+        budget_max: formData.budgetMax ? parseInt(formData.budgetMax) : null,
+        children: childrenData // Include children in the same request
       };
 
-      console.log('📤 Dispatching createProfile for parent with data:', profileData);
+      console.log('📤 Dispatching createProfile with parent + children data:', profileData);
       const result = await dispatch(createProfile(profileData));
       console.log('📥 createProfile result:', result);
       
       if (createProfile.fulfilled.match(result)) {
-        console.log('✅ Parent profile created successfully!');
-        
-        // Then add children
-        if (children.length === 0) {
-          console.log('❌ No children data to add');
-          Toast.show({
-            type: 'error',
-            text1: 'No Children Data',
-            text2: 'Please add at least one child before submitting.',
-          });
-          return;
-        }
-
-        const childrenData = children.map(child => ({
-          name: child.name,
-          date_of_birth: child.dateOfBirth,
-          gender: child.gender,
-          current_standard: child.currentStandard,
-          board: child.board,
-          current_school: child.currentSchool,
-          subjects_interested: child.subjectsInterested,
-          weak_subjects: child.weakSubjects,
-          target_exams: child.targetExams,
-          preferred_coaching_type: child.preferredCoachingType,
-          preferred_batch_timing: child.preferredBatchTiming
-        }));
-
-        console.log('👶 Processing children data:', childrenData);
-
-        // Filter out any children with missing required data
-        const validChildrenData = childrenData.filter(child => 
-          child.name && child.current_standard
-        );
-
-        console.log('✅ Valid children data:', validChildrenData);
-
-        if (validChildrenData.length === 0) {
-          console.log('❌ No valid children data found');
-          Toast.show({
-            type: 'error',
-            text1: 'Invalid Children Data',
-            text2: 'Please ensure all children have valid names and current standards.',
-          });
-          return;
-        }
-
-        try {
-          console.log('📤 Dispatching addChild with data:', validChildrenData);
-          // @ts-expect-error: addChild expects no arguments, but we need to pass validChildrenData
-          const addChildResult = await dispatch(addChild(validChildrenData) as any);
-          console.log('📥 addChild result:', addChildResult);
-
-          // Since addChildResult is of type unknown, we need to type guard
-          if (
-            typeof addChildResult === 'object' &&
-            addChildResult !== null &&
-            'meta' in addChildResult &&
-            (addChildResult as any).meta?.requestStatus === 'fulfilled'
-          ) {
-            console.log('✅ Children added successfully!');
-            Toast.show({
-              type: 'success',
-              text1: 'Profile Created',
-              text2: 'Your parent profile and children have been added successfully!',
-            });
-            console.log('🔄 Navigating to Home screen...');
-            navigation.navigate('Home');
-          } else if (addChildResult.meta?.requestStatus === 'rejected') {
-            console.log('❌ addChild request rejected');
-            console.log('addChildResult meta:', addChildResult.meta);
-            Toast.show({
-              type: 'error',
-              text1: 'Error Adding Children',
-              text2: 'Failed to add children. Please try again.',
-            });
-          } else {
-            console.log('❌ addChild result status unknown');
-            console.log('addChildResult:', addChildResult);
-          }
-        } catch (addChildError) {
-          console.error('💥 Error adding children:', addChildError);
-          Toast.show({
-            type: 'error',
-            text1: 'Error Adding Children',
-            text2: 'Failed to add children. Please try again.',
-          });
-        }
+        console.log('✅ Profile created successfully!');
+        Toast.show({
+          type: 'success',
+          text1: 'Profile Created',
+          text2: `Your profile with ${childrenData.length} child${childrenData.length > 1 ? 'ren' : ''} has been created successfully!`,
+        });
+        console.log('🔄 Navigating to Home screen...');
+        navigation.navigate('Home');
       } else if (createProfile.rejected.match(result)) {
         console.log('❌ Profile creation failed:', result.error);
         
@@ -583,7 +533,6 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
         if (result.payload && typeof result.payload === 'object' && 'data' in result.payload) {
           const apiResponse = result.payload.data as any;
           if (apiResponse && apiResponse.errors && typeof apiResponse.errors === 'object') {
-            // Show specific error messages
             const errorMessages = Object.values(apiResponse.errors).flat();
             const errorText = errorMessages.join(', ');
             
@@ -737,7 +686,7 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Date of Birth</Text>
+              <Text style={styles.label}>Date of Birth *</Text>
               <View style={styles.dateInputContainer}>
                 <TextInput
                   style={[styles.input, styles.dateInput]}
@@ -753,7 +702,7 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Gender</Text>
+              <Text style={styles.label}>Gender *</Text>
               <View style={styles.pickerContainer}>
                 <Picker
                   selectedValue={formData.gender}
@@ -808,7 +757,7 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
             <Text style={styles.sectionTitle}>Address Information</Text>
             
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>City</Text>
+              <Text style={styles.label}>City *</Text>
               <TextInput
                 style={styles.input}
                 placeholder="Your city"
@@ -818,7 +767,7 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>State</Text>
+              <Text style={styles.label}>State *</Text>
               <TextInput
                 style={styles.input}
                 placeholder="Your state"
@@ -828,7 +777,7 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Pincode</Text>
+              <Text style={styles.label}>Pincode *</Text>
               <TextInput
                 style={styles.input}
                 placeholder="Your pincode"
@@ -855,22 +804,6 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Preferences</Text>
             
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Preferred Search Radius (km)</Text>
-              <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={formData.preferredSearchRadius}
-                  onValueChange={(value) => handleInputChange('preferredSearchRadius', value)}
-                  style={styles.picker}>
-                  <Picker.Item label="5 km" value="5" />
-                  <Picker.Item label="10 km" value="10" />
-                  <Picker.Item label="15 km" value="15" />
-                  <Picker.Item label="20 km" value="20" />
-                  <Picker.Item label="25 km" value="25" />
-                </Picker>
-              </View>
-            </View>
-
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Budget Range (per month)</Text>
               <View style={styles.budgetContainer}>
@@ -926,17 +859,17 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Date of Birth</Text>
+                  <Text style={styles.label}>Date of Birth *</Text>
                   <TextInput
                     style={styles.input}
                     placeholder="DD-MM-YYYY"
-                    value={child.dateOfBirth}
-                    onChangeText={(value) => handleChildChange(index, 'dateOfBirth', value)}
+                    value={child.date_of_birth}
+                    onChangeText={(value) => handleChildChange(index, 'date_of_birth', value)}
                   />
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Gender</Text>
+                  <Text style={styles.label}>Gender *</Text>
                   <View style={styles.pickerContainer}>
                     <Picker
                       selectedValue={child.gender}
@@ -952,16 +885,21 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
 
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Current Standard *</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g., 10th, 12th"
-                    value={child.currentStandard}
-                    onChangeText={(value) => handleChildChange(index, 'currentStandard', value)}
-                  />
+                  <View style={styles.pickerContainer}>
+                    <Picker
+                      selectedValue={child.current_standard}
+                      onValueChange={(value) => handleChildChange(index, 'current_standard', value)}
+                      style={styles.picker}>
+                      <Picker.Item label="Select standard" value="" />
+                      {standards.map((standard) => (
+                        <Picker.Item key={standard.value} label={standard.label} value={standard.value} />
+                      ))}
+                    </Picker>
+                  </View>
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Board</Text>
+                  <Text style={styles.label}>Board *</Text>
                   <View style={styles.pickerContainer}>
                     <Picker
                       selectedValue={child.board}
@@ -976,29 +914,66 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
                 </View>
 
                 <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Stream</Text>
+                  <View style={styles.pickerContainer}>
+                    <Picker
+                      selectedValue={child.stream}
+                      onValueChange={(value) => handleChildChange(index, 'stream', value)}
+                      style={styles.picker}>
+                      <Picker.Item label="Select stream (optional)" value="" />
+                      {streams.map((stream) => (
+                        <Picker.Item key={stream.value} label={stream.label} value={stream.value} />
+                      ))}
+                    </Picker>
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
                   <Text style={styles.label}>School/College Name</Text>
                   <TextInput
                     style={styles.input}
                     placeholder="Child's current school/college"
-                    value={child.currentSchool}
-                    onChangeText={(value) => handleChildChange(index, 'currentSchool', value)}
+                    value={child.current_school}
+                    onChangeText={(value) => handleChildChange(index, 'current_school', value)}
                   />
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Target Exams</Text>
+                  <Text style={styles.label}>Subjects Interested</Text>
                   <View style={styles.checkboxContainer}>
-                    {competitiveExams.map((exam) => (
+                    {subjects.map((subject) => (
+                      <TouchableOpacity
+                        key={subject}
+                        style={[
+                          styles.checkbox,
+                          child.subjects_interested.includes(subject) && styles.checkboxSelected
+                        ]}
+                        onPress={() => handleChildArrayChange(index, 'subjects_interested', subject)}>
+                        <Text style={[
+                          styles.checkboxText,
+                          child.subjects_interested.includes(subject) && styles.checkboxTextSelected
+                        ]}>
+                          {subject}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Target Exams *</Text>
+                  <View style={styles.checkboxContainer}>
+                    {targetExams.map((exam) => (
                       <TouchableOpacity
                         key={exam.value}
                         style={[
                           styles.checkbox,
-                          child.targetExams.includes(exam.value) && styles.checkboxSelected
+                          child.target_exams.includes(exam.value) && styles.checkboxSelected
                         ]}
-                        onPress={() => handleChildArrayChange(index, 'targetExams', exam.value)}>
+                        onPress={() => handleChildArrayChange(index, 'target_exams', exam.value)}>
                         <Text style={[
                           styles.checkboxText,
-                          child.targetExams.includes(exam.value) && styles.checkboxTextSelected
+                          child.target_exams.includes(exam.value) && styles.checkboxTextSelected
                         ]}>
                           {exam.label}
                         </Text>
@@ -1008,28 +983,24 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Preferred Coaching Type</Text>
-                  <View style={styles.pickerContainer}>
-                    <Picker
-                      selectedValue={child.preferredCoachingType}
-                      onValueChange={(value) => handleChildChange(index, 'preferredCoachingType', value)}
-                      style={styles.picker}>
-                      <Picker.Item label="Select type" value="" />
-                      <Picker.Item label="Offline" value="offline" />
-                      <Picker.Item label="Online" value="online" />
-                      <Picker.Item label="Hybrid" value="hybrid" />
-                    </Picker>
+                  <Text style={styles.label}>Budget Range (per month)</Text>
+                  <View style={styles.budgetContainer}>
+                    <TextInput
+                      style={[styles.input, styles.budgetInput]}
+                      placeholder="Min"
+                      value={child.budget_min}
+                      onChangeText={(value) => handleChildChange(index, 'budget_min', value)}
+                      keyboardType="numeric"
+                    />
+                    <Text style={styles.budgetSeparator}>to</Text>
+                    <TextInput
+                      style={[styles.input, styles.budgetInput]}
+                      placeholder="Max"
+                      value={child.budget_max}
+                      onChangeText={(value) => handleChildChange(index, 'budget_max', value)}
+                      keyboardType="numeric"
+                    />
                   </View>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Preferred Batch Timing</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g., Morning (8 AM - 12 PM)"
-                    value={child.preferredBatchTiming}
-                    onChangeText={(value) => handleChildChange(index, 'preferredBatchTiming', value)}
-                  />
                 </View>
               </View>
             ))}
@@ -1041,13 +1012,11 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
              {/* Fixed Bottom Button */}
        <View style={styles.bottomButton}>
          <TouchableOpacity
-           style={[styles.submitButton, (!isFormValid() || !locationPermission || !location) && styles.submitButtonDisabled]}
+           style={[styles.submitButton, (!isFormValid()) && styles.submitButtonDisabled]}
            onPress={handleSubmit}
-           disabled={!isFormValid() || !locationPermission || !location || isLoading}>
+           disabled={!isFormValid() || isLoading}>
            {isLoading ? (
              <ActivityIndicator color="#ffffff" />
-           ) : !locationPermission || !location ? (
-             <Text style={styles.submitButtonText}>Location Required</Text>
            ) : (
              <Text style={styles.submitButtonText}>Complete Setup</Text>
            )}

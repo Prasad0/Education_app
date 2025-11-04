@@ -255,9 +255,12 @@ export const fetchCoachingCenters = createAsyncThunk(
         apiParams.longitude = params.longitude;
       }
 
-      // Add child_id if provided
+      // Add child_id if provided or if parent has selected child
+      const userType = state.auth?.user?.user_type || state.auth?.profile?.user_type || state.auth?.profileStatus?.userType;
       if (params.child_id) {
         apiParams.child_id = params.child_id;
+      } else if (userType === 'parent' && state.auth?.selectedChildId) {
+        apiParams.child_id = String(state.auth.selectedChildId);
       }
        
       const response = await api.get('/coachings/', { params: apiParams });
@@ -429,7 +432,13 @@ export const filterCoachingCenters = createAsyncThunk(
       if (filterParams.fees_min) apiParams.fees_min = filterParams.fees_min;
       if (filterParams.fees_max) apiParams.fees_max = filterParams.fees_max;
       if (filterParams.rating_min) apiParams.rating_min = filterParams.rating_min;
-      if (filterParams.child_id) apiParams.child_id = filterParams.child_id;
+      // Add child_id if provided or if parent has selected child
+      const userType = state.auth?.user?.user_type || state.auth?.profile?.user_type || state.auth?.profileStatus?.userType;
+      if (filterParams.child_id) {
+        apiParams.child_id = filterParams.child_id;
+      } else if (userType === 'parent' && state.auth?.selectedChildId) {
+        apiParams.child_id = String(state.auth.selectedChildId);
+      }
       if (coordinates?.latitude && coordinates?.longitude) {
         apiParams.latitude = coordinates.latitude;
         apiParams.longitude = coordinates.longitude;
@@ -531,9 +540,10 @@ export const searchCoachingCenters = createAsyncThunk(
         apiParams.longitude = coordinates.longitude;
       }
 
-      // Add child_id if available from state
-      if (state.auth?.selectedStudentId) {
-        apiParams.child_id = state.auth.selectedStudentId;
+      // Add child_id if parent user has selected a child (reuse state from line 517)
+      const userType = state.auth?.user?.user_type || state.auth?.profile?.user_type || state.auth?.profileStatus?.userType;
+      if (userType === 'parent' && state.auth?.selectedChildId) {
+        apiParams.child_id = String(state.auth.selectedChildId);
       }
       
       

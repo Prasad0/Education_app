@@ -3,10 +3,11 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface Student {
-  id: string;
+  id: number | string;
   name: string;
   current_standard?: string;
-  target_exam?: string;
+  target_exams?: string[];
+  target_exam?: string; // Legacy support
 }
 
 interface StudentSwitcherProps {
@@ -20,38 +21,51 @@ const StudentSwitcher: React.FC<StudentSwitcherProps> = ({
   currentStudentId,
   onStudentSelect,
 }) => {
-  const currentStudent = students.find(s => s.id === currentStudentId);
+  // If no students or empty array, don't render
+  if (!students || students.length === 0) {
+    return null;
+  }
+
+  // If no currentStudentId but we have students, use the first one
+  const effectiveStudentId = currentStudentId || (students.length > 0 ? String(students[0].id) : '');
+  const currentStudent = students.find(s => String(s.id) === String(effectiveStudentId)) || students[0];
   
   if (!currentStudent) return null;
+
+  // Get target exam display (support both array and single value)
+  const targetExamDisplay = currentStudent.target_exams && currentStudent.target_exams.length > 0
+    ? currentStudent.target_exams[0] // Show first target exam
+    : currentStudent.target_exam || '';
 
   return (
     <View style={styles.container}>
       <TouchableOpacity
         style={styles.switcher}
         onPress={() => {
-          // For now, just cycle through students
-          const currentIndex = students.findIndex(s => s.id === currentStudentId);
-          const nextIndex = (currentIndex + 1) % students.length;
-          onStudentSelect(students[nextIndex].id);
+          if (students.length <= 1) return; // Don't switch if only one child
+          // Cycle through students
+          const currentIndex = students.findIndex(s => String(s.id) === String(effectiveStudentId));
+          const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % students.length : 0;
+          onStudentSelect(String(students[nextIndex].id));
         }}
+        disabled={students.length <= 1}
+        activeOpacity={0.7}
       >
         <View style={styles.studentInfo}>
-          <Text style={styles.studentName} numberOfLines={1}>
+          <Text style={styles.studentName} numberOfLines={1} ellipsizeMode="tail">
             {currentStudent.name}
           </Text>
-          {currentStudent.current_standard && (
-            <Text style={styles.studentDetails} numberOfLines={1}>
+          {currentStudent.current_standard && students.length === 1 && (
+            <Text style={styles.studentDetails} numberOfLines={1} ellipsizeMode="tail">
               {currentStudent.current_standard}
-              {currentStudent.target_exam && ` • ${currentStudent.target_exam}`}
             </Text>
           )}
         </View>
-        <View style={styles.switchIndicator}>
-          <Text style={styles.switchText}>
-            {students.length > 1 ? `${currentStudentId ? students.findIndex(s => s.id === currentStudentId) + 1 : 1}/${students.length}` : ''}
-          </Text>
-          <Ionicons name="chevron-down" size={16} color="#6b7280" />
-        </View>
+        {students.length > 1 && (
+          <View style={styles.switchIndicator}>
+            <Ionicons name="chevron-down" size={12} color="#6b7280" />
+          </View>
+        )}
       </TouchableOpacity>
     </View>
   );
@@ -59,41 +73,46 @@ const StudentSwitcher: React.FC<StudentSwitcherProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    width: '100%',
     minWidth: 0,
   },
   switcher: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-    minHeight: 44,
+    borderRadius: 6,
+    minHeight: 36,
+    width: '100%',
+    maxWidth: '100%',
   },
   studentInfo: {
     flex: 1,
     minWidth: 0,
+    flexShrink: 1,
+    marginRight: 4,
   },
   studentName: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: '#111827',
-    marginBottom: 2,
+    marginBottom: 0,
   },
   studentDetails: {
-    fontSize: 12,
+    fontSize: 10,
     color: '#6b7280',
   },
   switchIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 2,
     flexShrink: 0,
+    paddingLeft: 2,
   },
   switchText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#6b7280',
     fontWeight: '500',
   },
