@@ -15,6 +15,7 @@ import {
 
 interface PrivateCoachingScreenProps {
   onBack: () => void;
+  onTabPress?: (tab: 'offline' | 'online' | 'private' | 'chat' | 'profile') => void;
 }
 
 interface PrivateTutor {
@@ -59,7 +60,7 @@ const mapApiToUi = (item: any): PrivateTutor => ({
   teachingStyle: (item.teaching_styles || []).map((s: any) => s.name),
 });
 
-const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack }) => {
+const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack, onTabPress }) => {
   const dispatch = useAppDispatch();
   const { items, loading, error, availability, availabilityLoading, availabilityError, bookingLoading, bookingSuccess, bookingError } = useAppSelector(state => state.privateTutors);
 
@@ -447,7 +448,11 @@ const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack })
         activeTab="private"
         onTabPress={(tab) => {
           if (tab === 'private') return;
-          onBack();
+          if (onTabPress) {
+            onTabPress(tab);
+          } else {
+            onBack();
+          }
         }}
       />
 

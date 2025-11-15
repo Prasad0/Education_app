@@ -12,9 +12,10 @@ import VideoPlayerScreen from '../screens/VideoPlayerScreen';
 interface OnlineScreenProps {
   onBack: () => void;
   onViewDetails: (center: CoachingCenter) => void;
+  onTabPress?: (tab: 'offline' | 'online' | 'private' | 'chat' | 'profile') => void;
 }
 
-const OnlineScreen: React.FC<OnlineScreenProps> = ({ onBack, onViewDetails }) => {
+const OnlineScreen: React.FC<OnlineScreenProps> = ({ onBack, onViewDetails, onTabPress }) => {
   const dispatch = useAppDispatch();
   const { coachingCenters, starredCenters } = useAppSelector(state => state.coaching);
   const { selectedCourse: courseDetail, courseDetailLoading, courseDetailError } = useAppSelector(state => state.onlineCourses);
@@ -89,7 +90,11 @@ const OnlineScreen: React.FC<OnlineScreenProps> = ({ onBack, onViewDetails }) =>
         activeTab="online"
         onTabSelect={(tab) => {
           if (tab === 'online') return;
-          onBack();
+          if (onTabPress) {
+            onTabPress(tab);
+          } else {
+            onBack();
+          }
         }}
         onJoinLiveClass={(courseId) => {
           Alert.alert('Join Live Class', `Joining live class for course ID: ${courseId}`);
@@ -179,7 +184,11 @@ const OnlineScreen: React.FC<OnlineScreenProps> = ({ onBack, onViewDetails }) =>
         activeTab="online"
         onTabPress={(tab) => {
           if (tab === 'online') return;
-          onBack();
+          if (onTabPress) {
+            onTabPress(tab);
+          } else {
+            onBack();
+          }
         }}
       />
 

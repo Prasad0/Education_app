@@ -276,15 +276,17 @@ const HomeScreen: React.FC = () => {
   const handleTabPress = (tab: 'offline' | 'online' | 'private' | 'chat' | 'profile') => {
     console.log('Tab pressed:', tab, 'Current screen:', currentScreen);
     
+    // Prevent unnecessary updates if already on the target tab
+    const targetScreen = tab === 'offline' || tab === 'chat' ? 'home' : tab;
+    if (currentScreen === targetScreen && activeTab === tab) {
+      console.log('Already on target screen, skipping navigation');
+      return;
+    }
+    
     // Force immediate update
     forceUpdateRef.current += 1;
     
-    // Update Redux state first for immediate UI feedback
-    if (tab !== 'profile') {
-      dispatch(setActiveTab(tab));
-    }
-    
-    // Update local state immediately - directly set the value instead of using callback
+    // Update local state first for immediate navigation
     switch (tab) {
       case 'profile':
         setCurrentScreen('profile');
@@ -306,8 +308,22 @@ const HomeScreen: React.FC = () => {
         setCurrentScreen('home');
     }
     
+    // Update Redux state for UI feedback (including profile)
+    dispatch(setActiveTab(tab));
+    
     console.log('After tab press - currentScreen will be:', tab === 'offline' || tab === 'chat' ? 'home' : tab);
   };
+
+  // Compute activeTab based on currentScreen to ensure it's always in sync
+  const computedActiveTab = (() => {
+    if (currentScreen === 'profile') return 'profile';
+    if (currentScreen === 'online') return 'online';
+    if (currentScreen === 'private') return 'private';
+    if (currentScreen === 'home' || currentScreen === 'listing' || currentScreen === 'search' || currentScreen === 'location' || currentScreen === 'detail' || currentScreen === 'searchFilter') {
+      return activeTab === 'offline' || activeTab === 'chat' ? activeTab : 'offline';
+    }
+    return activeTab;
+  })();
 
   const handleLocationPress = () => {
     // Go to location selection screen
@@ -589,6 +605,7 @@ const HomeScreen: React.FC = () => {
           setSelectedCoachingId(center.id);
           setCurrentScreen('detail');
         }}
+        onTabPress={handleTabPress}
       />
     );
   }
@@ -623,6 +640,7 @@ const HomeScreen: React.FC = () => {
     return (
       <PrivateCoachingScreen
         onBack={() => setCurrentScreen('home')}
+        onTabPress={handleTabPress}
       />
     );
   }
@@ -1002,9 +1020,9 @@ const HomeScreen: React.FC = () => {
 
         {/* Bottom Navigation - Fixed */}
         <BottomNavigation
-          activeTab={activeTab}
+          activeTab={computedActiveTab}
           onTabPress={handleTabPress}
-          key={`bottom-nav-${activeTab}-${forceUpdateRef.current}`}
+          key={`bottom-nav-${computedActiveTab}-${forceUpdateRef.current}`}
         />
       </SafeAreaView>
     );
@@ -1230,7 +1248,7 @@ const HomeScreen: React.FC = () => {
 
       {/* Bottom Navigation - Fixed */}
       <BottomNavigation
-        activeTab={activeTab}
+        activeTab={computedActiveTab}
         onTabPress={handleTabPress}
       />
 
