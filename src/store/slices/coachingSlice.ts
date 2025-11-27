@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { api } from '../../config/api';
+import { api, API_CONFIG } from '../../config/api';
 
 export interface CoachingCenter {
   id: string;
@@ -79,6 +79,13 @@ export interface CoachingState {
   detailedInfo: any | null; // Detailed coaching center info
   isDetailedLoading: boolean;
   detailedError: string | null;
+  // Pagination state
+  next: string | null;
+  previous: string | null;
+  hasNextPage: boolean;
+  currentPage: number;
+  totalCount: number;
+  loadingMore: boolean;
 }
 
 
@@ -182,7 +189,167 @@ const initialState: CoachingState = {
   detailedInfo: null,
   isDetailedLoading: false,
   detailedError: null,
+  // Pagination state
+  next: null,
+  previous: null,
+  hasNextPage: false,
+  currentPage: 0,
+  totalCount: 0,
+  loadingMore: false,
 };
+
+// Helper function to get auth token
+const getAuthToken = async (): Promise<string | null> => {
+  try {
+    let token = await AsyncStorage.getItem('accessToken');
+    if (!token) {
+      const tokensData = await AsyncStorage.getItem('auth_tokens');
+      if (tokensData) {
+        try {
+          const tokens = JSON.parse(tokensData);
+          token = tokens.accessToken;
+        } catch (parseError) {
+          console.warn('Failed to parse auth tokens:', parseError);
+        }
+      }
+    }
+    return token ? `Bearer ${token}` : null;
+  } catch (error) {
+    console.error('Error getting auth token:', error);
+    return null;
+  }
+};
+
+// Async thunk for adding coaching center to favorites
+export const addToFavorite = createAsyncThunk(
+  'coaching/addToFavorite',
+  async ({ coachingId, studentId }: { coachingId: string; studentId: number }, { rejectWithValue, getState }) => {
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        return rejectWithValue('No authentication token found');
+      }
+
+      // Get auth state to check if user has children
+      const state = getState() as any;
+      const profile = state.auth?.profile || state.auth?.user;
+      const userType = profile?.user_type || profile?.userType;
+      const hasChildren = userType === 'parent' && profile?.children && profile.children.length > 0;
+      const selectedChildId = state.auth?.selectedChildId;
+
+      // Prepare request body - only send student_id if user has children
+      let requestBody: { student_id?: number } | null = null;
+      
+      if (hasChildren && selectedChildId) {
+        // User has children, use the currently selected student_id from navbar
+        const studentIdNum = typeof selectedChildId === 'string' ? parseInt(selectedChildId, 10) : selectedChildId;
+        requestBody = { student_id: studentIdNum };
+      } else if (!hasChildren) {
+        // User doesn't have children, don't send body (null means no body)
+        requestBody = null;
+      } else {
+        // Fallback: if hasChildren but no selectedChildId, use the passed studentId
+        const studentIdNum = typeof studentId === 'string' ? parseInt(studentId, 10) : studentId;
+        requestBody = { student_id: studentIdNum };
+      }
+      
+      // Log the request for debugging
+      console.log('Adding to favoritesss:', {
+        coachingId,
+        hasChildren,
+        selectedChildId,
+        url: `/coachings/${coachingId}/add_favorite/`,
+        body: requestBody
+      });
+
+      // Make POST request with or without body
+      // Send { student_id: 123 } directly in body when user has children
+      // Send no body (undefined) when user doesn't have children
+      const response = requestBody !== null
+        ? await api.post(`/coachings/${coachingId}/add_favorite/`, requestBody)
+        : await api.post(`/coachings/${coachingId}/add_favorite/`);
+
+      console.log('Add to favorite success:', response.data);
+      return { coachingId, success: true, data: response.data };
+    } catch (error: any) {
+      console.error('Error adding to favorites:', error);
+      console.error('Error response:', error.response?.data.error?.child);
+      console.error('Error status:', error.response?.status);
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.detail || 
+                          error.response?.data?.error ||
+                          error.message || 
+                          'Failed to add to favorites';
+      return rejectWithValue(errorMessage);
+    }
+  }
+);
+
+// Async thunk for removing coaching center from favorites
+export const removeFromFavorite = createAsyncThunk(
+  'coaching/removeFromFavorite',
+  async ({ coachingId, studentId }: { coachingId: string; studentId: number }, { rejectWithValue, getState }) => {
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        return rejectWithValue('No authentication token found');
+      }
+
+      // Get auth state to check if user has children
+      const state = getState() as any;
+      const profile = state.auth?.profile || state.auth?.user;
+      const userType = profile?.user_type || profile?.userType;
+      const hasChildren = userType === 'parent' && profile?.children && profile.children.length > 0;
+      const selectedChildId = state.auth?.selectedChildId;
+
+      // Prepare request data - only send student_id if user has children
+      let requestData: { student_id?: number } | undefined;
+      
+      if (hasChildren && selectedChildId) {
+        // User has children, use the currently selected student_id from navbar
+        const studentIdNum = typeof selectedChildId === 'string' ? parseInt(selectedChildId, 10) : selectedChildId;
+        requestData = { student_id: studentIdNum };
+      } else if (!hasChildren) {
+        // User doesn't have children, don't send data
+        requestData = undefined;
+      } else {
+        // Fallback: if hasChildren but no selectedChildId, use the passed studentId
+        const studentIdNum = typeof studentId === 'string' ? parseInt(studentId, 10) : studentId;
+        requestData = { student_id: studentIdNum };
+      }
+      
+      // Log the request for debugging
+      console.log('Removing from favorites:', {
+        coachingId,
+        hasChildren,
+        selectedChildId,
+        url: `/coachings/${coachingId}/remove_favorite/`,
+        data: requestData
+      });
+
+      // Make DELETE request with or without data
+      const response = requestData 
+        ? await api.delete(
+            `/coachings/${coachingId}/remove_favorite/`,
+            { data: requestData }
+          )
+        : await api.delete(`/coachings/${coachingId}/remove_favorite/`);
+
+      console.log('Remove from favorite success:', response.data);
+      return { coachingId, success: true, data: response.data };
+    } catch (error: any) {
+      console.error('Error removing from favorites:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.detail || 
+                          error.response?.data?.error ||
+                          error.message || 
+                          'Failed to remove from favorites';
+      return rejectWithValue(errorMessage);
+    }
+  }
+);
 
 // Async thunk for fetching coaching centers
 export const fetchCoachingCenters = createAsyncThunk(
@@ -195,14 +362,19 @@ export const fetchCoachingCenters = createAsyncThunk(
       const accessToken = state.auth?.accessToken;
       
       if (!isAuthenticated || !accessToken) {
-        
-        return getTestData();
+        return {
+          data: getTestData(),
+          next: null,
+          previous: null,
+          count: 0,
+          page: 1
+        };
       }
         
       // Map parameters to match the API format from the curl command
       const apiParams: any = {
         radius: params.radius || 2000,
-        page_size: 200, // Increased page size to get more results per request
+        page_size: 20, // Reduced page size for proper pagination
         page: 1,        // Start from first page
       };
 
@@ -265,98 +437,162 @@ export const fetchCoachingCenters = createAsyncThunk(
        
       const response = await api.get('/coachings/', { params: apiParams });
       
-      // Check if we need to fetch more pages to get all results
+      // Extract data and pagination info from response
       let allData: any[] = [];
-      if (response.data?.count && response.data?.data && Array.isArray(response.data.data)) {
-        const totalCount = response.data.count;
-        const currentPageSize = response.data.data.length;
-        const currentPage = response.data.page || 1;
-        
-        // If we got fewer results than total count, try to fetch more pages
-        if (currentPageSize < totalCount) {
-          // Start with current results
-          allData = [...response.data.data];
-          
-          // Calculate how many more pages we need
-          const totalPages = Math.ceil(totalCount / 200);
-          
-          // Fetch remaining pages
-          for (let page = 2; page <= totalPages; page++) {
-            try {
-              const nextPageParams = { ...apiParams, page };
-              
-              const nextPageResponse = await api.get('/coachings/', { params: nextPageParams });
-              if (nextPageResponse.data?.data && Array.isArray(nextPageResponse.data.data)) {
-                allData = [...allData, ...nextPageResponse.data.data];
-                
-              }
-            } catch (pageError: any) {
-              break; // Stop fetching if we encounter an error
-            }
-          }
-        } else {
-          // We got all results in one page
+      let nextUrl: string | null = null;
+      let previousUrl: string | null = null;
+      let totalCount = 0;
+      
+      if (response.data) {
+        // Handle paginated response structure
+        if (response.data.data && Array.isArray(response.data.data)) {
           allData = response.data.data;
-        }
-      } else {
-        // Not paginated or different structure - handle different response structures
-        if (response.data) {
-          if (Array.isArray(response.data)) {
-            // Direct array response
-            allData = response.data;
-          } else if (response.data.results && Array.isArray(response.data.results)) {
-            // Paginated response with results array
-            allData = response.data.results;
-          } else if (response.data.data && Array.isArray(response.data.data)) {
-            // Nested data response
-            allData = response.data.data;
-          } else if (response.data.coaching_centers && Array.isArray(response.data.coaching_centers)) {
-            // Specific key response
-            allData = response.data.coaching_centers;
-          } else {
-            allData = [];
-          }
-        } else {
-          
-          allData = [];
+          nextUrl = response.data.next || null;
+          previousUrl = response.data.previous || null;
+          totalCount = response.data.count || allData.length;
+        } else if (response.data.results && Array.isArray(response.data.results)) {
+          // Alternative paginated structure
+          allData = response.data.results;
+          nextUrl = response.data.next || null;
+          previousUrl = response.data.previous || null;
+          totalCount = response.data.count || allData.length;
+        } else if (Array.isArray(response.data)) {
+          // Direct array response (no pagination)
+          allData = response.data;
+        } else if (response.data.coaching_centers && Array.isArray(response.data.coaching_centers)) {
+          allData = response.data.coaching_centers;
         }
       }
             
       // Validate and transform the response data
       try {
-        
         const transformedData = transformApiData(allData);
         
-        
-        // If transformation returns empty array and we have data, use test data
-        if (transformedData.length === 0 && allData.length > 0) {
-          
-          return getTestData();
-        }
-        
-        // Final safety check - if we still have no data, use test data
-        if (transformedData.length === 0) {
-          
-          return getTestData();
-        }
-        
-        return transformedData;
+        // Return data with pagination info
+        return {
+          data: transformedData,
+          next: nextUrl,
+          previous: previousUrl,
+          count: totalCount,
+          page: 1
+        };
       } catch (transformError) {
          // Return test data if transformation fails
-        
-        return getTestData();
+        return {
+          data: getTestData(),
+          next: null,
+          previous: null,
+          count: 0,
+          page: 1
+        };
       }
     } catch (error: any) {
       
       // Handle 401 Unauthorized error
       if (error.response?.status === 401) {
-        
         // Don't clear tokens here - let the auth slice handle logout
         // Just return test data to prevent the error from bubbling up
-        return getTestData();
+        return {
+          data: getTestData(),
+          next: null,
+          previous: null,
+          count: 0,
+          page: 1
+        };
       }
       
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch coaching centers');
+    }
+  }
+);
+
+// Async thunk for loading more coaching centers
+export const loadMoreCoachingCenters = createAsyncThunk(
+  'coaching/loadMoreCoachingCenters',
+  async (_, { getState, rejectWithValue }) => {
+    try {
+      const state = getState() as any;
+      const coachingState = state.coaching as CoachingState;
+      const isAuthenticated = state.auth?.isAuthenticated;
+      const accessToken = state.auth?.accessToken;
+      
+      if (!isAuthenticated || !accessToken) {
+        return rejectWithValue('User not authenticated');
+      }
+      
+      if (!coachingState.next) {
+        return rejectWithValue('No more pages to load');
+      }
+      
+      // Handle both full URLs and relative paths
+      let nextUrlPath = coachingState.next;
+      
+      // If it's a full URL, extract just the path
+      if (nextUrlPath.startsWith('http://') || nextUrlPath.startsWith('https://')) {
+        try {
+          const urlObj = new URL(nextUrlPath);
+          // Get pathname and search params
+          nextUrlPath = urlObj.pathname + urlObj.search;
+        } catch (e) {
+          // If URL parsing fails, try to extract path manually
+          const baseUrlMatch = nextUrlPath.match(/https?:\/\/[^\/]+(\/.*)/);
+          if (baseUrlMatch) {
+            nextUrlPath = baseUrlMatch[1];
+          }
+        }
+      }
+      
+      // Remove /api prefix if present (since axios baseURL already includes /api)
+      if (nextUrlPath.startsWith('/api/')) {
+        nextUrlPath = nextUrlPath.substring(4); // Remove '/api'
+      }
+      
+      // Ensure it starts with /
+      if (!nextUrlPath.startsWith('/')) {
+        nextUrlPath = '/' + nextUrlPath;
+      }
+      
+      console.log('Loading more from URL:', nextUrlPath);
+      
+      // Use the next URL (now guaranteed to be relative to baseURL)
+      const response = await api.get(nextUrlPath);
+      
+      // Extract data and pagination info from response
+      let allData: any[] = [];
+      let nextUrl: string | null = null;
+      let previousUrl: string | null = null;
+      let totalCount = 0;
+      
+      if (response.data) {
+        if (response.data.data && Array.isArray(response.data.data)) {
+          allData = response.data.data;
+          nextUrl = response.data.next || null;
+          previousUrl = response.data.previous || null;
+          totalCount = response.data.count || allData.length;
+        } else if (response.data.results && Array.isArray(response.data.results)) {
+          allData = response.data.results;
+          nextUrl = response.data.next || null;
+          previousUrl = response.data.previous || null;
+          totalCount = response.data.count || allData.length;
+        } else if (Array.isArray(response.data)) {
+          allData = response.data;
+        }
+      }
+      
+      const transformedData = transformApiData(allData);
+      
+      return {
+        data: transformedData,
+        next: nextUrl,
+        previous: previousUrl,
+        count: totalCount,
+        page: coachingState.currentPage + 1
+      };
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        return rejectWithValue('Authentication required');
+      }
+      return rejectWithValue(error.response?.data?.message || 'Failed to load more coaching centers');
     }
   }
 );
@@ -663,17 +899,28 @@ const coachingSlice = createSlice({
       state.searchParams = {};
     },
     toggleStarred: (state, action: PayloadAction<string>) => {
-      const centerId = action.payload;
-      if (state.starredCenters.includes(centerId)) {
-        state.starredCenters = state.starredCenters.filter(id => id !== centerId);
+      const centerId = String(action.payload);
+      const isStarred = state.starredCenters.some(id => String(id) === centerId);
+      
+      if (isStarred) {
+        state.starredCenters = state.starredCenters.filter(id => String(id) !== centerId);
       } else {
         state.starredCenters.push(centerId);
       }
       // Update filtered centers if on starred tab (now handled by private tab)
       if (state.activeTab === 'private') {
         state.filteredCenters = state.coachingCenters.filter(center => 
-          state.starredCenters.includes(center.id)
+          state.starredCenters.some(id => String(id) === String(center.id))
         );
+      }
+      // Update is_favorited in the center object
+      const center = state.coachingCenters.find(c => String(c.id) === centerId);
+      if (center) {
+        center.is_favorited = !isStarred;
+      }
+      const filteredCenter = state.filteredCenters.find(c => String(c.id) === centerId);
+      if (filteredCenter) {
+        filteredCenter.is_favorited = !isStarred;
       }
     },
     clearData: (state) => {
@@ -758,17 +1005,62 @@ const coachingSlice = createSlice({
         state.isLoading = true;
         state.error = null;
       })
-                   .addCase(fetchCoachingCenters.fulfilled, (state, action) => {
+      .addCase(fetchCoachingCenters.fulfilled, (state, action) => {
         state.isLoading = false;
         
-        // Data is already transformed in the thunk
-        const centers = Array.isArray(action.payload) ? action.payload : [];
-        state.coachingCenters = centers;
-        state.filteredCenters = centers;
+        // Handle new pagination structure
+        if (action.payload && typeof action.payload === 'object' && 'data' in action.payload) {
+          const payload = action.payload as { data: CoachingCenter[]; next: string | null; previous: string | null; count: number; page: number };
+          state.coachingCenters = payload.data;
+          state.filteredCenters = payload.data;
+          state.next = payload.next;
+          state.previous = payload.previous;
+          state.hasNextPage = !!payload.next;
+          state.currentPage = payload.page;
+          state.totalCount = payload.count;
+        } else {
+          // Fallback for old structure (array)
+          const centers = Array.isArray(action.payload) ? action.payload : [];
+          state.coachingCenters = centers;
+          state.filteredCenters = centers;
+          state.next = null;
+          state.previous = null;
+          state.hasNextPage = false;
+          state.currentPage = 1;
+          state.totalCount = centers.length;
+        }
         state.error = null;
       })
       .addCase(fetchCoachingCenters.rejected, (state, action) => {
         state.isLoading = false;
+        state.error = action.payload as string;
+        state.next = null;
+        state.previous = null;
+        state.hasNextPage = false;
+        state.currentPage = 0;
+      })
+      .addCase(loadMoreCoachingCenters.pending, (state) => {
+        state.loadingMore = true;
+        state.error = null;
+      })
+      .addCase(loadMoreCoachingCenters.fulfilled, (state, action) => {
+        state.loadingMore = false;
+        
+        if (action.payload && typeof action.payload === 'object' && 'data' in action.payload) {
+          const payload = action.payload as { data: CoachingCenter[]; next: string | null; previous: string | null; count: number; page: number };
+          // Append new data to existing centers
+          state.coachingCenters = [...state.coachingCenters, ...payload.data];
+          state.filteredCenters = [...state.filteredCenters, ...payload.data];
+          state.next = payload.next;
+          state.previous = payload.previous;
+          state.hasNextPage = !!payload.next;
+          state.currentPage = payload.page;
+          state.totalCount = payload.count;
+        }
+        state.error = null;
+      })
+      .addCase(loadMoreCoachingCenters.rejected, (state, action) => {
+        state.loadingMore = false;
         state.error = action.payload as string;
       })
       .addCase(searchCoachingCenters.pending, (state) => {
@@ -811,10 +1103,80 @@ const coachingSlice = createSlice({
         state.isDetailedLoading = false;
         state.detailedInfo = action.payload;
         state.detailedError = null;
+        // Update is_favorited based on starredCenters
+        const coachingData = action.payload?.coaching || action.payload;
+        if (coachingData?.id && state.starredCenters.includes(coachingData.id)) {
+          coachingData.is_favorited = true;
+        }
       })
       .addCase(fetchCoachingCenterDetails.rejected, (state, action) => {
         state.isDetailedLoading = false;
         state.detailedError = action.payload as string;
+      })
+      .addCase(addToFavorite.pending, (state) => {
+        // Optionally show loading state
+      })
+      .addCase(addToFavorite.fulfilled, (state, action) => {
+        const { coachingId } = action.payload;
+        // Ensure coachingId is a string for consistent comparison
+        const coachingIdStr = String(coachingId);
+        
+        // Update the favorite status (check and add as string)
+        if (!state.starredCenters.some(id => String(id) === coachingIdStr)) {
+          state.starredCenters.push(coachingIdStr);
+        }
+        // Update is_favorited in the center object
+        const center = state.coachingCenters.find(c => String(c.id) === coachingIdStr);
+        if (center) {
+          center.is_favorited = true;
+        }
+        const filteredCenter = state.filteredCenters.find(c => String(c.id) === coachingIdStr);
+        if (filteredCenter) {
+          filteredCenter.is_favorited = true;
+        }
+        // Update detailedInfo if it's the same coaching center
+        if (state.detailedInfo) {
+          const detailedCoaching = state.detailedInfo?.coaching || state.detailedInfo;
+          if (detailedCoaching?.id && String(detailedCoaching.id) === coachingIdStr) {
+            detailedCoaching.is_favorited = true;
+          }
+        }
+      })
+      .addCase(addToFavorite.rejected, (state, action) => {
+        // Handle error - could show a toast or alert
+        console.error('Failed to add to favorites:', action.payload);
+      })
+      .addCase(removeFromFavorite.pending, (state) => {
+        // Optionally show loading state
+      })
+      .addCase(removeFromFavorite.fulfilled, (state, action) => {
+        const { coachingId } = action.payload;
+        // Ensure coachingId is a string for consistent comparison
+        const coachingIdStr = String(coachingId);
+        
+        // Remove from starred centers (ensure both are strings for comparison)
+        state.starredCenters = state.starredCenters.filter(id => String(id) !== coachingIdStr);
+        
+        // Update is_favorited in the center object
+        const center = state.coachingCenters.find(c => String(c.id) === coachingIdStr);
+        if (center) {
+          center.is_favorited = false;
+        }
+        const filteredCenter = state.filteredCenters.find(c => String(c.id) === coachingIdStr);
+        if (filteredCenter) {
+          filteredCenter.is_favorited = false;
+        }
+        // Update detailedInfo if it's the same coaching center
+        if (state.detailedInfo) {
+          const detailedCoaching = state.detailedInfo?.coaching || state.detailedInfo;
+          if (detailedCoaching?.id && String(detailedCoaching.id) === coachingIdStr) {
+            detailedCoaching.is_favorited = false;
+          }
+        }
+      })
+      .addCase(removeFromFavorite.rejected, (state, action) => {
+        // Handle error - could show a toast or alert
+        console.error('Failed to remove from favorites:', action.payload);
       });
   },
 });

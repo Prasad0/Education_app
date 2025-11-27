@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert, Linking, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { fetchCoachingCenters, filterCenters, setSearchParams, searchCoachingCenters, clearData } from '../store/slices/coachingSlice';
+import { fetchCoachingCenters, filterCenters, setSearchParams, searchCoachingCenters, clearData, toggleStarred, addToFavorite, removeFromFavorite } from '../store/slices/coachingSlice';
 import { deselectLocation } from '../store/slices/locationSlice';
 import { logout } from '../store/slices/authSlice';
 import Header from '../components/Header';
@@ -25,7 +25,7 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack })
     searchParams 
   } = useAppSelector(state => state.coaching);
   
-  const { accessToken, profile } = useAppSelector(state => state.auth);
+  const { accessToken, profile, user, selectedChildId } = useAppSelector(state => state.auth);
   const { selectedLocation, selectedLocationData, coordinates } = useAppSelector(state => state.location);
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
@@ -138,19 +138,45 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack })
   };
 
   const handleBookDemo = (center: CoachingCenter) => {
-    Alert.alert(
-      'Book Demo',
-      `Would you like to book a demo class at ${center.name}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Book Now', 
-          onPress: () => {
-            Alert.alert('Success', 'Demo class booked successfully!');
+    // Check if it's an offline coaching center
+    const isOffline = (center.coaching_type || '').toLowerCase() === 'offline';
+    
+    if (isOffline) {
+      // For offline coaching, redirect to call
+      const phoneNumber = center.phone?.replace(/\s+/g, '') || center.contact_number?.replace(/\s+/g, '') || '';
+      if (phoneNumber) {
+        Alert.alert(
+          'Call Now',
+          `Would you like to call ${center.name} to book a demo?`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Call', 
+              onPress: () => {
+                Linking.openURL(`tel:${phoneNumber}`);
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Contact Not Available', 'Phone number not available for this coaching center.');
+      }
+    } else {
+      // For online/hybrid coaching, proceed with normal booking
+      Alert.alert(
+        'Book Demo',
+        `Would you like to book a demo class at ${center.name}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Book Now', 
+            onPress: () => {
+              Alert.alert('Success', 'Demo class booked successfully!');
+            }
           }
-        }
-      ]
-    );
+        ]
+      );
+    }
   };
 
   const handleCallNow = (center: CoachingCenter) => {
@@ -172,8 +198,47 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack })
     );
   };
 
-  const handleToggleStar = (centerId: string) => {
-    // This will be handled by the parent component
+  const handleToggleStar = async (centerId: string) => {
+    try {
+      const isCurrentlyFavorited = starredCenters.includes(centerId);
+      
+      // Update UI immediately for better UX
+      dispatch(toggleStarred(centerId));
+      
+      const currentProfile = profile || user;
+      const userType = currentProfile?.user_type || currentProfile?.userType;
+      
+      let studentId: number;
+      
+      if (userType === 'parent' && selectedChildId) {
+        studentId = selectedChildId;
+      } else {
+        studentId = currentProfile?.id || currentProfile?.user_id || parseInt(currentProfile?.user?.id || '0', 10);
+      }
+      
+      if (!studentId || studentId === 0) {
+        console.warn('No valid student ID found');
+        return;
+      }
+      
+      let result;
+      if (isCurrentlyFavorited) {
+        result = await dispatch(removeFromFavorite({ coachingId: centerId, studentId }));
+        if (removeFromFavorite.rejected.match(result)) {
+          dispatch(toggleStarred(centerId));
+          console.error('Failed to remove from favorites:', result.payload);
+        }
+      } else {
+        result = await dispatch(addToFavorite({ coachingId: centerId, studentId }));
+        if (addToFavorite.rejected.match(result)) {
+          dispatch(toggleStarred(centerId));
+          console.error('Failed to add to favorites:', result.payload);
+        }
+      }
+    } catch (error) {
+      console.error('Error in handleToggleStar:', error);
+      dispatch(toggleStarred(centerId));
+    }
   };
 
   const handleFilterChange = (filterType: string, value: any) => {

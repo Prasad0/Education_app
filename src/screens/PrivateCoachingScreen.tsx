@@ -16,6 +16,7 @@ import {
 interface PrivateCoachingScreenProps {
   onBack: () => void;
   onTabPress?: (tab: 'offline' | 'online' | 'private' | 'chat' | 'profile') => void;
+  onViewDetails?: (tutorId: number) => void;
 }
 
 interface PrivateTutor {
@@ -60,7 +61,7 @@ const mapApiToUi = (item: any): PrivateTutor => ({
   teachingStyle: (item.teaching_styles || []).map((s: any) => s.name),
 });
 
-const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack, onTabPress }) => {
+const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack, onTabPress, onViewDetails }) => {
   const dispatch = useAppDispatch();
   const { items, loading, error, availability, availabilityLoading, availabilityError, bookingLoading, bookingSuccess, bookingError } = useAppSelector(state => state.privateTutors);
 
@@ -239,8 +240,25 @@ const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack, o
       .map(day => ({ day, slots: grouped[day] }));
   }, [availability]);
 
-  const TutorCard = ({ tutor }: { tutor: PrivateTutor }) => (
+  const TutorCard = ({ tutor }: { tutor: PrivateTutor }) => {
+    const handleCardPress = () => {
+      console.log('Card pressed, tutor.id:', tutor.id, 'tutor.id type:', typeof tutor.id);
+      const apiTutor = items.find(t => String(t.id) === String(tutor.id));
+      console.log('Found apiTutor:', apiTutor);
+      if (apiTutor && onViewDetails) {
+        console.log('Calling onViewDetails with id:', apiTutor.id);
+        onViewDetails(apiTutor.id);
+      } else {
+        console.log('onViewDetails not available or apiTutor not found', { onViewDetails: !!onViewDetails, apiTutor: !!apiTutor });
+      }
+    };
+
+    return (
     <View style={styles.card}>
+      <TouchableOpacity 
+        onPress={handleCardPress}
+        activeOpacity={0.7}
+      >
       <View style={styles.cardHeader}>
         <View style={styles.avatarPlaceholder}>
           <Ionicons name="person-outline" size={26} color="#10b981" />
@@ -318,12 +336,13 @@ const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack, o
         <Text style={styles.metaText}>Languages:</Text>
         <Text style={styles.metaTextStrong}>{tutor.languages.join(', ')}</Text>
       </View>
+      </TouchableOpacity>
 
       <View style={styles.actionsRow}>
         <TouchableOpacity 
           style={styles.primaryButton}
           onPress={() => {
-            const apiTutor = items.find(t => String(t.id) === tutor.id);
+            const apiTutor = items.find(t => String(t.id) === String(tutor.id));
             if (apiTutor) {
               handleBookSession(apiTutor);
             }
@@ -332,13 +351,19 @@ const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack, o
           <Ionicons name="calendar-outline" size={16} color="#ffffff" />
           <Text style={styles.primaryButtonText}>Book Session</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.secondaryButton}>
+        <TouchableOpacity 
+          style={styles.secondaryButton}
+          onPress={() => {
+            // Message functionality
+          }}
+        >
           <Ionicons name="chatbubble-ellipses-outline" size={16} color="#1d4ed8" />
           <Text style={styles.secondaryButtonText}>Message</Text>
         </TouchableOpacity>
       </View>
     </View>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>

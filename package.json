@@ -21,7 +21,7 @@
     "@reduxjs/toolkit": "^2.2.1",
     "axios": "^1.11.0",
     "canvas": "^3.2.0",
-    "expo": "54.0.22",
+    "expo": "54.0.23",
     "expo-av": "^16.0.7",
     "expo-constants": "~18.0.10",
     "expo-file-system": "^19.0.17",

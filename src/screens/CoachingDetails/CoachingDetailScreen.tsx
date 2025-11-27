@@ -13,10 +13,11 @@ import {
   RefreshControl,
   ActivityIndicator,
   FlatList,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { fetchCoachingCenterDetails, clearDetailedInfo } from '../../store/slices/coachingSlice';
+import { fetchCoachingCenterDetails, clearDetailedInfo, addToFavorite, removeFromFavorite, toggleStarred } from '../../store/slices/coachingSlice';
 import ReviewModal from './ReviewModal';
 
 interface CoachingDetailScreenProps {
@@ -39,11 +40,19 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
   onViewTeacherProfile,
 }) => {
   const dispatch = useAppDispatch();
-  const { detailedInfo, isDetailedLoading, detailedError } = useAppSelector(state => state.coaching);
-  const [isStarred, setIsStarred] = useState(false);
+  const { detailedInfo, isDetailedLoading, detailedError, starredCenters } = useAppSelector(state => state.coaching);
+  const { profile, user, selectedChildId } = useAppSelector(state => state.auth);
   const [activeGalleryIndex, setActiveGalleryIndex] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [showAllReviews, setShowAllReviews] = useState(false);
+  const [showBatchesDrawer, setShowBatchesDrawer] = useState(false);
+  const [showFacultyDrawer, setShowFacultyDrawer] = useState(false);
+  
+  // Use real data from API - handle nested structure
+  const coachingData = detailedInfo?.coaching || detailedInfo;
+  
+  // Sync isStarred with coaching data and Redux state
+  const isStarred = coachingData?.is_favorited || starredCenters.includes(coachingId);
 
   useEffect(() => {
     if (coachingId) {
@@ -73,21 +82,92 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
     }
   };
 
-  const handleBookDemo = () => {
-    Alert.alert(
-      'Book Demo',
-      `Would you like to book a demo class at ${coachingData?.branch_name || coachingData?.name || 'this coaching center'}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Book Now', 
-          onPress: () => {
-            // Handle demo booking logic
-            Alert.alert('Success', 'Demo class booking request sent!');
-          }
+  const handleToggleStar = async () => {
+    try {
+      const isCurrentlyFavorited = isStarred;
+      
+      // Update UI immediately for better UX
+      dispatch(toggleStarred(coachingId));
+      
+      // Get student_id based on user type
+      const currentProfile = profile || user;
+      const userType = currentProfile?.user_type || currentProfile?.userType;
+      
+      let studentId: number;
+      
+      if (userType === 'parent' && selectedChildId) {
+        studentId = selectedChildId;
+      } else {
+        studentId = currentProfile?.id || currentProfile?.user_id || parseInt(currentProfile?.user?.id || '0', 10);
+      }
+      
+      if (!studentId || studentId === 0) {
+        console.warn('No valid student ID found');
+        return;
+      }
+      
+      // Call the appropriate API based on current state
+      let result;
+      if (isCurrentlyFavorited) {
+        result = await dispatch(removeFromFavorite({ coachingId, studentId }));
+        if (removeFromFavorite.rejected.match(result)) {
+          dispatch(toggleStarred(coachingId));
+          console.error('Failed to remove from favorites:', result.payload);
         }
-      ]
-    );
+      } else {
+        result = await dispatch(addToFavorite({ coachingId, studentId }));
+        if (addToFavorite.rejected.match(result)) {
+          dispatch(toggleStarred(coachingId));
+          console.error('Failed to add to favorites:', result.payload);
+        }
+      }
+    } catch (error) {
+      console.error('Error in handleToggleStar:', error);
+      dispatch(toggleStarred(coachingId));
+    }
+  };
+
+  const handleBookDemo = () => {
+    // Check if it's an offline coaching center
+    const isOffline = (coachingData?.coaching_type || '').toLowerCase() === 'offline';
+    
+    if (isOffline) {
+      // For offline coaching, redirect to call
+      const phoneNumber = coachingData?.phone?.replace(/\s+/g, '') || coachingData?.contact_number?.replace(/\s+/g, '') || '';
+      if (phoneNumber) {
+        Alert.alert(
+          'Call Now',
+          `Would you like to call ${coachingData?.branch_name || coachingData?.name || 'this coaching center'} to book a demo?`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Call', 
+              onPress: () => {
+                Linking.openURL(`tel:${phoneNumber}`);
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Contact Not Available', 'Phone number not available for this coaching center.');
+      }
+    } else {
+      // For online/hybrid coaching, proceed with normal booking
+      Alert.alert(
+        'Book Demo',
+        `Would you like to book a demo class at ${coachingData?.branch_name || coachingData?.name || 'this coaching center'}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Book Now', 
+            onPress: () => {
+              // Handle demo booking logic
+              Alert.alert('Success', 'Demo class booking request sent!');
+            }
+          }
+        ]
+      );
+    }
   };
 
   const renderStars = (rating: number) => {
@@ -101,8 +181,7 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
     ));
   };
 
-  // Use real data from API - handle nested structure
-  const coachingData = detailedInfo?.coaching || detailedInfo;
+  // Extract batches, teachers, etc. from coachingData
   const batches = coachingData?.batches || [];
   const teachers = coachingData?.teachers || [];
   const reviews = coachingData?.reviews || [];
@@ -206,7 +285,7 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
 
         <TouchableOpacity 
           style={styles.starButton}
-          onPress={() => setIsStarred(!isStarred)}
+          onPress={handleToggleStar}
         >
           <Ionicons 
             name={isStarred ? 'star' : 'star-outline'} 
@@ -387,9 +466,11 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
           <View style={styles.batchesSection}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Available Batches</Text>
-              <TouchableOpacity onPress={onViewBatches}>
-                <Text style={styles.viewAllText}>See All</Text>
-              </TouchableOpacity>
+              {batches.length > 2 && (
+                <TouchableOpacity onPress={() => setShowBatchesDrawer(true)}>
+                  <Text style={styles.viewAllText}>See All</Text>
+                </TouchableOpacity>
+              )}
             </View>
             <View style={styles.batchesList}>
               {batches.slice(0, 2).map((batch: any, index: number) => (
@@ -440,9 +521,11 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
           <View style={styles.teachersSection}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Our Faculty</Text>
-              <TouchableOpacity onPress={onViewFaculty}>
-                <Text style={styles.viewAllText}>See All</Text>
-              </TouchableOpacity>
+              {teachers.length > 2 && (
+                <TouchableOpacity onPress={() => setShowFacultyDrawer(true)}>
+                  <Text style={styles.viewAllText}>See All</Text>
+                </TouchableOpacity>
+              )}
             </View>
             <View style={styles.teachersList}>
               {teachers.slice(0, 2).map((teacher: any, index: number) => (
@@ -579,6 +662,126 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
         averageRating={coachingData?.average_rating || 0}
         coachingData={coachingData}
       />
+
+      {/* Batches Drawer */}
+      <Modal
+        visible={showBatchesDrawer}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowBatchesDrawer(false)}
+      >
+        <View style={styles.drawerOverlay}>
+          <View style={styles.drawerContainer}>
+            {/* Drawer Header */}
+            <View style={styles.drawerHeader}>
+              <Text style={styles.drawerTitle}>All Available Batches</Text>
+              <TouchableOpacity
+                onPress={() => setShowBatchesDrawer(false)}
+                style={styles.drawerCloseButton}
+              >
+                <Ionicons name="close" size={24} color="#111827" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Batches List */}
+            <ScrollView style={styles.drawerContent} showsVerticalScrollIndicator={false}>
+              {batches.map((batch: any, index: number) => (
+                <View key={index} style={styles.drawerBatchCard}>
+                  <View style={styles.batchHeader}>
+                    <Text style={styles.batchName}>{batch.name || `Batch ${index + 1}`}</Text>
+                    <View style={[styles.seatsBadge, batch.available_seats <= 5 ? styles.seatsBadgeLow : styles.seatsBadgeNormal]}>
+                      <Text style={styles.seatsText}>{batch.available_seats || 0} seats left</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.batchInfo}>
+                    <View style={styles.batchInfoItem}>
+                      <Ionicons name="time" size={16} color="#6b7280" />
+                      <Text style={styles.batchInfoText}>
+                        {batch.start_time ? `${batch.start_time} - ${batch.end_time}` : 'Timing not specified'}
+                      </Text>
+                    </View>
+                    <View style={styles.batchInfoItem}>
+                      <Ionicons name="calendar" size={16} color="#6b7280" />
+                      <Text style={styles.batchInfoText}>
+                        {batch.duration_months ? `${batch.duration_months} months` : 'Duration not specified'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.batchFooter}>
+                    <View style={styles.batchPrice}>
+                      <Ionicons name="cash" size={16} color="#3b82f6" />
+                      <Text style={styles.priceText}>
+                        {batch.fees ? `₹${batch.fees.toLocaleString()}` : 'Discuss over call'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity style={styles.enrollButton}>
+                      <Text style={styles.enrollButtonText}>
+                        {batch.fees ? 'Enroll Now' : 'Call Now'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Faculty Drawer */}
+      <Modal
+        visible={showFacultyDrawer}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowFacultyDrawer(false)}
+      >
+        <View style={styles.drawerOverlay}>
+          <View style={styles.drawerContainer}>
+            {/* Drawer Header */}
+            <View style={styles.drawerHeader}>
+              <Text style={styles.drawerTitle}>Our Faculty</Text>
+              <TouchableOpacity
+                onPress={() => setShowFacultyDrawer(false)}
+                style={styles.drawerCloseButton}
+              >
+                <Ionicons name="close" size={24} color="#111827" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Faculty List */}
+            <ScrollView style={styles.drawerContent} showsVerticalScrollIndicator={false}>
+              {teachers.map((teacher: any, index: number) => (
+                <TouchableOpacity 
+                  key={index} 
+                  style={styles.drawerTeacherCard}
+                  onPress={() => {
+                    setShowFacultyDrawer(false);
+                    onViewTeacherProfile?.(teacher.id);
+                  }}
+                >
+                  <View style={styles.teacherAvatar}>
+                    <Text style={styles.teacherInitial}>
+                      {teacher.name?.charAt(0)?.toUpperCase() || 'T'}
+                    </Text>
+                  </View>
+                  <View style={styles.teacherInfo}>
+                    <Text style={styles.teacherName}>{teacher.name || 'Teacher'}</Text>
+                    <Text style={styles.teacherSubject}>{teacher.subject || 'Subject not specified'} • {teacher.experience || 'Experience not specified'}</Text>
+                    <View style={styles.teacherRating}>
+                      <View style={styles.teacherStars}>
+                        {renderStars(teacher.rating || 4.5)}
+                      </View>
+                      <Text style={styles.teacherRatingText}>{teacher.rating || 4.5}</Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#6b7280" />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -1305,6 +1508,58 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 8,
+  },
+  drawerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  drawerContainer: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+    minHeight: '60%',
+  },
+  drawerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  drawerTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  drawerCloseButton: {
+    padding: 4,
+  },
+  drawerContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  drawerBatchCard: {
+    backgroundColor: '#f9fafb',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#10b981',
+  },
+  drawerTeacherCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f9fafb',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#3b82f6',
   },
 });
 

@@ -83,6 +83,62 @@ export interface BookingRequest {
   is_online?: boolean;
 }
 
+export interface TutorWallImage {
+  id: number;
+  image: string;
+  caption: string;
+  order: number;
+  is_featured: boolean;
+}
+
+export interface TutorReview {
+  id: number;
+  tutor: number;
+  tutor_name: string;
+  student: number;
+  student_name: string;
+  booking: number;
+  booking_subject: string;
+  rating: number;
+  comment: string;
+  teaching_quality: number;
+  communication: number;
+  punctuality: number;
+  subject_knowledge: number;
+  is_verified: boolean;
+  is_public: boolean;
+  created_at: string;
+}
+
+export interface PrivateTutorDetail {
+  id: number;
+  teacher: TutorTeacher;
+  profile_image: string | null;
+  hourly_rate_min: string;
+  hourly_rate_max: string;
+  hourly_rate_display: string;
+  response_time_hours: number;
+  whatsapp_number: string;
+  is_verified: boolean;
+  is_available: boolean;
+  total_sessions_completed: number;
+  average_rating: string;
+  total_reviews: number;
+  achievements: string;
+  teaching_experience_details: string;
+  teaching_styles: TutorTeachingStyle[];
+  languages: TutorLanguage[];
+  target_exams: { id: number; name: string; description: string }[];
+  availability_slots: AvailabilitySlot[];
+  wall_images: TutorWallImage[];
+  location: string;
+  distance_from_user: string;
+  recent_reviews: TutorReview[];
+  created_at: string;
+  updated_at: string;
+  last_active: string;
+}
+
 export interface PrivateTutorsState {
   items: PrivateTutorApiItem[];
   loading: boolean;
@@ -96,6 +152,9 @@ export interface PrivateTutorsState {
   bookingLoading: boolean;
   bookingError: string | null;
   bookingSuccess: boolean;
+  tutorDetail: PrivateTutorDetail | null;
+  tutorDetailLoading: boolean;
+  tutorDetailError: string | null;
 }
 
 const initialState: PrivateTutorsState = {
@@ -111,6 +170,9 @@ const initialState: PrivateTutorsState = {
   bookingLoading: false,
   bookingError: null,
   bookingSuccess: false,
+  tutorDetail: null,
+  tutorDetailLoading: false,
+  tutorDetailError: null,
 };
 
 // Helper function to get auth token from AsyncStorage
@@ -195,6 +257,35 @@ export const fetchTutorAvailability = createAsyncThunk<AvailabilitySlot[], numbe
   }
 );
 
+export const fetchTutorDetail = createAsyncThunk<PrivateTutorDetail, number>(
+  'privateTutors/fetchDetail',
+  async (tutorId, { rejectWithValue }) => {
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        return rejectWithValue('No authentication token found');
+      }
+      
+      const { data } = await axios.get<PrivateTutorDetail>(
+        `https://learn.crusheducation.in/api/private-tutors/tutors/${tutorId}/`,
+        {
+          headers: {
+            Authorization: token,
+          },
+        }
+      );
+      return data;
+    } catch (error: any) {
+      console.error('Error fetching tutor detail:', error);
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.detail || 
+                          error.message || 
+                          'Failed to fetch tutor details';
+      return rejectWithValue(errorMessage);
+    }
+  }
+);
+
 export const createBooking = createAsyncThunk<any, BookingRequest>(
   'privateTutors/createBooking',
   async (bookingData, { rejectWithValue }) => {
@@ -243,6 +334,10 @@ const privateTutorsSlice = createSlice({
       state.bookingError = null;
       state.bookingSuccess = false;
     },
+    clearTutorDetail(state) {
+      state.tutorDetail = null;
+      state.tutorDetailError = null;
+    },
     reset(state) {
       return initialState;
     },
@@ -288,11 +383,23 @@ const privateTutorsSlice = createSlice({
       .addCase(createBooking.rejected, (state, action) => {
         state.bookingLoading = false;
         state.bookingError = action.error.message || 'Failed to create booking';
+      })
+      .addCase(fetchTutorDetail.pending, (state) => {
+        state.tutorDetailLoading = true;
+        state.tutorDetailError = null;
+      })
+      .addCase(fetchTutorDetail.fulfilled, (state, action: PayloadAction<PrivateTutorDetail>) => {
+        state.tutorDetailLoading = false;
+        state.tutorDetail = action.payload;
+      })
+      .addCase(fetchTutorDetail.rejected, (state, action) => {
+        state.tutorDetailLoading = false;
+        state.tutorDetailError = action.error.message || 'Failed to load tutor details';
       });
   },
 });
 
-export const { clearError, clearAvailability, clearBookingState, reset } = privateTutorsSlice.actions;
+export const { clearError, clearAvailability, clearBookingState, clearTutorDetail, reset } = privateTutorsSlice.actions;
 export default privateTutorsSlice.reducer;
 
 

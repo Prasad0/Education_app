@@ -61,8 +61,13 @@ const CoursesTab: React.FC<TabComponentProps> = ({ searchQuery, onCourseSelect }
     let thumbnailUrl = course.thumbnail_url_display || course.thumbnail || course.thumbnail_url;
     
     // Convert relative URLs to full URLs
-    if (thumbnailUrl && thumbnailUrl.startsWith('/')) {
-      thumbnailUrl = `http://13.200.17.30${thumbnailUrl}`;
+    if (thumbnailUrl) {
+      if (thumbnailUrl.startsWith('/')) {
+        thumbnailUrl = `http://13.200.17.30${thumbnailUrl}`;
+      } else if (!thumbnailUrl.startsWith('http://') && !thumbnailUrl.startsWith('https://')) {
+        // If it's a relative path without leading slash, add the base URL
+        thumbnailUrl = `http://13.200.17.30/${thumbnailUrl}`;
+      }
     }
 
     const handleCoursePress = () => {

@@ -5,7 +5,7 @@ import * as Location from 'expo-location';
 import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { fetchCoachingCenters, searchCoachingCenters, filterCoachingCenters, setActiveTab, toggleStarred, clearData } from '../store/slices/coachingSlice';
+import { fetchCoachingCenters, loadMoreCoachingCenters, searchCoachingCenters, filterCoachingCenters, setActiveTab, toggleStarred, clearData, addToFavorite, removeFromFavorite } from '../store/slices/coachingSlice';
 import { getCurrentLocation as getLocationFromSlice, deselectLocation } from '../store/slices/locationSlice';
 import { fetchUserProfile, setSelectedChildId, logout } from '../store/slices/authSlice';
 import Header from '../components/Header';
@@ -19,6 +19,7 @@ import SearchFilterScreen from './SearchFilterScreen';
 import { CoachingCenter } from '../store/slices/coachingSlice';
 import OnlineScreen from './OnlineScreen';
 import PrivateCoachingScreen from './PrivateCoachingScreen';
+import PrivateTutorDetailScreen from './PrivateTutorDetailScreen';
 
 // Filter interface for the modal
 interface FilterState {
@@ -63,10 +64,13 @@ const HomeScreen: React.FC = () => {
     isLoading, 
     error, 
     activeTab, 
-    starredCenters 
+    starredCenters,
+    hasNextPage,
+    loadingMore,
+    totalCount
   } = useAppSelector(state => state.coaching);
   
-  const { accessToken, profile, user } = useAppSelector(state => state.auth);
+  const { accessToken, profile, user, selectedChildId } = useAppSelector(state => state.auth);
   const { currentLocation, isLocationLoading, coordinates, selectedLocation, selectedLocationData } = useAppSelector(state => state.location);
   const authState = useAppSelector(state => state.auth);
   
@@ -77,12 +81,13 @@ const HomeScreen: React.FC = () => {
   const safeCoordinates = coordinates || null;
   const safeSelectedLocationData = selectedLocationData || null;
   
-  const [currentScreen, setCurrentScreen] = useState<'home' | 'search' | 'listing' | 'location' | 'profile' | 'detail' | 'searchFilter' | 'online' | 'private'>('home');
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'search' | 'listing' | 'location' | 'profile' | 'detail' | 'searchFilter' | 'online' | 'private' | 'privateTutorDetail'>('home');
   const [selectedCoachingId, setSelectedCoachingId] = useState<string>('');
-  const { selectedChildId } = useAppSelector(state => state.auth);
+  const [selectedTutorId, setSelectedTutorId] = useState<number | null>(null);
   const [spinValue] = useState(new Animated.Value(0));
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState<FilterState | null>(null);
+  const [isTabSwitching, setIsTabSwitching] = useState(false);
   const forceUpdateRef = useRef(0);
 
   // Determine which profile data to use (user or profile field)
@@ -273,6 +278,12 @@ const HomeScreen: React.FC = () => {
     console.log('activeTab changed to:', activeTab);
   }, [activeTab]);
 
+  const handleLoadMore = React.useCallback(() => {
+    if (hasNextPage && !loadingMore && !isLoading && activeTab === 'offline') {
+      dispatch(loadMoreCoachingCenters());
+    }
+  }, [hasNextPage, loadingMore, isLoading, activeTab, dispatch]);
+
   const handleTabPress = (tab: 'offline' | 'online' | 'private' | 'chat' | 'profile') => {
     console.log('Tab pressed:', tab, 'Current screen:', currentScreen);
     
@@ -282,6 +293,9 @@ const HomeScreen: React.FC = () => {
       console.log('Already on target screen, skipping navigation');
       return;
     }
+    
+    // Show loading indicator during tab switch
+    setIsTabSwitching(true);
     
     // Force immediate update
     forceUpdateRef.current += 1;
@@ -310,6 +324,11 @@ const HomeScreen: React.FC = () => {
     
     // Update Redux state for UI feedback (including profile)
     dispatch(setActiveTab(tab));
+    
+    // Hide loading indicator after a short delay to allow UI to update
+    setTimeout(() => {
+      setIsTabSwitching(false);
+    }, 300);
     
     console.log('After tab press - currentScreen will be:', tab === 'offline' || tab === 'chat' ? 'home' : tab);
   };
@@ -520,20 +539,46 @@ const HomeScreen: React.FC = () => {
   };
 
   const handleBookDemo = (center: CoachingCenter) => {
-    Alert.alert(
-      'Book Demo',
-      `Would you like to book a demo class at ${center.name}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Book Now', 
-          onPress: () => {
-            // Handle demo booking logic
-            Alert.alert('Success', 'Demo class booked successfully!');
+    // Check if it's an offline coaching center
+    const isOffline = (center.coaching_type || '').toLowerCase() === 'offline';
+    
+    if (isOffline) {
+      // For offline coaching, redirect to call
+      const phoneNumber = center.phone?.replace(/\s+/g, '') || center.contact_number?.replace(/\s+/g, '') || '';
+      if (phoneNumber) {
+        Alert.alert(
+          'Call Now',
+          `Would you like to call ${center.name} to book a demo?`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Call', 
+              onPress: () => {
+                Linking.openURL(`tel:${phoneNumber}`);
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Contact Not Available', 'Phone number not available for this coaching center.');
+      }
+    } else {
+      // For online/hybrid coaching, proceed with normal booking
+      Alert.alert(
+        'Book Demo',
+        `Would you like to book a demo class at ${center.name}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Book Now', 
+            onPress: () => {
+              // Handle demo booking logic
+              Alert.alert('Success', 'Demo class booked successfully!');
+            }
           }
-        }
-      ]
-    );
+        ]
+      );
+    }
   };
 
   const handleCallNow = (center: CoachingCenter) => {
@@ -556,8 +601,66 @@ const HomeScreen: React.FC = () => {
     );
   };
 
-  const handleToggleStar = (centerId: string) => {
-    dispatch(toggleStarred(centerId));
+  const handleToggleStar = async (centerId: string) => {
+    try {
+      // Check if already favorited
+      const isCurrentlyFavorited = starredCenters.includes(centerId);
+      
+      // Update UI immediately for better UX
+      dispatch(toggleStarred(centerId));
+      
+      // Get student_id based on user type
+      const currentProfile = profile || user;
+      const userType = currentProfile?.user_type || currentProfile?.userType;
+      
+      let studentId: number;
+      
+      if (userType === 'parent' && selectedChildId) {
+        // If parent, use selected child's ID
+        studentId = typeof selectedChildId === 'string' ? parseInt(selectedChildId, 10) : selectedChildId;
+      } else {
+        // If normal user, use their own ID
+        const userId = currentProfile?.id || currentProfile?.user_id || currentProfile?.user?.id;
+        studentId = typeof userId === 'string' ? parseInt(userId, 10) : (userId || 0);
+      }
+      
+      if (!studentId || studentId === 0 || isNaN(studentId)) {
+        console.warn('No valid student ID found', { 
+          userType, 
+          selectedChildId, 
+          profileId: currentProfile?.id,
+          userId: currentProfile?.user_id,
+          userUserId: currentProfile?.user?.id 
+        });
+        return;
+      }
+      
+      console.log('Toggle star - studentId:', studentId, 'coachingId:', centerId, 'isCurrentlyFavorited:', isCurrentlyFavorited);
+      
+      // Call the appropriate API based on current state
+      let result;
+      if (isCurrentlyFavorited) {
+        // Remove from favorites
+        result = await dispatch(removeFromFavorite({ coachingId: centerId, studentId }));
+        if (removeFromFavorite.rejected.match(result)) {
+          // Revert on error
+          dispatch(toggleStarred(centerId));
+          console.error('Failed to remove from favorites:', result.payload);
+        }
+      } else {
+        // Add to favorites
+        result = await dispatch(addToFavorite({ coachingId: centerId, studentId }));
+        if (addToFavorite.rejected.match(result)) {
+          // Revert on error
+          dispatch(toggleStarred(centerId));
+          console.error('Failed to add to favorites:', result.payload);
+        }
+      }
+    } catch (error) {
+      console.error('Error in handleToggleStar:', error);
+      // Revert on error
+      dispatch(toggleStarred(centerId));
+    }
   };
 
   const handleViewDetails = (center: CoachingCenter) => {
@@ -641,6 +744,19 @@ const HomeScreen: React.FC = () => {
       <PrivateCoachingScreen
         onBack={() => setCurrentScreen('home')}
         onTabPress={handleTabPress}
+        onViewDetails={(tutorId: number) => {
+          setSelectedTutorId(tutorId);
+          setCurrentScreen('privateTutorDetail');
+        }}
+      />
+    );
+  }
+
+  if (currentScreen === 'privateTutorDetail' && selectedTutorId !== null) {
+    return (
+      <PrivateTutorDetailScreen
+        tutorId={selectedTutorId}
+        onBack={() => setCurrentScreen('private')}
       />
     );
   }
@@ -1058,6 +1174,14 @@ const HomeScreen: React.FC = () => {
         style={styles.content}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.contentContainer}
+        onScroll={(event) => {
+          const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+          const paddingToBottom = 100; // Trigger when 100px from bottom
+          if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
+            handleLoadMore();
+          }
+        }}
+        scrollEventThrottle={400}
         refreshControl={
           <RefreshControl
             refreshing={safeIsLocationLoading}
@@ -1244,7 +1368,53 @@ const HomeScreen: React.FC = () => {
             <Text style={styles.emptySubtext}>Try adjusting your search criteria</Text>
           </View>
         )}
+
+        {/* Loading More Spinner */}
+        {loadingMore && hasNextPage && activeTab === 'offline' && (
+          <View style={styles.loadMoreSpinnerContainer}>
+            <Animated.View 
+              style={[
+                styles.loadMoreSpinner,
+                {
+                  transform: [{
+                    rotate: spinValue.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0deg', '360deg'],
+                    })
+                  }]
+                }
+              ]}
+            >
+              <Ionicons name="refresh" size={20} color="#3b82f6" />
+            </Animated.View>
+            <Text style={styles.loadMoreSpinnerText}>Loading more...</Text>
+          </View>
+        )}
       </ScrollView>
+
+      {/* Tab Switching Loading Overlay */}
+      {isTabSwitching && (
+        <View style={styles.tabSwitchOverlay}>
+          <View style={styles.tabSwitchLoadingContainer}>
+            <Animated.View 
+              style={[
+                styles.tabSwitchSpinner,
+                {
+                  transform: [{
+                    rotate: spinValue.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0deg', '360deg'],
+                    })
+                  }]
+                }
+              ]}
+            >
+              <Ionicons name="refresh" size={24} color="#3b82f6" />
+            </Animated.View>
+            <Text style={styles.tabSwitchLoadingText}>Loading...</Text>
+          </View>
+        </View>
+      )}
 
       {/* Bottom Navigation - Fixed */}
       <BottomNavigation
@@ -1327,6 +1497,61 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9ca3af',
     textAlign: 'center',
+  },
+  loadMoreSpinnerContainer: {
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadMoreSpinner: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  loadMoreSpinnerText: {
+    color: '#6b7280',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  tabSwitchOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+    elevation: 10,
+  },
+  tabSwitchLoadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabSwitchSpinner: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  tabSwitchLoadingText: {
+    color: '#374151',
+    fontSize: 16,
+    fontWeight: '600',
   },
   refreshButton: {
     padding: 8,

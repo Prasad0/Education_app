@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Linking, Image, SafeAreaView, ActivityIndicator, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
@@ -27,7 +27,9 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const [isVideoLoading, setIsVideoLoading] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [previewEnded, setPreviewEnded] = useState(false);
   const videoRef = useRef<Video>(null);
+  const previewTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   // Safety check for course object
   if (!course) {
@@ -210,9 +212,29 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
       if (isVideoPlaying) {
         await videoRef.current.pauseAsync();
         setIsVideoPlaying(false);
+        // Clear any existing timer
+        if (previewTimerRef.current) {
+          clearTimeout(previewTimerRef.current);
+          previewTimerRef.current = null;
+        }
       } else {
+        // If preview ended, reset to start
+        if (previewEnded) {
+          await videoRef.current.setPositionAsync(0);
+          setPreviewEnded(false);
+        }
         await videoRef.current.playAsync();
         setIsVideoPlaying(true);
+        
+        // Auto-stop after 15 seconds (preview duration)
+        previewTimerRef.current = setTimeout(async () => {
+          if (videoRef.current) {
+            await videoRef.current.pauseAsync();
+            await videoRef.current.setPositionAsync(0); // Reset to start
+            setIsVideoPlaying(false);
+            setPreviewEnded(true);
+          }
+        }, 15000); // 15 seconds preview
       }
     }
   };
@@ -234,12 +256,23 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
   const handleVideoLoad = () => {
     console.log('Video loaded successfully:', courseVideoUrl);
     setIsVideoLoading(false);
+    // Reset preview state when video loads
+    setPreviewEnded(false);
   };
 
   const handleVideoError = (error: any) => {
     console.log('Video error:', error);
     Alert.alert('Video Error', 'Failed to load video. Please try again later.');
   };
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (previewTimerRef.current) {
+        clearTimeout(previewTimerRef.current);
+      }
+    };
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -274,7 +307,7 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
                 ref={videoRef}
                 source={{ uri: courseVideoUrl }}
                 style={[styles.courseVideo, isVideoPlaying && styles.fullscreenVideo]}
-                resizeMode={ResizeMode.COVER}
+                resizeMode={ResizeMode.CONTAIN}
                 shouldPlay={isVideoPlaying}
                 isLooping={false}
                 onLoadStart={() => setIsVideoLoading(true)}
@@ -283,6 +316,17 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
                 onPlaybackStatusUpdate={(status) => {
                   if (status.isLoaded) {
                     setIsVideoPlaying(status.isPlaying);
+                    // Auto-stop at 15 seconds for preview
+                    if (status.isPlaying && status.positionMillis >= 15000) {
+                      videoRef.current?.pauseAsync();
+                      videoRef.current?.setPositionAsync(0);
+                      setIsVideoPlaying(false);
+                      setPreviewEnded(true);
+                      if (previewTimerRef.current) {
+                        clearTimeout(previewTimerRef.current);
+                        previewTimerRef.current = null;
+                      }
+                    }
                   }
                 }}
                 useNativeControls={false}
@@ -313,11 +357,22 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
                   activeOpacity={0.8}
                 >
                   <Ionicons 
-                    name="play" 
+                    name={previewEnded ? "refresh" : "play"} 
                     size={24} 
                     color="#111827" 
                   />
                 </TouchableOpacity>
+                {previewEnded && (
+                  <View style={styles.previewLabel}>
+                    <Text style={styles.previewLabelText}>Tap to replay preview</Text>
+                  </View>
+                )}
+              </View>
+            )}
+            
+            {courseVideoUrl && !isVideoPlaying && !previewEnded && (
+              <View style={styles.previewBadge}>
+                <Text style={styles.previewBadgeText}>Preview (15s)</Text>
               </View>
             )}
             
@@ -334,6 +389,9 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
                     color="#ffffff" 
                   />
                 </TouchableOpacity>
+                <View style={styles.previewIndicator}>
+                  <Text style={styles.previewIndicatorText}>Preview Playing</Text>
+                </View>
               </View>
             )}
             
@@ -1182,6 +1240,42 @@ const styles = StyleSheet.create({
   verifiedBadge: {
     color: '#059669',
     fontWeight: '500',
+  },
+  previewBadge: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  previewBadgeText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  previewLabel: {
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  previewLabelText: {
+    color: '#6b7280',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  previewIndicator: {
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  previewIndicatorText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '500',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
 });
 
