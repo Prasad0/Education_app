@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Linking, Image, SafeAreaView, ActivityIndicator, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Linking, Image, SafeAreaView, ActivityIndicator, Dimensions, BackHandler } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
 import * as ScreenOrientation from 'expo-screen-orientation';
@@ -273,6 +273,19 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
       }
     };
   }, []);
+
+  // Handle Android hardware back button
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      // Navigate back
+      onBack();
+      return true; // Prevent default behavior (app exit)
+    });
+
+    return () => {
+      backHandler.remove();
+    };
+  }, [onBack]);
 
   return (
     <SafeAreaView style={styles.container}>

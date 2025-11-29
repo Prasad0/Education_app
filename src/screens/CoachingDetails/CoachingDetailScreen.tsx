@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
   FlatList,
   Modal,
+  BackHandler,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -64,6 +65,28 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
       dispatch(clearDetailedInfo());
     };
   }, [coachingId, dispatch]);
+
+  // Handle Android hardware back button
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      // If any drawer/modal is open, close it first
+      if (showBatchesDrawer) {
+        setShowBatchesDrawer(false);
+        return true; // Prevent default behavior
+      }
+      if (showFacultyDrawer) {
+        setShowFacultyDrawer(false);
+        return true; // Prevent default behavior
+      }
+      // Otherwise, navigate back
+      onBack();
+      return true; // Prevent default behavior (app exit)
+    });
+
+    return () => {
+      backHandler.remove();
+    };
+  }, [showBatchesDrawer, showFacultyDrawer, onBack]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

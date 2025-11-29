@@ -14,10 +14,11 @@ import {
   ActivityIndicator,
   FlatList,
   Modal,
+  BackHandler,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { fetchTutorDetail, clearTutorDetail, fetchTutorAvailability, createBooking, clearBookingState, AvailabilitySlot } from '../store/slices/privateTutorsSlice';
+import { fetchTutorDetail, clearTutorDetail, fetchTutorAvailability, createBooking, clearBookingState, AvailabilitySlot, addTutorToFavorite, removeTutorFromFavorite } from '../store/slices/privateTutorsSlice';
 
 interface PrivateTutorDetailScreenProps {
   tutorId: number;
@@ -32,11 +33,13 @@ const PrivateTutorDetailScreen: React.FC<PrivateTutorDetailScreenProps> = ({
 }) => {
   const dispatch = useAppDispatch();
   const { tutorDetail, tutorDetailLoading, tutorDetailError, availability, availabilityLoading, bookingLoading, bookingSuccess, bookingError } = useAppSelector(state => state.privateTutors);
+  const { profile, user, selectedChildId } = useAppSelector(state => state.auth);
   const [refreshing, setRefreshing] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [showBookingDrawer, setShowBookingDrawer] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot | null>(null);
+  const [isFavorited, setIsFavorited] = useState(false);
 
   useEffect(() => {
     if (tutorId) {
@@ -47,6 +50,25 @@ const PrivateTutorDetailScreen: React.FC<PrivateTutorDetailScreenProps> = ({
       dispatch(clearTutorDetail());
     };
   }, [tutorId, dispatch]);
+
+  // Handle Android hardware back button
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      // If booking drawer is open, close it first
+      if (showBookingDrawer) {
+        setShowBookingDrawer(false);
+        setSelectedSlot(null);
+        return true; // Prevent default behavior
+      }
+      // Otherwise, navigate back
+      onBack();
+      return true; // Prevent default behavior (app exit)
+    });
+
+    return () => {
+      backHandler.remove();
+    };
+  }, [showBookingDrawer, onBack]);
 
   useEffect(() => {
     if (bookingSuccess) {
@@ -113,6 +135,43 @@ const PrivateTutorDetailScreen: React.FC<PrivateTutorDetailScreenProps> = ({
   const handleBookSession = () => {
     setShowBookingDrawer(true);
     dispatch(fetchTutorAvailability(tutorId));
+  };
+
+  const handleToggleFavorite = async () => {
+    try {
+      if (!tutorDetail?.teacher?.id) {
+        Alert.alert('Error', 'Teacher information not available');
+        return;
+      }
+
+      const isCurrentlyFavorited = isFavorited;
+      const teacherId = tutorDetail.teacher.id;
+      
+      // Update UI immediately for better UX
+      setIsFavorited(!isCurrentlyFavorited);
+      
+      // Call the appropriate API based on current state
+      let result;
+      if (isCurrentlyFavorited) {
+        result = await dispatch(removeTutorFromFavorite(teacherId));
+        if (removeTutorFromFavorite.rejected.match(result)) {
+          setIsFavorited(isCurrentlyFavorited); // Revert on error
+          console.error('Failed to remove tutor from favorites:', result.payload);
+          Alert.alert('Error', 'Failed to remove tutor from favorites');
+        }
+      } else {
+        result = await dispatch(addTutorToFavorite(teacherId));
+        if (addTutorToFavorite.rejected.match(result)) {
+          setIsFavorited(isCurrentlyFavorited); // Revert on error
+          console.error('Failed to add tutor to favorites:', result.payload);
+          Alert.alert('Error', 'Failed to add tutor to favorites');
+        }
+      }
+    } catch (error) {
+      console.error('Error in handleToggleFavorite:', error);
+      setIsFavorited(!isFavorited); // Revert on error
+      Alert.alert('Error', 'An error occurred while updating favorites');
+    }
   };
 
   const handleSlotSelect = async (slot: AvailabilitySlot) => {
@@ -295,6 +354,17 @@ const PrivateTutorDetailScreen: React.FC<PrivateTutorDetailScreenProps> = ({
             <Ionicons name="checkmark-circle" size={24} color="#10b981" />
           </View>
         )}
+
+        <TouchableOpacity 
+          style={styles.starButton}
+          onPress={handleToggleFavorite}
+        >
+          <Ionicons 
+            name={isFavorited ? 'star' : 'star-outline'} 
+            size={24} 
+            color={isFavorited ? '#fbbf24' : '#6b7280'} 
+          />
+        </TouchableOpacity>
       </View>
 
       {/* Content */}
@@ -696,6 +766,10 @@ const styles = StyleSheet.create({
   },
   verifiedBadge: {
     padding: 4,
+  },
+  starButton: {
+    padding: 8,
+    marginLeft: 8,
   },
   content: {
     flex: 1,
