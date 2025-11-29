@@ -20,6 +20,8 @@ import { CoachingCenter } from '../store/slices/coachingSlice';
 import OnlineScreen from './OnlineScreen';
 import PrivateCoachingScreen from './PrivateCoachingScreen';
 import PrivateTutorDetailScreen from './PrivateTutorDetailScreen';
+import ChatListScreen from './ChatListScreen';
+import ChatScreen from './ChatScreen';
 
 // Filter interface for the modal
 interface FilterState {
@@ -81,9 +83,11 @@ const HomeScreen: React.FC = () => {
   const safeCoordinates = coordinates || null;
   const safeSelectedLocationData = selectedLocationData || null;
   
-  const [currentScreen, setCurrentScreen] = useState<'home' | 'search' | 'listing' | 'location' | 'profile' | 'detail' | 'searchFilter' | 'online' | 'private' | 'privateTutorDetail'>('home');
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'search' | 'listing' | 'location' | 'profile' | 'detail' | 'searchFilter' | 'online' | 'private' | 'privateTutorDetail' | 'chat' | 'chatDetail'>('home');
   const [selectedCoachingId, setSelectedCoachingId] = useState<string>('');
   const [selectedTutorId, setSelectedTutorId] = useState<number | null>(null);
+  const [currentChatConversationId, setCurrentChatConversationId] = useState<number | null>(null);
+  const [currentChatParticipantName, setCurrentChatParticipantName] = useState<string>('');
   const [spinValue] = useState(new Animated.Value(0));
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState<FilterState | null>(null);
@@ -288,8 +292,8 @@ const HomeScreen: React.FC = () => {
     console.log('Tab pressed:', tab, 'Current screen:', currentScreen);
     
     // Prevent unnecessary updates if already on the target tab
-    const targetScreen = tab === 'offline' || tab === 'chat' ? 'home' : tab;
-    if (currentScreen === targetScreen && activeTab === tab) {
+    const targetScreen = tab === 'offline' ? 'home' : tab;
+    if ((currentScreen === targetScreen || (tab === 'chat' && currentScreen === 'chatDetail')) && activeTab === tab) {
       console.log('Already on target screen, skipping navigation');
       return;
     }
@@ -313,8 +317,11 @@ const HomeScreen: React.FC = () => {
         console.log('Setting currentScreen to private');
         setCurrentScreen('private');
         break;
-      case 'offline':
       case 'chat':
+        console.log('Setting currentScreen to chat');
+        setCurrentScreen('chat');
+        break;
+      case 'offline':
         console.log('Setting currentScreen to home');
         setCurrentScreen('home');
         break;
@@ -322,15 +329,17 @@ const HomeScreen: React.FC = () => {
         setCurrentScreen('home');
     }
     
-    // Update Redux state for UI feedback (including profile)
-    dispatch(setActiveTab(tab));
+    // Update Redux state for UI feedback (excluding profile)
+    if (tab !== 'profile') {
+      dispatch(setActiveTab(tab));
+    }
     
     // Hide loading indicator after a short delay to allow UI to update
     setTimeout(() => {
       setIsTabSwitching(false);
     }, 300);
     
-    console.log('After tab press - currentScreen will be:', tab === 'offline' || tab === 'chat' ? 'home' : tab);
+    console.log('After tab press - currentScreen will be:', tab === 'offline' ? 'home' : tab);
   };
 
   // Compute activeTab based on currentScreen to ensure it's always in sync
@@ -338,8 +347,9 @@ const HomeScreen: React.FC = () => {
     if (currentScreen === 'profile') return 'profile';
     if (currentScreen === 'online') return 'online';
     if (currentScreen === 'private') return 'private';
+    if (currentScreen === 'chat' || currentScreen === 'chatDetail') return 'chat';
     if (currentScreen === 'home' || currentScreen === 'listing' || currentScreen === 'search' || currentScreen === 'location' || currentScreen === 'detail' || currentScreen === 'searchFilter') {
-      return activeTab === 'offline' || activeTab === 'chat' ? activeTab : 'offline';
+      return activeTab === 'offline' ? activeTab : 'offline';
     }
     return activeTab;
   })();
@@ -734,6 +744,52 @@ const HomeScreen: React.FC = () => {
           // Handle view teacher profile
           Alert.alert('Teacher Profile', `Teacher profile for ${teacherId} coming soon!`);
         }}
+        onStartChat={async (coachingId, coachingName) => {
+          try {
+            console.log('💬 [HomeScreen] Starting chat with coaching center');
+            console.log('💬 [HomeScreen] Coaching ID:', coachingId, '(type:', typeof coachingId, ')');
+            console.log('💬 [HomeScreen] Coaching Name:', coachingName);
+            
+            // Set chat tab as active
+            dispatch(setActiveTab('chat'));
+            console.log('💬 [HomeScreen] Chat tab set to active');
+            
+            // Start conversation
+            const { startConversation, fetchConversations } = await import('../store/slices/chatSlice');
+            console.log('💬 [HomeScreen] Calling startConversation with coachingId:', parseInt(coachingId));
+            const result = await dispatch(startConversation(parseInt(coachingId)));
+            
+            console.log('💬 [HomeScreen] Start conversation result type:', result.type);
+            console.log('💬 [HomeScreen] Result payload:', JSON.stringify(result.payload, null, 2));
+            
+            if (startConversation.fulfilled.match(result)) {
+              console.log('✅ [HomeScreen] Conversation started successfully');
+              console.log('✅ [HomeScreen] Conversation ID:', result.payload?.id);
+              console.log('✅ [HomeScreen] Coaching object:', JSON.stringify(result.payload?.coaching, null, 2));
+              
+              // Refresh conversations list to include the new one
+              console.log('💬 [HomeScreen] Refreshing conversations list...');
+              await dispatch(fetchConversations());
+              
+              // Set the conversation details - use coaching name from response or fallback
+              const conversationName = result.payload?.coaching?.branch_name || 
+                                      result.payload?.coaching?.tagline || 
+                                      coachingName;
+              setCurrentChatConversationId(result.payload.id);
+              setCurrentChatParticipantName(conversationName);
+              console.log('💬 [HomeScreen] Navigating to chat detail screen with name:', conversationName);
+              // Navigate to chat detail screen
+              setCurrentScreen('chatDetail');
+            } else {
+              console.error('❌ [HomeScreen] Failed to start conversation:', result.payload);
+              Alert.alert('Error', result.payload as string || 'Failed to start conversation');
+            }
+          } catch (error: any) {
+            console.error('❌ [HomeScreen] Error starting conversation:', error);
+            console.error('❌ [HomeScreen] Error details:', JSON.stringify(error, null, 2));
+            Alert.alert('Error', error.message || 'Failed to start conversation');
+          }
+        }}
       />
     );
   }
@@ -757,6 +813,36 @@ const HomeScreen: React.FC = () => {
       <PrivateTutorDetailScreen
         tutorId={selectedTutorId}
         onBack={() => setCurrentScreen('private')}
+        onTabPress={handleTabPress}
+      />
+    );
+  }
+
+  if (currentScreen === 'chatDetail' && currentChatConversationId) {
+    return (
+      <ChatScreen
+        conversationId={currentChatConversationId}
+        participantName={currentChatParticipantName}
+        onBack={async () => {
+          // Refresh conversations list when going back to show the new conversation
+          const { fetchConversations } = await import('../store/slices/chatSlice');
+          await dispatch(fetchConversations());
+          setCurrentScreen('chat');
+          setCurrentChatConversationId(null);
+        }}
+      />
+    );
+  }
+
+  if (currentScreen === 'chat') {
+    return (
+      <ChatListScreen
+        onTabPress={handleTabPress}
+        onOpenChat={(conversationId, participantName) => {
+          setCurrentChatConversationId(conversationId);
+          setCurrentChatParticipantName(participantName);
+          setCurrentScreen('chatDetail');
+        }}
       />
     );
   }
@@ -1192,7 +1278,6 @@ const HomeScreen: React.FC = () => {
         }
         // Web-specific scroll properties
         nestedScrollEnabled={true}
-        scrollEventThrottle={16}
         removeClippedSubviews={false}
       >
         {/* Promotional banners */}

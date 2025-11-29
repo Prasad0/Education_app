@@ -28,6 +28,7 @@ interface CoachingDetailScreenProps {
   onViewFaculty?: () => void;
   onViewReviews?: () => void;
   onViewTeacherProfile?: (teacherId: string) => void;
+  onStartChat?: (coachingId: string, coachingName: string) => void;
 }
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -39,6 +40,7 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
   onViewFaculty,
   onViewReviews,
   onViewTeacherProfile,
+  onStartChat,
 }) => {
   const dispatch = useAppDispatch();
   const { detailedInfo, isDetailedLoading, detailedError, starredCenters } = useAppSelector(state => state.coaching);
@@ -672,7 +674,14 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
           <Ionicons name="call" size={20} color="#ffffff" />
           <Text style={styles.callNowText}>Call Now</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.messageButton}>
+        <TouchableOpacity 
+          style={styles.messageButton}
+          onPress={() => {
+            if (coachingData && onStartChat) {
+              onStartChat(coachingId, coachingData.name || 'Coaching Center');
+            }
+          }}
+        >
           <Ionicons name="chatbubble" size={20} color="#6b7280" />
         </TouchableOpacity>
       </View>

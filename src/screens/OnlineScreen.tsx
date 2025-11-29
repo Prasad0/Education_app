@@ -156,7 +156,7 @@ const OnlineScreen: React.FC<OnlineScreenProps> = ({ onBack, onViewDetails, onTa
         activeTab="online"
         onTabSelect={(tab) => {
           if (tab === 'online') return;
-          if (onTabPress) {
+          if (onTabPress && (tab === 'offline' || tab === 'online' || tab === 'private' || tab === 'chat' || tab === 'profile')) {
             onTabPress(tab);
           } else {
             onBack();

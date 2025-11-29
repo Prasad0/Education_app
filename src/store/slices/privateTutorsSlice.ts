@@ -1,6 +1,5 @@
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { api } from '../../config/api';
 
 // Types based on API response
 export interface TutorLanguage {
@@ -175,47 +174,12 @@ const initialState: PrivateTutorsState = {
   tutorDetailError: null,
 };
 
-// Helper function to get auth token from AsyncStorage
-const getAuthToken = async (): Promise<string | null> => {
-  try {
-    // Try to get token directly
-    let token = await AsyncStorage.getItem('accessToken');
-    
-    // If not found, try to get from auth_tokens
-    if (!token) {
-      const tokensData = await AsyncStorage.getItem('auth_tokens');
-      if (tokensData) {
-        try {
-          const tokens = JSON.parse(tokensData);
-          token = tokens.accessToken;
-        } catch (parseError) {
-          console.warn('Failed to parse auth tokens:', parseError);
-        }
-      }
-    }
-    
-    return token ? `Bearer ${token}` : null;
-  } catch (error) {
-    console.error('Error getting auth token:', error);
-    return null;
-  }
-};
-
 export const fetchPrivateTutors = createAsyncThunk<PrivateTutorsResponse, { pageUrl?: string } | void>(
   'privateTutors/fetch',
   async (arg, { rejectWithValue }) => {
     try {
-      const token = await getAuthToken();
-      if (!token) {
-        return rejectWithValue('No authentication token found');
-      }
-      
-      const url = arg && arg.pageUrl ? arg.pageUrl : 'https://learn.crusheducation.in/api/private-tutors/tutors/';
-      const { data } = await axios.get<PrivateTutorsResponse>(url, {
-        headers: {
-          Authorization: token,
-        },
-      });
+      const url = arg && arg.pageUrl ? arg.pageUrl : '/private-tutors/tutors/';
+      const { data } = await api.get<PrivateTutorsResponse>(url);
       return data;
     } catch (error: any) {
       console.error('Error fetching private tutors:', error);
@@ -232,18 +196,8 @@ export const fetchTutorAvailability = createAsyncThunk<AvailabilitySlot[], numbe
   'privateTutors/fetchAvailability',
   async (tutorId, { rejectWithValue }) => {
     try {
-      const token = await getAuthToken();
-      if (!token) {
-        return rejectWithValue('No authentication token found');
-      }
-      
-      const { data } = await axios.get<AvailabilitySlot[]>(
-        `https://learn.crusheducation.in/api/private-tutors/tutors/${tutorId}/availability/`,
-        {
-          headers: {
-            Authorization: token,
-          },
-        }
+      const { data } = await api.get<AvailabilitySlot[]>(
+        `/private-tutors/tutors/${tutorId}/availability/`
       );
       return data;
     } catch (error: any) {
@@ -261,18 +215,8 @@ export const fetchTutorDetail = createAsyncThunk<PrivateTutorDetail, number>(
   'privateTutors/fetchDetail',
   async (tutorId, { rejectWithValue }) => {
     try {
-      const token = await getAuthToken();
-      if (!token) {
-        return rejectWithValue('No authentication token found');
-      }
-      
-      const { data } = await axios.get<PrivateTutorDetail>(
-        `https://learn.crusheducation.in/api/private-tutors/tutors/${tutorId}/`,
-        {
-          headers: {
-            Authorization: token,
-          },
-        }
+      const { data } = await api.get<PrivateTutorDetail>(
+        `/private-tutors/tutors/${tutorId}/`
       );
       return data;
     } catch (error: any) {
@@ -290,21 +234,10 @@ export const createBooking = createAsyncThunk<any, BookingRequest>(
   'privateTutors/createBooking',
   async (bookingData, { rejectWithValue }) => {
     try {
-      const token = await getAuthToken();
-      if (!token) {
-        return rejectWithValue('No authentication token found');
-      }
-      
       console.log('Creating booking with data:', bookingData);
-      const { data } = await axios.post(
-        'https://learn.crusheducation.in/api/private-tutors/bookings/',
-        bookingData,
-        {
-          headers: {
-            Authorization: token,
-            'Content-Type': 'application/json',
-          },
-        }
+      const { data } = await api.post(
+        '/private-tutors/bookings/',
+        bookingData
       );
       console.log('Booking response:', data);
       return data;
@@ -314,6 +247,123 @@ export const createBooking = createAsyncThunk<any, BookingRequest>(
                           error.response?.data?.detail || 
                           error.message || 
                           'Failed to create booking';
+      return rejectWithValue(errorMessage);
+    }
+  }
+);
+
+// Async thunk for adding tutor to favorites
+export const addTutorToFavorite = createAsyncThunk(
+  'privateTutors/addToFavorite',
+  async (teacherId: number, { rejectWithValue, getState }) => {
+    try {
+      // Get auth state to check if user has children
+      const state = getState() as any;
+      const profile = state.auth?.profile || state.auth?.user;
+      const userType = profile?.user_type || profile?.userType;
+      const hasChildren = userType === 'parent' && profile?.children && profile.children.length > 0;
+      const selectedChildId = state.auth?.selectedChildId;
+
+      // Prepare request body - only send tutor (teacher ID) if user has children
+      let requestBody: { tutor?: number } | null = null;
+      
+      if (hasChildren && selectedChildId) {
+        // User has children, send the teacher ID
+        // The API expects { "tutor": teacherId } when user has children
+        requestBody = { tutor: teacherId };
+      } else if (!hasChildren) {
+        // User doesn't have children, don't send body
+        requestBody = null;
+      } else {
+        // Fallback: if hasChildren but no selectedChildId, still send teacher ID
+        requestBody = { tutor: teacherId };
+      }
+      
+      // Log the request for debugging
+      console.log('Adding tutor to favorites:', {
+        teacherId,
+        hasChildren,
+        selectedChildId,
+        url: '/private-tutors/favorites/',
+        body: requestBody
+      });
+
+      // Make POST request with or without body
+      // Send { tutor: teacherId } directly in body when user has children
+      // Send no body when user doesn't have children
+      const response = requestBody !== null
+        ? await api.post('/private-tutors/favorites/', requestBody)
+        : await api.post('/private-tutors/favorites/');
+
+      console.log('Add tutor to favorite success:', response.data);
+      return { teacherId, success: true, data: response.data };
+    } catch (error: any) {
+      console.error('Error adding tutor to favorites:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.detail || 
+                          error.response?.data?.error ||
+                          error.message || 
+                          'Failed to add tutor to favorites';
+      return rejectWithValue(errorMessage);
+    }
+  }
+);
+
+// Async thunk for removing tutor from favorites
+export const removeTutorFromFavorite = createAsyncThunk(
+  'privateTutors/removeFromFavorite',
+  async (teacherId: number, { rejectWithValue, getState }) => {
+    try {
+      // Get auth state to check if user has children
+      const state = getState() as any;
+      const profile = state.auth?.profile || state.auth?.user;
+      const userType = profile?.user_type || profile?.userType;
+      const hasChildren = userType === 'parent' && profile?.children && profile.children.length > 0;
+      const selectedChildId = state.auth?.selectedChildId;
+
+      // Prepare request data - only send tutor (teacher ID) if user has children
+      let requestData: { tutor?: number } | null = null;
+      
+      if (hasChildren && selectedChildId) {
+        // User has children, send the teacher ID
+        requestData = { tutor: teacherId };
+      } else if (!hasChildren) {
+        // User doesn't have children, don't send data
+        requestData = null;
+      } else {
+        // Fallback: if hasChildren but no selectedChildId, still send teacher ID
+        requestData = { tutor: teacherId };
+      }
+      
+      // Log the request for debugging
+      console.log('Removing tutor from favorites:', {
+        teacherId,
+        hasChildren,
+        selectedChildId,
+        url: '/private-tutors/favorites/',
+        data: requestData
+      });
+
+      // Make DELETE request with or without data
+      const response = requestData !== null
+        ? await api.delete('/private-tutors/favorites/', {
+            data: requestData
+          })
+        : await api.delete('/private-tutors/favorites/');
+
+      console.log('Remove tutor from favorite success:', response.data);
+      return { teacherId, success: true, data: response.data };
+    } catch (error: any) {
+      console.error('Error removing tutor from favorites:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.detail || 
+                          error.response?.data?.error ||
+                          error.message || 
+                          'Failed to remove tutor from favorites';
       return rejectWithValue(errorMessage);
     }
   }

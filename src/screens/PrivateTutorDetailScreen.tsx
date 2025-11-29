@@ -19,10 +19,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { fetchTutorDetail, clearTutorDetail, fetchTutorAvailability, createBooking, clearBookingState, AvailabilitySlot, addTutorToFavorite, removeTutorFromFavorite } from '../store/slices/privateTutorsSlice';
+import BottomNavigation from '../components/BottomNavigation';
 
 interface PrivateTutorDetailScreenProps {
   tutorId: number;
   onBack: () => void;
+  onTabPress?: (tab: 'offline' | 'online' | 'private' | 'chat' | 'profile') => void;
 }
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -30,6 +32,7 @@ const { width: screenWidth } = Dimensions.get('window');
 const PrivateTutorDetailScreen: React.FC<PrivateTutorDetailScreenProps> = ({
   tutorId,
   onBack,
+  onTabPress,
 }) => {
   const dispatch = useAppDispatch();
   const { tutorDetail, tutorDetailLoading, tutorDetailError, availability, availabilityLoading, bookingLoading, bookingSuccess, bookingError } = useAppSelector(state => state.privateTutors);
@@ -723,6 +726,17 @@ const PrivateTutorDetailScreen: React.FC<PrivateTutorDetailScreenProps> = ({
           </View>
         </View>
       </Modal>
+
+      {/* Bottom Navigation */}
+      {onTabPress && (
+        <BottomNavigation
+          activeTab="private"
+          onTabPress={(tab) => {
+            if (tab === 'private') return;
+            onTabPress(tab);
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -775,7 +789,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    paddingBottom: 20,
+    paddingBottom: 100, // Extra padding for bottom navigation
   },
   loadingContainer: {
     flex: 1,
