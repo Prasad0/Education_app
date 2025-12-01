@@ -43,6 +43,7 @@ export const API_CONFIG = {
     VERIFY_OTP: '/user_auth/users/verify_otp/',
     PROFILE_STATUS: '/user_auth/users/profile_status/',
     CREATE_PROFILE: '/user_auth/users/create_profile/',
+    UPDATE_PROFILE: '/user_auth/users/update_profile/',
     ADD_CHILD: '/user_auth/users/add_child/',
     GET_PROFILE: '/user_auth/users/get_profile/',
     COACHING_CENTERS: '/coachings/',

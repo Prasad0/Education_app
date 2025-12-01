@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Alert, Linking, TouchableOpacity, RefreshControl, Animated } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, Alert, Linking, TouchableOpacity, RefreshControl, Animated, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import Toast from 'react-native-toast-message';
@@ -22,6 +22,7 @@ import PrivateCoachingScreen from './PrivateCoachingScreen';
 import PrivateTutorDetailScreen from './PrivateTutorDetailScreen';
 import ChatListScreen from './ChatListScreen';
 import ChatScreen from './ChatScreen';
+import EditProfileScreen from './EditProfileScreen';
 
 // Filter interface for the modal
 interface FilterState {
@@ -83,7 +84,7 @@ const HomeScreen: React.FC = () => {
   const safeCoordinates = coordinates || null;
   const safeSelectedLocationData = selectedLocationData || null;
   
-  const [currentScreen, setCurrentScreen] = useState<'home' | 'search' | 'listing' | 'location' | 'profile' | 'detail' | 'searchFilter' | 'online' | 'private' | 'privateTutorDetail' | 'chat' | 'chatDetail'>('home');
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'search' | 'listing' | 'location' | 'profile' | 'detail' | 'searchFilter' | 'online' | 'private' | 'privateTutorDetail' | 'chat' | 'chatDetail' | 'editProfile'>('home');
   const [selectedCoachingId, setSelectedCoachingId] = useState<string>('');
   const [selectedTutorId, setSelectedTutorId] = useState<number | null>(null);
   const [currentChatConversationId, setCurrentChatConversationId] = useState<number | null>(null);
@@ -92,6 +93,7 @@ const HomeScreen: React.FC = () => {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState<FilterState | null>(null);
   const [isTabSwitching, setIsTabSwitching] = useState(false);
+  // Removed pendingChatNavigation to prevent infinite loops
   const forceUpdateRef = useRef(0);
 
   // Determine which profile data to use (user or profile field)
@@ -274,13 +276,28 @@ const HomeScreen: React.FC = () => {
 
   // Force re-render when currentScreen changes
   useEffect(() => {
-    console.log('currentScreen changed to:', currentScreen);
-  }, [currentScreen]);
+    console.log('🔄 [HomeScreen] currentScreen changed to:', currentScreen);
+    console.log('🔄 [HomeScreen] currentChatConversationId:', currentChatConversationId);
+  }, [currentScreen, currentChatConversationId]);
   
   // Force re-render when activeTab changes
   useEffect(() => {
-    console.log('activeTab changed to:', activeTab);
+    console.log('🔄 [HomeScreen] activeTab changed to:', activeTab);
   }, [activeTab]);
+
+  // Fix invalid chatDetail state - if chatDetail is set but conversationId is missing, reset to chat
+  useEffect(() => {
+    if (currentScreen === 'chatDetail' && !currentChatConversationId) {
+      console.warn('⚠️ [HomeScreen] Invalid state detected: chatDetail without conversationId. Resetting to chat.');
+      const timer = setTimeout(() => {
+        if (currentScreen === 'chatDetail' && !currentChatConversationId) {
+          setCurrentScreen('chat');
+        }
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [currentScreen, currentChatConversationId]);
+
 
   const handleLoadMore = React.useCallback(() => {
     if (hasNextPage && !loadingMore && !isLoading && activeTab === 'offline') {
@@ -318,8 +335,13 @@ const HomeScreen: React.FC = () => {
         setCurrentScreen('private');
         break;
       case 'chat':
-        console.log('Setting currentScreen to chat');
-        setCurrentScreen('chat');
+        // Don't reset if we're already on chatDetail - allow user to stay in the conversation
+        if (currentScreen !== 'chatDetail') {
+          console.log('Setting currentScreen to chat');
+          setCurrentScreen('chat');
+        } else {
+          console.log('Already on chatDetail, staying in conversation');
+        }
         break;
       case 'offline':
         console.log('Setting currentScreen to home');
@@ -723,6 +745,30 @@ const HomeScreen: React.FC = () => {
     );
   }
 
+  // Check chatDetail BEFORE detail and chat to ensure proper navigation
+  if (currentScreen === 'chatDetail') {
+    if (currentChatConversationId) {
+      const participantName = currentChatParticipantName || 'Coaching Center';
+      return (
+        <ChatScreen
+          conversationId={currentChatConversationId}
+          participantName={participantName}
+          onBack={async () => {
+            const { fetchConversations } = await import('../store/slices/chatSlice');
+            await dispatch(fetchConversations());
+            setCurrentScreen('chat');
+            setCurrentChatConversationId(null);
+            setCurrentChatParticipantName('');
+          }}
+        />
+      );
+    } else {
+      // No loading - just go back to chat list
+      setCurrentScreen('chat');
+      return null;
+    }
+  }
+
   if (currentScreen === 'detail') {
     return (
       <CoachingDetailScreen
@@ -749,15 +795,24 @@ const HomeScreen: React.FC = () => {
             console.log('💬 [HomeScreen] Starting chat with coaching center');
             console.log('💬 [HomeScreen] Coaching ID:', coachingId, '(type:', typeof coachingId, ')');
             console.log('💬 [HomeScreen] Coaching Name:', coachingName);
+            console.log('💬 [HomeScreen] Current screen before chat:', currentScreen);
             
-            // Set chat tab as active
+            // Set chat tab as active first
             dispatch(setActiveTab('chat'));
             console.log('💬 [HomeScreen] Chat tab set to active');
             
-            // Start conversation
+            // Start conversation FIRST before navigating
             const { startConversation, fetchConversations } = await import('../store/slices/chatSlice');
-            console.log('💬 [HomeScreen] Calling startConversation with coachingId:', parseInt(coachingId));
-            const result = await dispatch(startConversation(parseInt(coachingId)));
+            const coachingIdNum = typeof coachingId === 'string' ? parseInt(coachingId, 10) : coachingId;
+            console.log('💬 [HomeScreen] Calling startConversation with coachingId:', coachingIdNum);
+            
+            if (isNaN(coachingIdNum)) {
+              console.error('❌ [HomeScreen] Invalid coaching ID:', coachingId);
+              Alert.alert('Error', 'Invalid coaching center ID');
+              return;
+            }
+            
+            const result = await dispatch(startConversation(coachingIdNum));
             
             console.log('💬 [HomeScreen] Start conversation result type:', result.type);
             console.log('💬 [HomeScreen] Result payload:', JSON.stringify(result.payload, null, 2));
@@ -767,22 +822,35 @@ const HomeScreen: React.FC = () => {
               console.log('✅ [HomeScreen] Conversation ID:', result.payload?.id);
               console.log('✅ [HomeScreen] Coaching object:', JSON.stringify(result.payload?.coaching, null, 2));
               
-              // Refresh conversations list to include the new one
-              console.log('💬 [HomeScreen] Refreshing conversations list...');
-              await dispatch(fetchConversations());
-              
               // Set the conversation details - use coaching name from response or fallback
               const conversationName = result.payload?.coaching?.branch_name || 
                                       result.payload?.coaching?.tagline || 
                                       coachingName;
+              
+              console.log('💬 [HomeScreen] Setting conversation details:', {
+                conversationId: result.payload.id,
+                conversationName: conversationName,
+              });
+              
+              // Refresh conversations list in background
+              dispatch(fetchConversations()).catch(err => {
+                console.error('Error refreshing conversations:', err);
+              });
+              
+              console.log('💬 [HomeScreen] Chat icon clicked - Opening individual chat message screen');
+              console.log('💬 [HomeScreen] Conversation ID:', result.payload.id);
+              console.log('💬 [HomeScreen] Participant Name:', conversationName);
+              
+              // Navigate directly to chat - no loading indicators
               setCurrentChatConversationId(result.payload.id);
               setCurrentChatParticipantName(conversationName);
-              console.log('💬 [HomeScreen] Navigating to chat detail screen with name:', conversationName);
-              // Navigate to chat detail screen
               setCurrentScreen('chatDetail');
+              
+              console.log('💬 [HomeScreen] ✅ Directly opened individual chat screen');
             } else {
               console.error('❌ [HomeScreen] Failed to start conversation:', result.payload);
-              Alert.alert('Error', result.payload as string || 'Failed to start conversation');
+              const errorMessage = result.payload as string || 'Failed to start conversation';
+              Alert.alert('Error', errorMessage);
             }
           } catch (error: any) {
             console.error('❌ [HomeScreen] Error starting conversation:', error);
@@ -818,23 +886,25 @@ const HomeScreen: React.FC = () => {
     );
   }
 
-  if (currentScreen === 'chatDetail' && currentChatConversationId) {
-    return (
-      <ChatScreen
-        conversationId={currentChatConversationId}
-        participantName={currentChatParticipantName}
-        onBack={async () => {
-          // Refresh conversations list when going back to show the new conversation
-          const { fetchConversations } = await import('../store/slices/chatSlice');
-          await dispatch(fetchConversations());
-          setCurrentScreen('chat');
-          setCurrentChatConversationId(null);
-        }}
-      />
-    );
-  }
-
   if (currentScreen === 'chat') {
+    // If we have a conversation ID, navigate directly to chat detail (no loading)
+    if (currentChatConversationId) {
+      const participantName = currentChatParticipantName || 'Coaching Center';
+      return (
+        <ChatScreen
+          conversationId={currentChatConversationId}
+          participantName={participantName}
+          onBack={async () => {
+            const { fetchConversations } = await import('../store/slices/chatSlice');
+            await dispatch(fetchConversations());
+            setCurrentScreen('chat');
+            setCurrentChatConversationId(null);
+            setCurrentChatParticipantName('');
+          }}
+        />
+      );
+    }
+    // Show chat list - no loading indicators
     return (
       <ChatListScreen
         onTabPress={handleTabPress}
@@ -843,6 +913,14 @@ const HomeScreen: React.FC = () => {
           setCurrentChatParticipantName(participantName);
           setCurrentScreen('chatDetail');
         }}
+      />
+    );
+  }
+
+  if (currentScreen === 'editProfile') {
+    return (
+      <EditProfileScreen
+        onBack={() => setCurrentScreen('profile')}
       />
     );
   }
@@ -1118,7 +1196,10 @@ const HomeScreen: React.FC = () => {
           <View style={styles.profileSection}>
             <Text style={styles.sectionTitle}>Account</Text>
             
-            <TouchableOpacity style={styles.profileOption}>
+            <TouchableOpacity 
+              style={styles.profileOption}
+              onPress={() => setCurrentScreen('editProfile')}
+            >
               <View style={styles.optionLeft}>
                 <Ionicons name="person-outline" size={20} color="#6b7280" />
                 <Text style={styles.optionText}>Edit Profile</Text>
@@ -1230,10 +1311,13 @@ const HomeScreen: React.FC = () => {
     );
   }
 
-  console.log('HomeScreen render - currentScreen:', currentScreen, 'activeTab:', activeTab);
+  console.log('🏠 [HomeScreen] Render - currentScreen:', currentScreen, 'activeTab:', activeTab);
+  console.log('🏠 [HomeScreen] Render - currentChatConversationId:', currentChatConversationId);
+  console.log('🏠 [HomeScreen] Render - currentChatParticipantName:', currentChatParticipantName);
   
   // Debug: Check if there's a mismatch between activeTab and currentScreen
   console.log('Debug - activeTab:', activeTab, 'currentScreen:', currentScreen);
+  
   
   // Debug: Check if we're rendering home screen when we should be rendering online/private
   if (currentScreen === 'home' && (activeTab === 'online' || activeTab === 'private')) {

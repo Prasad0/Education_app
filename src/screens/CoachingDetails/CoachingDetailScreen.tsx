@@ -677,8 +677,20 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
         <TouchableOpacity 
           style={styles.messageButton}
           onPress={() => {
+            console.log('💬 [CoachingDetailScreen] Chat button pressed');
+            console.log('💬 [CoachingDetailScreen] coachingData:', coachingData);
+            console.log('💬 [CoachingDetailScreen] coachingId:', coachingId);
+            console.log('💬 [CoachingDetailScreen] onStartChat:', !!onStartChat);
+            
             if (coachingData && onStartChat) {
-              onStartChat(coachingId, coachingData.name || 'Coaching Center');
+              const coachingName = coachingData.branch_name || coachingData.name || 'Coaching Center';
+              console.log('💬 [CoachingDetailScreen] Calling onStartChat with:', coachingId, coachingName);
+              onStartChat(coachingId, coachingName);
+            } else {
+              console.warn('💬 [CoachingDetailScreen] Cannot start chat - missing data:', {
+                hasCoachingData: !!coachingData,
+                hasOnStartChat: !!onStartChat,
+              });
             }
           }}
         >

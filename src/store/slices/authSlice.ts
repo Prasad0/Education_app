@@ -213,6 +213,41 @@ export const fetchUserProfile = createAsyncThunk(
   }
 );
 
+// Async thunk for updating user profile
+export const updateProfile = createAsyncThunk(
+  'auth/updateProfile',
+  async (profileData: any, {getState, rejectWithValue}) => {
+    try {
+      const state = getState() as {auth: AuthState};
+      const accessToken = state.auth.accessToken;
+      
+      if (!accessToken) {
+        return rejectWithValue('No access token available');
+      }
+
+      const response = await api.put(API_CONFIG.ENDPOINTS.UPDATE_PROFILE, profileData);
+      
+      if (response.data?.data?.success && response.data?.data?.profile) {
+        return response.data.data.profile;
+      } else if (response.data?.data) {
+        // Sometimes the profile is directly in data
+        return response.data.data;
+      } else {
+        return rejectWithValue('Invalid response format');
+      }
+    } catch (error: any) {
+      console.error('Error updating user profile:', error);
+      if (error.response?.data?.message) {
+        return rejectWithValue(error.response.data.message);
+      }
+      if (error.response?.data?.detail) {
+        return rejectWithValue(error.response.data.detail);
+      }
+      return rejectWithValue('Failed to update user profile');
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -377,6 +412,28 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.error = action.payload as string;
         console.error('Failed to fetch user profile:', action.payload);
+      })
+      // Update User Profile
+      .addCase(updateProfile.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(updateProfile.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.user = action.payload;
+        state.profile = action.payload;
+        
+        // Set first child as default if parent has children and no child is selected
+        if (action.payload.user_type === 'parent' && action.payload.children && action.payload.children.length > 0) {
+          if (!state.selectedChildId) {
+            state.selectedChildId = action.payload.children[0].id;
+          }
+        }
+      })
+      .addCase(updateProfile.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+        console.error('Failed to update user profile:', action.payload);
       });
   },
 });
