@@ -23,6 +23,7 @@ import PrivateTutorDetailScreen from './PrivateTutorDetailScreen';
 import ChatListScreen from './ChatListScreen';
 import ChatScreen from './ChatScreen';
 import EditProfileScreen from './EditProfileScreen';
+import BookDemoScreen from './BookDemoScreen';
 
 // Filter interface for the modal
 interface FilterState {
@@ -84,7 +85,7 @@ const HomeScreen: React.FC = () => {
   const safeCoordinates = coordinates || null;
   const safeSelectedLocationData = selectedLocationData || null;
   
-  const [currentScreen, setCurrentScreen] = useState<'home' | 'search' | 'listing' | 'location' | 'profile' | 'detail' | 'searchFilter' | 'online' | 'private' | 'privateTutorDetail' | 'chat' | 'chatDetail' | 'editProfile'>('home');
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'search' | 'listing' | 'location' | 'profile' | 'detail' | 'searchFilter' | 'online' | 'private' | 'privateTutorDetail' | 'chat' | 'chatDetail' | 'editProfile' | 'bookDemo'>('home');
   const [selectedCoachingId, setSelectedCoachingId] = useState<string>('');
   const [selectedTutorId, setSelectedTutorId] = useState<number | null>(null);
   const [currentChatConversationId, setCurrentChatConversationId] = useState<number | null>(null);
@@ -571,46 +572,9 @@ const HomeScreen: React.FC = () => {
   };
 
   const handleBookDemo = (center: CoachingCenter) => {
-    // Check if it's an offline coaching center
-    const isOffline = (center.coaching_type || '').toLowerCase() === 'offline';
-    
-    if (isOffline) {
-      // For offline coaching, redirect to call
-      const phoneNumber = center.phone?.replace(/\s+/g, '') || center.contact_number?.replace(/\s+/g, '') || '';
-      if (phoneNumber) {
-        Alert.alert(
-          'Call Now',
-          `Would you like to call ${center.name} to book a demo?`,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Call', 
-              onPress: () => {
-                Linking.openURL(`tel:${phoneNumber}`);
-              }
-            }
-          ]
-        );
-      } else {
-        Alert.alert('Contact Not Available', 'Phone number not available for this coaching center.');
-      }
-    } else {
-      // For online/hybrid coaching, proceed with normal booking
-      Alert.alert(
-        'Book Demo',
-        `Would you like to book a demo class at ${center.name}?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Book Now', 
-            onPress: () => {
-              // Handle demo booking logic
-              Alert.alert('Success', 'Demo class booked successfully!');
-            }
-          }
-        ]
-      );
-    }
+    // Navigate to Book Demo screen
+    setSelectedCoachingId(center.id);
+    setCurrentScreen('bookDemo');
   };
 
   const handleCallNow = (center: CoachingCenter) => {
@@ -717,7 +681,7 @@ const HomeScreen: React.FC = () => {
 
   if (currentScreen === 'listing') {
     return (
-      <CoachingListingScreen onBack={() => setCurrentScreen('home')} />
+      <CoachingListingScreen onBack={() => setCurrentScreen('home')} onBookDemo={handleBookDemo} />
     );
   }
 
@@ -741,6 +705,7 @@ const HomeScreen: React.FC = () => {
           setCurrentScreen('detail');
         }}
         onTabPress={handleTabPress}
+        onBookDemo={handleBookDemo}
       />
     );
   }
@@ -789,6 +754,10 @@ const HomeScreen: React.FC = () => {
         onViewTeacherProfile={(teacherId: string) => {
           // Handle view teacher profile
           Alert.alert('Teacher Profile', `Teacher profile for ${teacherId} coming soon!`);
+        }}
+        onBookDemo={(coachingId: string) => {
+          setSelectedCoachingId(coachingId);
+          setCurrentScreen('bookDemo');
         }}
         onStartChat={async (coachingId, coachingName) => {
           try {
@@ -921,6 +890,15 @@ const HomeScreen: React.FC = () => {
     return (
       <EditProfileScreen
         onBack={() => setCurrentScreen('profile')}
+      />
+    );
+  }
+
+  if (currentScreen === 'bookDemo') {
+    return (
+      <BookDemoScreen
+        coachingId={selectedCoachingId}
+        onBack={() => setCurrentScreen('home')}
       />
     );
   }

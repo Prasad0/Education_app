@@ -47,6 +47,8 @@ export const API_CONFIG = {
     ADD_CHILD: '/user_auth/users/add_child/',
     GET_PROFILE: '/user_auth/users/get_profile/',
     COACHING_CENTERS: '/coachings/',
+    DEMO_SLOTS: '/coachings/', // Will be appended with coachingId/demo-slots/
+    BOOK_DEMO: '/coachings/', // Will be appended with coachingId/book-demo/
     ONLINE_COURSES: '/online-courses/courses/',
     COURSE_DETAIL: '/online-courses/courses/', // Will be appended with courseId
     COURSE_ENROLL: '/online-courses/courses/', // Will be appended with courseId/enroll/
@@ -67,6 +69,16 @@ export const getCourseDetailUrl = (courseId: number | string) => {
 // Utility function to get course enrollment URL
 export const getCourseEnrollUrl = (courseId: number | string) => {
   return `${getApiUrl(API_CONFIG.ENDPOINTS.COURSE_ENROLL)}${courseId}/enroll/`;
+};
+
+// Utility function to get demo slots URL
+export const getDemoSlotsUrl = (coachingId: number | string) => {
+  return `${getApiUrl(API_CONFIG.ENDPOINTS.DEMO_SLOTS)}${coachingId}/demo-slots/`;
+};
+
+// Utility function to get book demo URL
+export const getBookDemoUrl = (coachingId: number | string) => {
+  return `${getApiUrl(API_CONFIG.ENDPOINTS.BOOK_DEMO)}${coachingId}/book-demo/`;
 };
 
 // Enhanced error logging function

@@ -490,7 +490,7 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
         gender: child.gender,
         current_standard: child.current_standard,
         board: child.board,
-        stream: child.stream || null,
+        current_school: child.current_school || null,
         subjects_interested: child.subjects_interested,
         target_exams: child.target_exams,
         budget_min: child.budget_min ? parseInt(child.budget_min) : null,
@@ -512,7 +512,7 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
         budget_max: formData.budgetMax ? parseInt(formData.budgetMax) : null,
         children: childrenData // Include children in the same request
       };
-
+      
       console.log('📤 Dispatching createProfile with parent + children data:', profileData);
       const result = await dispatch(createProfile(profileData));
       console.log('📥 createProfile result:', result);

@@ -29,6 +29,7 @@ interface CoachingDetailScreenProps {
   onViewReviews?: () => void;
   onViewTeacherProfile?: (teacherId: string) => void;
   onStartChat?: (coachingId: string, coachingName: string) => void;
+  onBookDemo?: (coachingId: string) => void;
 }
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -41,6 +42,7 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
   onViewReviews,
   onViewTeacherProfile,
   onStartChat,
+  onBookDemo,
 }) => {
   const dispatch = useAppDispatch();
   const { detailedInfo, isDetailedLoading, detailedError, starredCenters } = useAppSelector(state => state.coaching);
@@ -153,45 +155,9 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
   };
 
   const handleBookDemo = () => {
-    // Check if it's an offline coaching center
-    const isOffline = (coachingData?.coaching_type || '').toLowerCase() === 'offline';
-    
-    if (isOffline) {
-      // For offline coaching, redirect to call
-      const phoneNumber = coachingData?.phone?.replace(/\s+/g, '') || coachingData?.contact_number?.replace(/\s+/g, '') || '';
-      if (phoneNumber) {
-        Alert.alert(
-          'Call Now',
-          `Would you like to call ${coachingData?.branch_name || coachingData?.name || 'this coaching center'} to book a demo?`,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Call', 
-              onPress: () => {
-                Linking.openURL(`tel:${phoneNumber}`);
-              }
-            }
-          ]
-        );
-      } else {
-        Alert.alert('Contact Not Available', 'Phone number not available for this coaching center.');
-      }
-    } else {
-      // For online/hybrid coaching, proceed with normal booking
-      Alert.alert(
-        'Book Demo',
-        `Would you like to book a demo class at ${coachingData?.branch_name || coachingData?.name || 'this coaching center'}?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Book Now', 
-            onPress: () => {
-              // Handle demo booking logic
-              Alert.alert('Success', 'Demo class booking request sent!');
-            }
-          }
-        ]
-      );
+    // Navigate to Book Demo screen via parent component
+    if (onBookDemo) {
+      onBookDemo(coachingId);
     }
   };
 

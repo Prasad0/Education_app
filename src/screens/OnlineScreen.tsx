@@ -13,9 +13,10 @@ interface OnlineScreenProps {
   onBack: () => void;
   onViewDetails: (center: CoachingCenter) => void;
   onTabPress?: (tab: 'offline' | 'online' | 'private' | 'chat' | 'profile') => void;
+  onBookDemo?: (center: CoachingCenter) => void;
 }
 
-const OnlineScreen: React.FC<OnlineScreenProps> = ({ onBack, onViewDetails, onTabPress }) => {
+const OnlineScreen: React.FC<OnlineScreenProps> = ({ onBack, onViewDetails, onTabPress, onBookDemo }) => {
   const dispatch = useAppDispatch();
   const { coachingCenters, starredCenters } = useAppSelector(state => state.coaching);
   const { profile, user, selectedChildId } = useAppSelector(state => state.auth);
@@ -58,35 +59,11 @@ const OnlineScreen: React.FC<OnlineScreenProps> = ({ onBack, onViewDetails, onTa
   ];
 
   const handleBookDemo = (center: CoachingCenter) => {
-    // Check if it's an offline coaching center
-    const isOffline = (center.coaching_type || '').toLowerCase() === 'offline';
-    
-    if (isOffline) {
-      // For offline coaching, redirect to call
-      const phoneNumber = center.phone?.replace(/\s+/g, '') || center.contact_number?.replace(/\s+/g, '') || '';
-      if (phoneNumber) {
-        Alert.alert(
-          'Call Now',
-          `Would you like to call ${center.name} to book a demo?`,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Call', 
-              onPress: () => {
-                Linking.openURL(`tel:${phoneNumber}`);
-              }
-            }
-          ]
-        );
-      } else {
-        Alert.alert('Contact Not Available', 'Phone number not available for this coaching center.');
-      }
+    // Use parent's onBookDemo if provided, otherwise show alert
+    if (onBookDemo) {
+      onBookDemo(center);
     } else {
-      // For online/hybrid coaching, proceed with normal booking
-      Alert.alert('Book Demo', `Would you like to book a demo class at ${center.name}?`, [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Book Now', onPress: () => Alert.alert('Success', 'Demo class booked successfully!') },
-      ]);
+      Alert.alert('Book Demo', 'Demo booking functionality is being set up!');
     }
   };
 
