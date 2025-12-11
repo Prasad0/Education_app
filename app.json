@@ -23,7 +23,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.prasad01.coachingfinderapp"
+      "package": "com.coach.findmycoach"
     },
     "web": {
       "favicon": "./assets/favicon.png"

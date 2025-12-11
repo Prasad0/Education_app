@@ -26,6 +26,7 @@ import ChatScreen from './ChatScreen';
 import EditProfileScreen from './EditProfileScreen';
 import BookDemoScreen from './BookDemoScreen';
 import MyDemoBookingsScreen from './MyDemoBookingsScreen';
+import MyPrivateBookingsScreen from './MyPrivateBookingsScreen';
 import MyWishlistScreen from './MyWishlistScreen';
 import MyOfflineWishlistScreen from './MyOfflineWishlistScreen';
 
@@ -89,7 +90,7 @@ const HomeScreen: React.FC = () => {
   const safeCoordinates = coordinates || null;
   const safeSelectedLocationData = selectedLocationData || null;
   
-  const [currentScreen, setCurrentScreen] = useState<'home' | 'search' | 'listing' | 'location' | 'profile' | 'detail' | 'searchFilter' | 'online' | 'private' | 'privateTutorDetail' | 'chat' | 'chatDetail' | 'editProfile' | 'bookDemo' | 'myDemoBookings' | 'myWishlist' | 'myOfflineWishlist'>('home');
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'search' | 'listing' | 'location' | 'profile' | 'detail' | 'searchFilter' | 'online' | 'private' | 'privateTutorDetail' | 'chat' | 'chatDetail' | 'editProfile' | 'bookDemo' | 'myDemoBookings' | 'myPrivateBookings' | 'myWishlist' | 'myOfflineWishlist'>('home');
   const [selectedCoachingId, setSelectedCoachingId] = useState<string>('');
   const [selectedTutorId, setSelectedTutorId] = useState<number | null>(null);
   const [currentChatConversationId, setCurrentChatConversationId] = useState<number | null>(null);
@@ -932,6 +933,14 @@ const HomeScreen: React.FC = () => {
     );
   }
 
+  if (currentScreen === 'myPrivateBookings') {
+    return (
+      <MyPrivateBookingsScreen
+        onBack={() => setCurrentScreen('profile')}
+      />
+    );
+  }
+
   if (currentScreen === 'myWishlist') {
     return (
       <MyWishlistScreen
@@ -1248,7 +1257,18 @@ const HomeScreen: React.FC = () => {
             >
               <View style={styles.optionLeft}>
                 <Ionicons name="calendar-outline" size={20} color="#6b7280" />
-                <Text style={styles.optionText}>My Demo Bookings</Text>
+                <Text style={styles.optionText}>Offline Coaching Demo Bookings</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.profileOption}
+              onPress={() => setCurrentScreen('myPrivateBookings')}
+            >
+              <View style={styles.optionLeft}>
+                <Ionicons name="person-outline" size={20} color="#6b7280" />
+                <Text style={styles.optionText}>Private Coaching Demo Bookings</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
             </TouchableOpacity>
