@@ -3,13 +3,15 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
   Image,
+  StatusBar,
+  BackHandler,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { fetchWishlist, removeFromWishlist } from '../store/slices/courseWishlistSlice';
@@ -23,6 +25,16 @@ const MyWishlistScreen: React.FC<MyWishlistScreenProps> = ({ onBack, onCourseSel
   const dispatch = useAppDispatch();
   const { wishlistItems, isLoading, error } = useAppSelector(state => state.courseWishlist);
   const [refreshing, setRefreshing] = React.useState(false);
+
+  // Handle hardware back button
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      onBack();
+      return true;
+    });
+
+    return () => backHandler.remove();
+  }, [onBack]);
 
   useEffect(() => {
     dispatch(fetchWishlist());
@@ -155,14 +167,15 @@ const MyWishlistScreen: React.FC<MyWishlistScreenProps> = ({ onBack, onCourseSel
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#1f2937" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>My Wishlist</Text>
+          <Text style={styles.headerTitle}>Online Wishlist Courses</Text>
           <Text style={styles.headerSubtitle}>
             {wishlistItems.length} {wishlistItems.length === 1 ? 'course' : 'courses'}
           </Text>

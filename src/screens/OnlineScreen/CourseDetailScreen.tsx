@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Linking, Image, SafeAreaView, ActivityIndicator, Dimensions, BackHandler } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Linking, Image, ActivityIndicator, Dimensions, BackHandler, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
 import * as ScreenOrientation from 'expo-screen-orientation';
@@ -46,7 +47,8 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
   if (!course) {
     console.log('CourseDetailScreen - Course object is null or undefined');
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
         <View style={styles.header}>
           <TouchableOpacity 
             style={styles.backButton} 
@@ -378,7 +380,8 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
   }, [onBack]);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 

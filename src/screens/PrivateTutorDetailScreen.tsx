@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   Image,
@@ -15,7 +14,9 @@ import {
   FlatList,
   Modal,
   BackHandler,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { fetchTutorDetail, clearTutorDetail, fetchTutorAvailability, createBooking, clearBookingState, AvailabilitySlot, addTutorToFavorite, removeTutorFromFavorite } from '../store/slices/privateTutorsSlice';
@@ -273,7 +274,8 @@ const PrivateTutorDetailScreen: React.FC<PrivateTutorDetailScreenProps> = ({
 
   if (tutorDetailLoading && !tutorDetail) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
         <View style={styles.header}>
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#111827" />
@@ -290,7 +292,8 @@ const PrivateTutorDetailScreen: React.FC<PrivateTutorDetailScreenProps> = ({
 
   if (tutorDetailError && !tutorDetail) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
         <View style={styles.header}>
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#111827" />
@@ -314,7 +317,8 @@ const PrivateTutorDetailScreen: React.FC<PrivateTutorDetailScreenProps> = ({
 
   if (!tutorDetail) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
         <View style={styles.header}>
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#111827" />
@@ -333,7 +337,8 @@ const PrivateTutorDetailScreen: React.FC<PrivateTutorDetailScreenProps> = ({
   const displayReviews = showAllReviews ? tutorDetail.recent_reviews : tutorDetail.recent_reviews.slice(0, 3);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>

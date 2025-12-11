@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator, Linking, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import BottomNavigation from '../components/BottomNavigation';
@@ -32,11 +33,13 @@ const OnlineScreen: React.FC<OnlineScreenProps> = ({ onBack, onViewDetails, onTa
     instructorName: string;
     courseDescription: string;
   } | null>(null);
+  const [cameFromWishlist, setCameFromWishlist] = useState(!!initialCourse);
 
   // Set selected course when initialCourse prop changes
   useEffect(() => {
     if (initialCourse) {
       setSelectedCourse(initialCourse);
+      setCameFromWishlist(true);
     }
   }, [initialCourse]);
 
@@ -154,7 +157,16 @@ const OnlineScreen: React.FC<OnlineScreenProps> = ({ onBack, onViewDetails, onTa
     return (
       <CourseDetailScreen
         course={courseToDisplay}
-        onBack={() => setSelectedCourse(null)}
+        onBack={() => {
+          // If came from wishlist, go back to previous screen
+          if (cameFromWishlist) {
+            setCameFromWishlist(false);
+            onBack();
+          } else {
+            // Otherwise just close the course detail
+            setSelectedCourse(null);
+          }
+        }}
         activeTab="online"
         onTabSelect={(tab) => {
           if (tab === 'online') return;
@@ -218,7 +230,8 @@ const OnlineScreen: React.FC<OnlineScreenProps> = ({ onBack, onViewDetails, onTa
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={onBack}>

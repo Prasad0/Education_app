@@ -59,6 +59,7 @@ export const API_CONFIG = {
     COURSE_WISHLIST: '/online-courses/wishlist/',
     ADD_TO_WISHLIST: '/online-courses/courses/', // Will be appended with courseId/add_to_wishlist/
     REMOVE_FROM_WISHLIST: '/online-courses/courses/', // Will be appended with courseId/remove_from_wishlist/
+    OFFLINE_FAVORITES: '/coachings/list_favorites/', // Offline coaching favorites with pagination
   }
 };
 
@@ -113,6 +114,11 @@ export const getRemoveFromWishlistUrl = (courseId: number | string) => {
 // Utility function to get wishlist URL
 export const getWishlistUrl = () => {
   return getApiUrl(API_CONFIG.ENDPOINTS.COURSE_WISHLIST);
+};
+
+// Utility function to get offline favorites URL
+export const getOfflineFavoritesUrl = (page: number = 1) => {
+  return `${getApiUrl(API_CONFIG.ENDPOINTS.OFFLINE_FAVORITES)}?page=${page}`;
 };
 
 // Enhanced error logging function

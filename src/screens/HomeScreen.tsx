@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Alert, Linking, TouchableOpacity, RefreshControl, Animated, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, Linking, TouchableOpacity, RefreshControl, Animated, ActivityIndicator, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import Toast from 'react-native-toast-message';
@@ -26,6 +27,7 @@ import EditProfileScreen from './EditProfileScreen';
 import BookDemoScreen from './BookDemoScreen';
 import MyDemoBookingsScreen from './MyDemoBookingsScreen';
 import MyWishlistScreen from './MyWishlistScreen';
+import MyOfflineWishlistScreen from './MyOfflineWishlistScreen';
 
 // Filter interface for the modal
 interface FilterState {
@@ -87,12 +89,13 @@ const HomeScreen: React.FC = () => {
   const safeCoordinates = coordinates || null;
   const safeSelectedLocationData = selectedLocationData || null;
   
-  const [currentScreen, setCurrentScreen] = useState<'home' | 'search' | 'listing' | 'location' | 'profile' | 'detail' | 'searchFilter' | 'online' | 'private' | 'privateTutorDetail' | 'chat' | 'chatDetail' | 'editProfile' | 'bookDemo' | 'myDemoBookings' | 'myWishlist'>('home');
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'search' | 'listing' | 'location' | 'profile' | 'detail' | 'searchFilter' | 'online' | 'private' | 'privateTutorDetail' | 'chat' | 'chatDetail' | 'editProfile' | 'bookDemo' | 'myDemoBookings' | 'myWishlist' | 'myOfflineWishlist'>('home');
   const [selectedCoachingId, setSelectedCoachingId] = useState<string>('');
   const [selectedTutorId, setSelectedTutorId] = useState<number | null>(null);
   const [currentChatConversationId, setCurrentChatConversationId] = useState<number | null>(null);
   const [currentChatParticipantName, setCurrentChatParticipantName] = useState<string>('');
   const [selectedWishlistCourse, setSelectedWishlistCourse] = useState<any>(null);
+  const [cameFromOfflineWishlist, setCameFromOfflineWishlist] = useState(false);
   const [spinValue] = useState(new Animated.Value(0));
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState<FilterState | null>(null);
@@ -701,8 +704,13 @@ const HomeScreen: React.FC = () => {
       <OnlineScreen
         onBack={() => {
           console.log('OnlineScreen onBack called');
-          setCurrentScreen('home');
-          setSelectedWishlistCourse(null); // Clear selected course when going back
+          // If there's a selected wishlist course, go back to wishlist
+          if (selectedWishlistCourse) {
+            setSelectedWishlistCourse(null);
+            setCurrentScreen('myWishlist');
+          } else {
+            setCurrentScreen('home');
+          }
         }}
         onViewDetails={(center: CoachingCenter) => {
           setSelectedCoachingId(center.id);
@@ -743,7 +751,15 @@ const HomeScreen: React.FC = () => {
     return (
       <CoachingDetailScreen
         coachingId={selectedCoachingId}
-        onBack={() => setCurrentScreen('home')}
+        onBack={() => {
+          // If came from offline wishlist, go back to wishlist
+          if (cameFromOfflineWishlist) {
+            setCameFromOfflineWishlist(false);
+            setCurrentScreen('myOfflineWishlist');
+          } else {
+            setCurrentScreen('home');
+          }
+        }}
         onViewBatches={() => {
           // Handle view batches
           Alert.alert('View Batches', 'Batches functionality coming soon!');
@@ -929,6 +945,20 @@ const HomeScreen: React.FC = () => {
     );
   }
 
+  if (currentScreen === 'myOfflineWishlist') {
+    return (
+      <MyOfflineWishlistScreen
+        onBack={() => setCurrentScreen('profile')}
+        onCoachingSelect={(coaching) => {
+          // Navigate to coaching detail screen
+          setCameFromOfflineWishlist(true);
+          setSelectedCoachingId(coaching.id.toString());
+          setCurrentScreen('detail');
+        }}
+      />
+    );
+  }
+
   if (currentScreen === 'searchFilter') {
     return (
       <SearchFilterScreen
@@ -946,7 +976,8 @@ const HomeScreen: React.FC = () => {
 
   if (currentScreen === 'profile') {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
         {/* Profile Header */}
         <View style={styles.profileHeader}>
           <TouchableOpacity 
@@ -1228,7 +1259,18 @@ const HomeScreen: React.FC = () => {
             >
               <View style={styles.optionLeft}>
                 <Ionicons name="heart-outline" size={20} color="#6b7280" />
-                <Text style={styles.optionText}>My Wishlist</Text>
+                <Text style={styles.optionText}>Online Wishlist Courses</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.profileOption}
+              onPress={() => setCurrentScreen('myOfflineWishlist')}
+            >
+              <View style={styles.optionLeft}>
+                <Ionicons name="heart-outline" size={20} color="#6b7280" />
+                <Text style={styles.optionText}>Offline Wishlist Courses</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
             </TouchableOpacity>
@@ -1351,7 +1393,8 @@ const HomeScreen: React.FC = () => {
   }
   
   return (
-    <SafeAreaView key={`${currentScreen}-${forceUpdateRef.current}`} style={styles.container}>
+    <SafeAreaView key={`${currentScreen}-${forceUpdateRef.current}`} style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       {/* Header - Fixed */}
       <Header
         location={safeSelectedLocation}

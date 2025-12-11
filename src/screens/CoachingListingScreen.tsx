@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert, Linking, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Linking, TextInput, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { fetchCoachingCenters, filterCenters, setSearchParams, searchCoachingCenters, clearData, toggleStarred, addToFavorite, removeFromFavorite } from '../store/slices/coachingSlice';
@@ -225,7 +226,8 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack, o
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       {/* Header - Fixed */}
       <Header
         location={selectedLocation || 'Koramangala, Bangalore'}

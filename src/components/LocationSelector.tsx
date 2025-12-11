@@ -5,10 +5,11 @@ import {
   StyleSheet, 
   TouchableOpacity, 
   TextInput, 
-  ScrollView, 
-  SafeAreaView,
-  Alert
+  ScrollView,
+  Alert,
+  StatusBar
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { 
@@ -175,7 +176,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({ onBack }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>

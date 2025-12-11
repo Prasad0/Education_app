@@ -4,12 +4,14 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
   Alert,
+  StatusBar,
+  BackHandler,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppSelector } from '../store/hooks';
 import api from '../config/api';
@@ -65,6 +67,16 @@ const MyDemoBookingsScreen: React.FC<MyDemoBookingsScreenProps> = ({ onBack }) =
   const [currentPage, setCurrentPage] = useState(1);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Handle hardware back button
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      onBack();
+      return true;
+    });
+
+    return () => backHandler.remove();
+  }, [onBack]);
 
   useEffect(() => {
     fetchBookings(1);
@@ -261,7 +273,8 @@ const MyDemoBookingsScreen: React.FC<MyDemoBookingsScreenProps> = ({ onBack }) =
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>

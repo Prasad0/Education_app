@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   Image,
@@ -15,7 +14,9 @@ import {
   FlatList,
   Modal,
   BackHandler,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchCoachingCenterDetails, clearDetailedInfo, addToFavorite, removeFromFavorite, toggleStarred } from '../../store/slices/coachingSlice';
@@ -209,7 +210,8 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
 
   if (isDetailedLoading && !detailedInfo) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
         <View style={styles.header}>
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#111827" />
@@ -226,7 +228,8 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
 
   if (detailedError) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
         <View style={styles.header}>
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#111827" />
@@ -247,7 +250,8 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
 
   if (!detailedInfo) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
         <View style={styles.header}>
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#111827" />
@@ -264,7 +268,8 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>

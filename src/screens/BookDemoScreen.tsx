@@ -4,12 +4,14 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
   TextInput,
+  StatusBar,
+  BackHandler,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppSelector } from '../store/hooks';
 import api from '../config/api';
@@ -61,6 +63,16 @@ const BookDemoScreen: React.FC<BookDemoScreenProps> = ({ coachingId, onBack }) =
     email: actualProfile?.email || '',
     notes: '',
   });
+
+  // Handle hardware back button
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      onBack();
+      return true;
+    });
+
+    return () => backHandler.remove();
+  }, [onBack]);
 
   // Pre-fill form data based on user type
   useEffect(() => {
@@ -153,7 +165,8 @@ const BookDemoScreen: React.FC<BookDemoScreenProps> = ({ coachingId, onBack }) =
   // Confirmation Screen
   if (step === 'confirmation' && bookingResponse) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
@@ -241,7 +254,8 @@ const BookDemoScreen: React.FC<BookDemoScreenProps> = ({ coachingId, onBack }) =
   // Details Form Screen
   if (step === 'details' && selectedSlot) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => setStep('selection')} style={styles.backButton}>
@@ -352,7 +366,8 @@ const BookDemoScreen: React.FC<BookDemoScreenProps> = ({ coachingId, onBack }) =
 
   // Slot Selection Screen
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
