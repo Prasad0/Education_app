@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchCoachingCenterDetails, clearDetailedInfo, addToFavorite, removeFromFavorite, toggleStarred } from '../../store/slices/coachingSlice';
 import ReviewModal from './ReviewModal';
+import AddReviewModal from './AddReviewModal';
 
 interface CoachingDetailScreenProps {
   coachingId: string;
@@ -50,6 +51,7 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
   const [activeGalleryIndex, setActiveGalleryIndex] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [showAllReviews, setShowAllReviews] = useState(false);
+  const [showAddReview, setShowAddReview] = useState(false);
   const [showBatchesDrawer, setShowBatchesDrawer] = useState(false);
   const [showFacultyDrawer, setShowFacultyDrawer] = useState(false);
   
@@ -98,6 +100,13 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
       await dispatch(fetchCoachingCenterDetails(coachingId));
     }
     setRefreshing(false);
+  };
+
+  const handleReviewAdded = () => {
+    // Refresh the coaching details to get updated reviews
+    if (coachingId) {
+      dispatch(fetchCoachingCenterDetails(coachingId));
+    }
   };
 
   const handleCallNow = () => {
@@ -597,7 +606,10 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Reviews ({reviews.length})</Text>
               <View style={styles.reviewActions}>
-                <TouchableOpacity style={styles.addReviewButton}>
+                <TouchableOpacity 
+                  style={styles.addReviewButton}
+                  onPress={() => setShowAddReview(true)}
+                >
                   <Text style={styles.addReviewText}>Add Review</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => setShowAllReviews(true)}>
@@ -671,6 +683,14 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
         reviews={reviews}
         averageRating={coachingData?.average_rating || 0}
         coachingData={coachingData}
+      />
+
+      {/* Add Review Modal */}
+      <AddReviewModal
+        visible={showAddReview}
+        onClose={() => setShowAddReview(false)}
+        coachingId={coachingId}
+        onReviewAdded={handleReviewAdded}
       />
 
       {/* Batches Drawer */}

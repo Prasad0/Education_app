@@ -6,6 +6,8 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { OnlineCoaching } from './types';
 import BottomNavigation from '../../components/BottomNavigation';
 import { api, getCourseEnrollUrl, getEnrollmentErrorMessage } from '../../config/api';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { addToWishlist, removeFromWishlist, toggleWishlistOptimistic } from '../../store/slices/courseWishlistSlice';
 
 interface CourseDetailScreenProps {
   course: OnlineCoaching;
@@ -13,6 +15,12 @@ interface CourseDetailScreenProps {
   activeTab?: string;
   onTabSelect?: (tab: string) => void;
   onJoinLiveClass?: (courseId: number) => void;
+  onVideoPress?: (videoData: {
+    videoUrl: string;
+    courseTitle: string;
+    instructorName: string;
+    courseDescription: string;
+  }) => void;
 }
 
 const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({ 
@@ -20,8 +28,11 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
   onBack, 
   activeTab = 'online', 
   onTabSelect, 
-  onJoinLiveClass 
+  onJoinLiveClass,
+  onVideoPress 
 }) => {
+  const dispatch = useAppDispatch();
+  const { wishlistCourseIds } = useAppSelector(state => state.courseWishlist);
   const [showCouponCode, setShowCouponCode] = useState(false);
   const [isEnrolling, setIsEnrolling] = useState(false);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
@@ -116,12 +127,73 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
   };
 
   const handleCourseAction = async () => {
-    if (course.is_live && onJoinLiveClass) {
-      onJoinLiveClass(course.id);
+    // Check if user is already enrolled
+    if (course.enrollment_status) {
+      // User is enrolled, play the video
+      if (course.video && onVideoPress) {
+        // Construct full video URL if it's relative
+        let videoUrl = course.video;
+        if (videoUrl && videoUrl.startsWith('/')) {
+          videoUrl = `http://13.200.17.30${videoUrl}`;
+        }
+        
+        console.log('CourseDetailScreen - Playing enrolled course video:', {
+          courseTitle: course.title,
+          originalVideoUrl: course.video,
+          finalVideoUrl: videoUrl,
+        });
+        
+        onVideoPress({
+          videoUrl: videoUrl,
+          courseTitle: course.title || 'Untitled Course',
+          instructorName: course.instructor?.name || 'Unknown Instructor',
+          courseDescription: course.short_description || 'Course video content',
+        });
+      } else {
+        Alert.alert('No Video Available', 'This course does not have a video available yet.');
+      }
+    } else if (course.is_live) {
+      // Priority 1: Check if course has a video
+      if (course.video && onVideoPress) {
+        let videoUrl = course.video;
+        if (videoUrl && videoUrl.startsWith('/')) {
+          videoUrl = `http://13.200.17.30${videoUrl}`;
+        }
+        
+        console.log('CourseDetailScreen - Playing live class video:', videoUrl);
+        onVideoPress({
+          videoUrl: videoUrl,
+          courseTitle: course.title || 'Live Class',
+          instructorName: course.instructor?.name || 'Unknown Instructor',
+          courseDescription: course.short_description || 'Live class video',
+        });
+      }
+      // Priority 2: Check if course has external URL
+      else if (course.external_course_url) {
+        console.log('CourseDetailScreen - Redirecting to external URL:', course.external_course_url);
+        Linking.openURL(course.external_course_url).catch(err => {
+          console.error('Failed to open external URL:', err);
+          Alert.alert('Error', 'Could not open the course link. Please try again later.');
+        });
+      }
+      // Priority 3: Use onJoinLiveClass callback if available
+      else if (onJoinLiveClass) {
+        onJoinLiveClass(course.id);
+      }
+      // Priority 4: Show message if nothing available
+      else {
+        Alert.alert(
+          'Live Class',
+          'Live class details are not available yet. Please check back later or contact support.',
+          [{ text: 'OK' }]
+        );
+      }
     } else if (course.platform?.is_third_party && course.platform.name !== 'CourseHub') {
-      // For third-party platforms, open external link
-      const url = course.platform.website_url || 'https://physicswallah.pw';
+      // For third-party platforms, prioritize external_course_url over platform website_url
+      const url = course.external_course_url || course.platform.website_url || 'https://physicswallah.pw';
+      console.log('CourseDetailScreen - Opening third-party course URL:', url);
       Linking.openURL(url).catch(err => {
+        console.error('Failed to open URL:', err);
         Alert.alert('Error', 'Could not open the link');
       });
     } else {
@@ -194,8 +266,26 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
     }
   };
 
-  const handleAddToFavorites = () => {
-    Alert.alert('Added to Favorites', 'Course has been added to your favorites!');
+  const handleAddToFavorites = async () => {
+    const isInWishlist = wishlistCourseIds.includes(course.id);
+    
+    // Optimistic update
+    dispatch(toggleWishlistOptimistic(course.id));
+    
+    try {
+      if (isInWishlist) {
+        await dispatch(removeFromWishlist(course.id)).unwrap();
+        Alert.alert('Success', 'Course removed from wishlist');
+      } else {
+        await dispatch(addToWishlist(course.id)).unwrap();
+        Alert.alert('Success', 'Course added to wishlist');
+      }
+    } catch (error) {
+      // Revert optimistic update on error
+      dispatch(toggleWishlistOptimistic(course.id));
+      console.error('Wishlist toggle error:', error);
+      Alert.alert('Error', 'Failed to update wishlist. Please try again.');
+    }
   };
 
   const handleShare = () => {
@@ -599,15 +689,15 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
               
               <TouchableOpacity onPress={handleAddToFavorites} style={styles.favoriteButton}>
                 <Ionicons 
-                  name={course.is_bookmarked ? "heart" : "heart-outline"} 
+                  name={wishlistCourseIds.includes(course.id) ? "heart" : "heart-outline"} 
                   size={20} 
-                  color={course.is_bookmarked ? "#ef4444" : "#6b7280"} 
+                  color={wishlistCourseIds.includes(course.id) ? "#ef4444" : "#6b7280"} 
                 />
                 <Text style={[
                   styles.favoriteButtonText,
-                  course.is_bookmarked && styles.favoriteButtonTextActive
+                  wishlistCourseIds.includes(course.id) && styles.favoriteButtonTextActive
                 ]}>
-                  {course.is_bookmarked ? 'Remove from Favorites' : 'Add to Favorites'}
+                  {wishlistCourseIds.includes(course.id) ? 'Remove from Favorites' : 'Add to Favorites'}
                 </Text>
               </TouchableOpacity>
             </View>

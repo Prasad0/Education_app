@@ -49,11 +49,16 @@ export const API_CONFIG = {
     COACHING_CENTERS: '/coachings/',
     DEMO_SLOTS: '/coachings/', // Will be appended with coachingId/demo-slots/
     BOOK_DEMO: '/coachings/', // Will be appended with coachingId/book-demo/
+    MY_DEMO_BOOKINGS: '/coachings/my-demo-bookings/', // Will be appended with ?page=1&student_id=<id>
+    ADD_REVIEW: '/coachings/', // Will be appended with coachingId/add_review/
     ONLINE_COURSES: '/online-courses/courses/',
     COURSE_DETAIL: '/online-courses/courses/', // Will be appended with courseId
     COURSE_ENROLL: '/online-courses/courses/', // Will be appended with courseId/enroll/
     ENROLLMENTS: '/online-courses/enrollments/',
     STUDY_MATERIALS: '/online-courses/study-materials/',
+    COURSE_WISHLIST: '/online-courses/wishlist/',
+    ADD_TO_WISHLIST: '/online-courses/courses/', // Will be appended with courseId/add_to_wishlist/
+    REMOVE_FROM_WISHLIST: '/online-courses/courses/', // Will be appended with courseId/remove_from_wishlist/
   }
 };
 
@@ -79,6 +84,35 @@ export const getDemoSlotsUrl = (coachingId: number | string) => {
 // Utility function to get book demo URL
 export const getBookDemoUrl = (coachingId: number | string) => {
   return `${getApiUrl(API_CONFIG.ENDPOINTS.BOOK_DEMO)}${coachingId}/book-demo/`;
+};
+
+// Utility function to get my demo bookings URL
+export const getMyDemoBookingsUrl = (page: number = 1, studentId?: number | string) => {
+  let url = `${getApiUrl(API_CONFIG.ENDPOINTS.MY_DEMO_BOOKINGS)}?page=${page}`;
+  if (studentId) {
+    url += `&student_id=${studentId}`;
+  }
+  return url;
+};
+
+// Utility function to get add review URL
+export const getAddReviewUrl = (coachingId: number | string) => {
+  return `${getApiUrl(API_CONFIG.ENDPOINTS.ADD_REVIEW)}${coachingId}/add_review/`;
+};
+
+// Utility function to get add to wishlist URL
+export const getAddToWishlistUrl = (courseId: number | string) => {
+  return `${getApiUrl(API_CONFIG.ENDPOINTS.ADD_TO_WISHLIST)}${courseId}/add_to_wishlist/`;
+};
+
+// Utility function to get remove from wishlist URL
+export const getRemoveFromWishlistUrl = (courseId: number | string) => {
+  return `${getApiUrl(API_CONFIG.ENDPOINTS.REMOVE_FROM_WISHLIST)}${courseId}/remove_from_wishlist/`;
+};
+
+// Utility function to get wishlist URL
+export const getWishlistUrl = () => {
+  return getApiUrl(API_CONFIG.ENDPOINTS.COURSE_WISHLIST);
 };
 
 // Enhanced error logging function

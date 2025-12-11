@@ -3,15 +3,18 @@ import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, 
 import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchOnlineCourses, loadMoreCourses, refreshCourses } from '../../store/slices/onlineCoursesSlice';
+import { fetchWishlist, addToWishlist, removeFromWishlist, toggleWishlistOptimistic } from '../../store/slices/courseWishlistSlice';
 import { OnlineCoaching, TabComponentProps } from './types';
 
 const CoursesTab: React.FC<TabComponentProps> = ({ searchQuery, onCourseSelect }) => {
   const dispatch = useAppDispatch();
   const { courses, loading, error, hasNextPage, refreshing } = useAppSelector(state => state.onlineCourses);
+  const { wishlistCourseIds } = useAppSelector(state => state.courseWishlist);
 
-  // Load courses on component mount
+  // Load courses and wishlist on component mount
   useEffect(() => {
     dispatch(fetchOnlineCourses(1));
+    dispatch(fetchWishlist());
   }, [dispatch]);
 
   // Filter courses based on search query
@@ -74,6 +77,27 @@ const CoursesTab: React.FC<TabComponentProps> = ({ searchQuery, onCourseSelect }
       onCourseSelect?.(course);
     };
 
+    const isInWishlist = wishlistCourseIds.includes(course.id);
+
+    const handleWishlistToggle = async (e: any) => {
+      e.stopPropagation(); // Prevent course card press
+      
+      // Optimistic update
+      dispatch(toggleWishlistOptimistic(course.id));
+      
+      try {
+        if (isInWishlist) {
+          await dispatch(removeFromWishlist(course.id)).unwrap();
+        } else {
+          await dispatch(addToWishlist(course.id)).unwrap();
+        }
+      } catch (error) {
+        // Revert optimistic update on error
+        dispatch(toggleWishlistOptimistic(course.id));
+        console.error('Wishlist toggle error:', error);
+      }
+    };
+
     return (
       <TouchableOpacity 
         style={styles.courseCard}
@@ -98,6 +122,18 @@ const CoursesTab: React.FC<TabComponentProps> = ({ searchQuery, onCourseSelect }
               <Text style={styles.liveBadgeText}>🔴 LIVE</Text>
             </View>
           )}
+          
+          <TouchableOpacity 
+            style={styles.wishlistButton}
+            onPress={handleWishlistToggle}
+            activeOpacity={0.7}
+          >
+            <Ionicons 
+              name={isInWishlist ? "heart" : "heart-outline"} 
+              size={24} 
+              color={isInWishlist ? "#ef4444" : "#ffffff"} 
+            />
+          </TouchableOpacity>
           
           {isFree && (
             <View style={styles.freeBadge}>
@@ -272,6 +308,17 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 12,
     fontWeight: '600',
+  },
+  wishlistButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   freeBadge: {
     position: 'absolute',

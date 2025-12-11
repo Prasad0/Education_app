@@ -24,6 +24,8 @@ import ChatListScreen from './ChatListScreen';
 import ChatScreen from './ChatScreen';
 import EditProfileScreen from './EditProfileScreen';
 import BookDemoScreen from './BookDemoScreen';
+import MyDemoBookingsScreen from './MyDemoBookingsScreen';
+import MyWishlistScreen from './MyWishlistScreen';
 
 // Filter interface for the modal
 interface FilterState {
@@ -85,11 +87,12 @@ const HomeScreen: React.FC = () => {
   const safeCoordinates = coordinates || null;
   const safeSelectedLocationData = selectedLocationData || null;
   
-  const [currentScreen, setCurrentScreen] = useState<'home' | 'search' | 'listing' | 'location' | 'profile' | 'detail' | 'searchFilter' | 'online' | 'private' | 'privateTutorDetail' | 'chat' | 'chatDetail' | 'editProfile' | 'bookDemo'>('home');
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'search' | 'listing' | 'location' | 'profile' | 'detail' | 'searchFilter' | 'online' | 'private' | 'privateTutorDetail' | 'chat' | 'chatDetail' | 'editProfile' | 'bookDemo' | 'myDemoBookings' | 'myWishlist'>('home');
   const [selectedCoachingId, setSelectedCoachingId] = useState<string>('');
   const [selectedTutorId, setSelectedTutorId] = useState<number | null>(null);
   const [currentChatConversationId, setCurrentChatConversationId] = useState<number | null>(null);
   const [currentChatParticipantName, setCurrentChatParticipantName] = useState<string>('');
+  const [selectedWishlistCourse, setSelectedWishlistCourse] = useState<any>(null);
   const [spinValue] = useState(new Animated.Value(0));
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState<FilterState | null>(null);
@@ -699,6 +702,7 @@ const HomeScreen: React.FC = () => {
         onBack={() => {
           console.log('OnlineScreen onBack called');
           setCurrentScreen('home');
+          setSelectedWishlistCourse(null); // Clear selected course when going back
         }}
         onViewDetails={(center: CoachingCenter) => {
           setSelectedCoachingId(center.id);
@@ -706,6 +710,7 @@ const HomeScreen: React.FC = () => {
         }}
         onTabPress={handleTabPress}
         onBookDemo={handleBookDemo}
+        initialCourse={selectedWishlistCourse}
       />
     );
   }
@@ -899,6 +904,27 @@ const HomeScreen: React.FC = () => {
       <BookDemoScreen
         coachingId={selectedCoachingId}
         onBack={() => setCurrentScreen('home')}
+      />
+    );
+  }
+
+  if (currentScreen === 'myDemoBookings') {
+    return (
+      <MyDemoBookingsScreen
+        onBack={() => setCurrentScreen('profile')}
+      />
+    );
+  }
+
+  if (currentScreen === 'myWishlist') {
+    return (
+      <MyWishlistScreen
+        onBack={() => setCurrentScreen('profile')}
+        onCourseSelect={(course) => {
+          // Navigate to online screen with selected course
+          setSelectedWishlistCourse(course);
+          setCurrentScreen('online');
+        }}
       />
     );
   }
@@ -1181,6 +1207,28 @@ const HomeScreen: React.FC = () => {
               <View style={styles.optionLeft}>
                 <Ionicons name="person-outline" size={20} color="#6b7280" />
                 <Text style={styles.optionText}>Edit Profile</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.profileOption}
+              onPress={() => setCurrentScreen('myDemoBookings')}
+            >
+              <View style={styles.optionLeft}>
+                <Ionicons name="calendar-outline" size={20} color="#6b7280" />
+                <Text style={styles.optionText}>My Demo Bookings</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.profileOption}
+              onPress={() => setCurrentScreen('myWishlist')}
+            >
+              <View style={styles.optionLeft}>
+                <Ionicons name="heart-outline" size={20} color="#6b7280" />
+                <Text style={styles.optionText}>My Wishlist</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
             </TouchableOpacity>
@@ -1495,9 +1543,9 @@ const HomeScreen: React.FC = () => {
               
               return true;
             })
-            .map((center) => (
+            .map((center, index) => (
             <CoachingCard
-              key={center.id}
+              key={`${center.id}-${index}`}
               center={center}
               onBookDemo={handleBookDemo}
               onCallNow={handleCallNow}

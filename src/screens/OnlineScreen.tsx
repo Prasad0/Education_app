@@ -14,9 +14,10 @@ interface OnlineScreenProps {
   onViewDetails: (center: CoachingCenter) => void;
   onTabPress?: (tab: 'offline' | 'online' | 'private' | 'chat' | 'profile') => void;
   onBookDemo?: (center: CoachingCenter) => void;
+  initialCourse?: OnlineCoaching | null;
 }
 
-const OnlineScreen: React.FC<OnlineScreenProps> = ({ onBack, onViewDetails, onTabPress, onBookDemo }) => {
+const OnlineScreen: React.FC<OnlineScreenProps> = ({ onBack, onViewDetails, onTabPress, onBookDemo, initialCourse }) => {
   const dispatch = useAppDispatch();
   const { coachingCenters, starredCenters } = useAppSelector(state => state.coaching);
   const { profile, user, selectedChildId } = useAppSelector(state => state.auth);
@@ -24,13 +25,20 @@ const OnlineScreen: React.FC<OnlineScreenProps> = ({ onBack, onViewDetails, onTa
   
   const [activeCategory, setActiveCategory] = useState<'coaching' | 'materials' | 'purchased'>('coaching');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCourse, setSelectedCourse] = useState<OnlineCoaching | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<OnlineCoaching | null>(initialCourse || null);
   const [videoPlayerData, setVideoPlayerData] = useState<{
     videoUrl: string;
     courseTitle: string;
     instructorName: string;
     courseDescription: string;
   } | null>(null);
+
+  // Set selected course when initialCourse prop changes
+  useEffect(() => {
+    if (initialCourse) {
+      setSelectedCourse(initialCourse);
+    }
+  }, [initialCourse]);
 
   // Filter online-only centers
   const onlineCenters = useMemo(() => {
@@ -117,6 +125,23 @@ const OnlineScreen: React.FC<OnlineScreenProps> = ({ onBack, onViewDetails, onTa
     }
   };
 
+  // Check for video player first (highest priority)
+  if (videoPlayerData) {
+    console.log('OnlineScreen - Rendering video player:', videoPlayerData);
+    return (
+      <VideoPlayerScreen
+        videoUrl={videoPlayerData.videoUrl}
+        courseTitle={videoPlayerData.courseTitle}
+        instructorName={videoPlayerData.instructorName}
+        courseDescription={videoPlayerData.courseDescription}
+        onBack={() => {
+          console.log('OnlineScreen - Closing video player');
+          setVideoPlayerData(null);
+        }}
+      />
+    );
+  }
+
   if (selectedCourse) {
     console.log('OnlineScreen - Rendering course detail screen');
     console.log('OnlineScreen - courseDetail:', courseDetail);
@@ -140,7 +165,53 @@ const OnlineScreen: React.FC<OnlineScreenProps> = ({ onBack, onViewDetails, onTa
           }
         }}
         onJoinLiveClass={(courseId) => {
-          Alert.alert('Join Live Class', `Joining live class for course ID: ${courseId}`);
+          // Get the course details to check for video or external URL
+          const course = courseToDisplay;
+          
+          console.log('OnlineScreen - Join Live Class clicked:', {
+            courseId,
+            hasVideo: !!course.video,
+            hasExternalUrl: !!course.external_course_url,
+            video: course.video,
+            externalUrl: course.external_course_url
+          });
+          
+          // Priority 1: Check if course has a video
+          if (course.video) {
+            // Play the video
+            let videoUrl = course.video;
+            if (videoUrl && videoUrl.startsWith('/')) {
+              videoUrl = `http://13.200.17.30${videoUrl}`;
+            }
+            
+            console.log('OnlineScreen - Playing live class video:', videoUrl);
+            setVideoPlayerData({
+              videoUrl: videoUrl,
+              courseTitle: course.title || 'Live Class',
+              instructorName: course.instructor?.name || 'Unknown Instructor',
+              courseDescription: course.short_description || 'Live class video',
+            });
+          }
+          // Priority 2: Check if course has external URL
+          else if (course.external_course_url) {
+            console.log('OnlineScreen - Redirecting to external URL:', course.external_course_url);
+            Linking.openURL(course.external_course_url).catch(err => {
+              console.error('Failed to open external URL:', err);
+              Alert.alert('Error', 'Could not open the course link. Please try again later.');
+            });
+          }
+          // Priority 3: Show message if neither available
+          else {
+            Alert.alert(
+              'Live Class',
+              'Live class details are not available yet. Please check back later or contact support.',
+              [{ text: 'OK' }]
+            );
+          }
+        }}
+        onVideoPress={(videoData) => {
+          console.log('OnlineScreen - Opening video player from CourseDetailScreen:', videoData);
+          setVideoPlayerData(videoData);
         }}
       />
     );
@@ -234,17 +305,6 @@ const OnlineScreen: React.FC<OnlineScreenProps> = ({ onBack, onViewDetails, onTa
           }
         }}
       />
-
-      {/* Video Player Screen */}
-      {videoPlayerData && (
-        <VideoPlayerScreen
-          videoUrl={videoPlayerData.videoUrl}
-          courseTitle={videoPlayerData.courseTitle}
-          instructorName={videoPlayerData.instructorName}
-          courseDescription={videoPlayerData.courseDescription}
-          onBack={() => setVideoPlayerData(null)}
-        />
-      )}
     </SafeAreaView>
   );
 };

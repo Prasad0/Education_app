@@ -7,6 +7,7 @@ import enrollmentsReducer from './slices/enrollmentsSlice';
 import studyMaterialsReducer from './slices/studyMaterialsSlice';
 import privateTutorsReducer from './slices/privateTutorsSlice';
 import chatReducer from './slices/chatSlice';
+import courseWishlistReducer from './slices/courseWishlistSlice';
 
 export const store = configureStore({
   reducer: {
@@ -18,6 +19,7 @@ export const store = configureStore({
     studyMaterials: studyMaterialsReducer,
     privateTutors: privateTutorsReducer,
     chat: chatReducer,
+    courseWishlist: courseWishlistReducer,
   },
 });
 

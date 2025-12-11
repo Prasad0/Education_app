@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  SafeAreaView,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
@@ -152,7 +153,7 @@ const BookDemoScreen: React.FC<BookDemoScreenProps> = ({ coachingId, onBack }) =
   // Confirmation Screen
   if (step === 'confirmation' && bookingResponse) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
@@ -233,14 +234,14 @@ const BookDemoScreen: React.FC<BookDemoScreenProps> = ({ coachingId, onBack }) =
             </TouchableOpacity>
           </View>
         </ScrollView>
-      </View>
+      </SafeAreaView>
     );
   }
 
   // Details Form Screen
   if (step === 'details' && selectedSlot) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => setStep('selection')} style={styles.backButton}>
@@ -345,13 +346,13 @@ const BookDemoScreen: React.FC<BookDemoScreenProps> = ({ coachingId, onBack }) =
             )}
           </TouchableOpacity>
         </ScrollView>
-      </View>
+      </SafeAreaView>
     );
   }
 
   // Slot Selection Screen
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
@@ -450,7 +451,7 @@ const BookDemoScreen: React.FC<BookDemoScreenProps> = ({ coachingId, onBack }) =
           </>
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 

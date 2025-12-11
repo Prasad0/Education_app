@@ -1048,9 +1048,18 @@ const coachingSlice = createSlice({
         
         if (action.payload && typeof action.payload === 'object' && 'data' in action.payload) {
           const payload = action.payload as { data: CoachingCenter[]; next: string | null; previous: string | null; count: number; page: number };
-          // Append new data to existing centers
-          state.coachingCenters = [...state.coachingCenters, ...payload.data];
-          state.filteredCenters = [...state.filteredCenters, ...payload.data];
+          
+          // Get existing IDs to avoid duplicates
+          const existingIds = new Set(state.coachingCenters.map(center => center.id));
+          const existingFilteredIds = new Set(state.filteredCenters.map(center => center.id));
+          
+          // Filter out duplicates from new data
+          const newCenters = payload.data.filter(center => !existingIds.has(center.id));
+          const newFilteredCenters = payload.data.filter(center => !existingFilteredIds.has(center.id));
+          
+          // Append new data to existing centers (without duplicates)
+          state.coachingCenters = [...state.coachingCenters, ...newCenters];
+          state.filteredCenters = [...state.filteredCenters, ...newFilteredCenters];
           state.next = payload.next;
           state.previous = payload.previous;
           state.hasNextPage = !!payload.next;
