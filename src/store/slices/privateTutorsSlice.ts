@@ -80,6 +80,8 @@ export interface BookingRequest {
   duration_hours: number;
   notes?: string;
   is_online?: boolean;
+  child_id?: number;
+  student_id?: number;
 }
 
 export interface TutorWallImage {
