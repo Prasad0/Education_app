@@ -273,9 +273,17 @@ export const refreshCourses = createAsyncThunk(
 
 export const fetchCourseDetail = createAsyncThunk(
   'onlineCourses/fetchCourseDetail',
-  async (courseId: number | string, { rejectWithValue }) => {
+  async (courseId: number | string, { getState, rejectWithValue }) => {
     try {
-      const url = getCourseDetailUrl(courseId);
+      let url = getCourseDetailUrl(courseId);
+      
+      // Add child_id if parent user has selected a child
+      const state = getState() as any;
+      const userType = state.auth?.user?.user_type || state.auth?.profile?.user_type || state.auth?.profileStatus?.userType;
+      if (userType === 'parent' && state.auth?.selectedChildId) {
+        url += `?child_id=${state.auth.selectedChildId}`;
+      }
+      
       const response = await api.get(url);
       // Handle the new API response structure with data wrapper
       return response.data.data || response.data;

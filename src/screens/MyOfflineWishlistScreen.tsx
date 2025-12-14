@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { api, getOfflineFavoritesUrl } from '../config/api';
 import { CoachingCenter } from '../store/slices/coachingSlice';
+import { useAppSelector } from '../store/hooks';
 
 interface OfflineFavoriteItem {
   id: number;
@@ -37,6 +38,9 @@ interface MyOfflineWishlistScreenProps {
 }
 
 const MyOfflineWishlistScreen: React.FC<MyOfflineWishlistScreenProps> = ({ onBack, onCoachingSelect }) => {
+  const { profile, user, selectedChildId } = useAppSelector(state => state.auth);
+  const actualProfile = user || profile;
+  
   const [favorites, setFavorites] = useState<OfflineFavoriteItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -63,7 +67,14 @@ const MyOfflineWishlistScreen: React.FC<MyOfflineWishlistScreenProps> = ({ onBac
         setLoadingMore(true);
       }
 
-      const response = await api.get<OfflineFavoritesResponse>(getOfflineFavoritesUrl(pageNum));
+      let url = getOfflineFavoritesUrl(pageNum);
+      
+      // Add child_id if parent user has selected a child
+      if (actualProfile?.user_type === 'parent' && selectedChildId) {
+        url += `&child_id=${selectedChildId}`;
+      }
+
+      const response = await api.get<OfflineFavoritesResponse>(url);
       
       if (response.data?.data) {
         if (pageNum === 1) {

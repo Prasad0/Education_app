@@ -145,12 +145,24 @@ export const refreshStudyMaterials = createAsyncThunk(
 
 export const downloadStudyMaterial = createAsyncThunk(
   'studyMaterials/download',
-  async (materialId: number, { rejectWithValue }) => {
+  async (materialId: number, { getState, rejectWithValue }) => {
     try {
+      const state = getState() as any;
+      const userType = state.auth?.user?.user_type || state.auth?.profile?.user_type || state.auth?.profileStatus?.userType;
+      const selectedChildId = state.auth?.selectedChildId;
+      
+      // Prepare request body - only send child_id if parent is logged in
+      let requestBody: { child_id?: number; student_id?: number } | undefined = undefined;
+      
+      if (userType === 'parent' && selectedChildId) {
+        const childIdNum = typeof selectedChildId === 'string' ? parseInt(selectedChildId, 10) : selectedChildId;
+        requestBody = { child_id: childIdNum, student_id: childIdNum };
+      }
+      
       // This would typically trigger a download or return a download URL
       // For now, we'll simulate the download process
       const url = `${getApiUrl(API_CONFIG.ENDPOINTS.STUDY_MATERIALS)}${materialId}/download/`;
-      const response = await api.post(url);
+      const response = await api.post(url, requestBody);
       return { materialId, downloadUrl: response.data.download_url || response.data.file };
     } catch (error: any) {
       return rejectWithValue({ materialId, error: error.response?.data?.message || 'Failed to download material' });

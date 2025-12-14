@@ -34,6 +34,7 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
 }) => {
   const dispatch = useAppDispatch();
   const { wishlistCourseIds } = useAppSelector(state => state.courseWishlist);
+  const { profile, user, selectedChildId } = useAppSelector(state => state.auth);
   const [showCouponCode, setShowCouponCode] = useState(false);
   const [isEnrolling, setIsEnrolling] = useState(false);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
@@ -219,8 +220,19 @@ const CourseDetailScreen: React.FC<CourseDetailScreenProps> = ({
       const enrollUrl = getCourseEnrollUrl(course.id);
       console.log('Enrollment URL:', enrollUrl);
       
+      // Prepare request body - add child_id/student_id if parent is logged in
+      const actualProfile = user || profile;
+      let requestBody: { child_id?: number; student_id?: number } | undefined = undefined;
+      
+      if (actualProfile?.user_type === 'parent' && selectedChildId) {
+        const childIdNum = typeof selectedChildId === 'string' ? parseInt(selectedChildId, 10) : selectedChildId;
+        requestBody = { child_id: childIdNum, student_id: childIdNum };
+        console.log('Parent enrollment - adding child_id/student_id:', childIdNum);
+      }
+      
       console.log('Making POST request to:', enrollUrl);
-      const response = await api.post(enrollUrl);
+      console.log('Request body:', requestBody);
+      const response = await api.post(enrollUrl, requestBody);
       
       console.log('Enrollment successful:', response.data);
       console.log('Response status:', response.status);

@@ -611,7 +611,15 @@ export const fetchCoachingCenterDetails = createAsyncThunk(
         return rejectWithValue('User not authenticated');
       }
       
-      const response = await api.get(`/coachings/${coachingId}/detailed_info/`);
+      let url = `/coachings/${coachingId}/detailed_info/`;
+      
+      // Add child_id if parent user has selected a child
+      const userType = state.auth?.user?.user_type || state.auth?.profile?.user_type || state.auth?.profileStatus?.userType;
+      if (userType === 'parent' && state.auth?.selectedChildId) {
+        url += `?child_id=${state.auth.selectedChildId}`;
+      }
+      
+      const response = await api.get(url);
       
       // Return the raw API response data structure
       const detailedData = response.data.data || response.data;

@@ -96,10 +96,10 @@ const MyDemoBookingsScreen: React.FC<MyDemoBookingsScreenProps> = ({ onBack }) =
       
       setError(null);
 
-      // Build URL with pagination and optional student_id for parents
+      // Build URL with pagination and optional child_id/student_id for parents
       let url = `/coachings/my-demo-bookings/?page=${page}`;
       if (actualProfile?.user_type === 'parent' && selectedChildId) {
-        url += `&student_id=${selectedChildId}`;
+        url += `&child_id=${selectedChildId}&student_id=${selectedChildId}`;
       }
 
       const response = await api.get<BookingsResponse>(url);

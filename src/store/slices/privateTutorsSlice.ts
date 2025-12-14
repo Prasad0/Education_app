@@ -176,9 +176,18 @@ const initialState: PrivateTutorsState = {
 
 export const fetchPrivateTutors = createAsyncThunk<PrivateTutorsResponse, { pageUrl?: string } | void>(
   'privateTutors/fetch',
-  async (arg, { rejectWithValue }) => {
+  async (arg, { getState, rejectWithValue }) => {
     try {
-      const url = arg && arg.pageUrl ? arg.pageUrl : '/private-tutors/tutors/';
+      const state = getState() as any;
+      let url = arg && arg.pageUrl ? arg.pageUrl : '/private-tutors/tutors/';
+      
+      // Add child_id if parent user has selected a child
+      const userType = state.auth?.user?.user_type || state.auth?.profile?.user_type || state.auth?.profileStatus?.userType;
+      if (userType === 'parent' && state.auth?.selectedChildId) {
+        const separator = url.includes('?') ? '&' : '?';
+        url += `${separator}child_id=${state.auth.selectedChildId}`;
+      }
+      
       const { data } = await api.get<PrivateTutorsResponse>(url);
       return data;
     } catch (error: any) {
@@ -194,11 +203,18 @@ export const fetchPrivateTutors = createAsyncThunk<PrivateTutorsResponse, { page
 
 export const fetchTutorAvailability = createAsyncThunk<AvailabilitySlot[], number>(
   'privateTutors/fetchAvailability',
-  async (tutorId, { rejectWithValue }) => {
+  async (tutorId, { getState, rejectWithValue }) => {
     try {
-      const { data } = await api.get<AvailabilitySlot[]>(
-        `/private-tutors/tutors/${tutorId}/availability/`
-      );
+      const state = getState() as any;
+      let url = `/private-tutors/tutors/${tutorId}/availability/`;
+      
+      // Add child_id if parent user has selected a child
+      const userType = state.auth?.user?.user_type || state.auth?.profile?.user_type || state.auth?.profileStatus?.userType;
+      if (userType === 'parent' && state.auth?.selectedChildId) {
+        url += `?child_id=${state.auth.selectedChildId}`;
+      }
+      
+      const { data } = await api.get<AvailabilitySlot[]>(url);
       return data;
     } catch (error: any) {
       console.error('Error fetching tutor availability:', error);
@@ -213,11 +229,18 @@ export const fetchTutorAvailability = createAsyncThunk<AvailabilitySlot[], numbe
 
 export const fetchTutorDetail = createAsyncThunk<PrivateTutorDetail, number>(
   'privateTutors/fetchDetail',
-  async (tutorId, { rejectWithValue }) => {
+  async (tutorId, { getState, rejectWithValue }) => {
     try {
-      const { data } = await api.get<PrivateTutorDetail>(
-        `/private-tutors/tutors/${tutorId}/`
-      );
+      const state = getState() as any;
+      let url = `/private-tutors/tutors/${tutorId}/`;
+      
+      // Add child_id if parent user has selected a child
+      const userType = state.auth?.user?.user_type || state.auth?.profile?.user_type || state.auth?.profileStatus?.userType;
+      if (userType === 'parent' && state.auth?.selectedChildId) {
+        url += `?child_id=${state.auth.selectedChildId}`;
+      }
+      
+      const { data } = await api.get<PrivateTutorDetail>(url);
       return data;
     } catch (error: any) {
       console.error('Error fetching tutor detail:', error);
@@ -232,12 +255,24 @@ export const fetchTutorDetail = createAsyncThunk<PrivateTutorDetail, number>(
 
 export const createBooking = createAsyncThunk<any, BookingRequest>(
   'privateTutors/createBooking',
-  async (bookingData, { rejectWithValue }) => {
+  async (bookingData, { getState, rejectWithValue }) => {
     try {
-      console.log('Creating booking with data:', bookingData);
+      const state = getState() as any;
+      const userType = state.auth?.user?.user_type || state.auth?.profile?.user_type || state.auth?.profileStatus?.userType;
+      const selectedChildId = state.auth?.selectedChildId;
+      
+      // Add child_id or student_id to booking data if parent is logged in
+      const requestData = { ...bookingData };
+      if (userType === 'parent' && selectedChildId) {
+        const childIdNum = typeof selectedChildId === 'string' ? parseInt(selectedChildId, 10) : selectedChildId;
+        requestData.child_id = childIdNum;
+        requestData.student_id = childIdNum;
+      }
+      
+      console.log('Creating booking with data:', requestData);
       const { data } = await api.post(
         '/private-tutors/bookings/',
-        bookingData
+        requestData
       );
       console.log('Booking response:', data);
       return data;

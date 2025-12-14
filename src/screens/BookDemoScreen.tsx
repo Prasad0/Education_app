@@ -42,6 +42,8 @@ interface BookingData {
   email: string;
   notes: string;
   child?: number;
+  child_id?: number;
+  student_id?: number;
 }
 
 const BookDemoScreen: React.FC<BookDemoScreenProps> = ({ coachingId, onBack }) => {
@@ -108,7 +110,14 @@ const BookDemoScreen: React.FC<BookDemoScreenProps> = ({ coachingId, onBack }) =
   const fetchDemoSlots = async () => {
     try {
       setIsLoading(true);
-      const response = await api.get(`/coachings/${coachingId}/demo-slots/`);
+      let url = `/coachings/${coachingId}/demo-slots/`;
+      
+      // Add child_id if parent user has selected a child
+      if (actualProfile?.user_type === 'parent' && selectedChildId) {
+        url += `?child_id=${selectedChildId}`;
+      }
+      
+      const response = await api.get(url);
       
       if (response.data?.data?.success && response.data?.data?.results) {
         setSlots(response.data.data.results);
@@ -145,7 +154,16 @@ const BookDemoScreen: React.FC<BookDemoScreenProps> = ({ coachingId, onBack }) =
 
     try {
       setIsSubmitting(true);
-      const response = await api.post(`/coachings/${coachingId}/book-demo/`, formData);
+      
+      // Prepare request data - add child_id/student_id if parent is logged in
+      const requestData = { ...formData };
+      if (actualProfile?.user_type === 'parent' && selectedChildId) {
+        const childIdNum = typeof selectedChildId === 'string' ? parseInt(selectedChildId, 10) : selectedChildId;
+        requestData.child_id = childIdNum;
+        requestData.student_id = childIdNum;
+      }
+      
+      const response = await api.post(`/coachings/${coachingId}/book-demo/`, requestData);
       
       if (response.data?.data?.success) {
         setBookingResponse(response.data.data.booking);

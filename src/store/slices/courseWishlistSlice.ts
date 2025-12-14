@@ -26,9 +26,18 @@ const initialState: WishlistState = {
 // Fetch wishlist
 export const fetchWishlist = createAsyncThunk(
   'courseWishlist/fetchWishlist',
-  async (_, { rejectWithValue }) => {
+  async (_, { getState, rejectWithValue }) => {
     try {
-      const response = await api.get('/online-courses/wishlist/');
+      const state = getState() as any;
+      let url = '/online-courses/wishlist/';
+      
+      // Add child_id if parent user has selected a child
+      const userType = state.auth?.user?.user_type || state.auth?.profile?.user_type || state.auth?.profileStatus?.userType;
+      if (userType === 'parent' && state.auth?.selectedChildId) {
+        url += `?child_id=${state.auth.selectedChildId}`;
+      }
+      
+      const response = await api.get(url);
       return response.data.data || [];
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch wishlist');
@@ -39,9 +48,24 @@ export const fetchWishlist = createAsyncThunk(
 // Add to wishlist
 export const addToWishlist = createAsyncThunk(
   'courseWishlist/addToWishlist',
-  async (courseId: number, { rejectWithValue }) => {
+  async (courseId: number, { getState, rejectWithValue }) => {
     try {
-      const response = await api.post(`/online-courses/courses/${courseId}/add_to_wishlist/`);
+      const state = getState() as any;
+      const userType = state.auth?.user?.user_type || state.auth?.profile?.user_type || state.auth?.profileStatus?.userType;
+      const selectedChildId = state.auth?.selectedChildId;
+      
+      // Prepare request body - only send child_id if parent is logged in
+      let requestBody: { child_id?: number; student_id?: number } | undefined = undefined;
+      
+      if (userType === 'parent' && selectedChildId) {
+        const childIdNum = typeof selectedChildId === 'string' ? parseInt(selectedChildId, 10) : selectedChildId;
+        requestBody = { child_id: childIdNum, student_id: childIdNum };
+      }
+      
+      const response = await api.post(
+        `/online-courses/courses/${courseId}/add_to_wishlist/`,
+        requestBody
+      );
       return response.data.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to add to wishlist');
@@ -52,9 +76,24 @@ export const addToWishlist = createAsyncThunk(
 // Remove from wishlist
 export const removeFromWishlist = createAsyncThunk(
   'courseWishlist/removeFromWishlist',
-  async (courseId: number, { rejectWithValue }) => {
+  async (courseId: number, { getState, rejectWithValue }) => {
     try {
-      await api.delete(`/online-courses/courses/${courseId}/remove_from_wishlist/`);
+      const state = getState() as any;
+      const userType = state.auth?.user?.user_type || state.auth?.profile?.user_type || state.auth?.profileStatus?.userType;
+      const selectedChildId = state.auth?.selectedChildId;
+      
+      // Prepare request body - only send child_id if parent is logged in
+      let requestData: { child_id?: number; student_id?: number } | undefined = undefined;
+      
+      if (userType === 'parent' && selectedChildId) {
+        const childIdNum = typeof selectedChildId === 'string' ? parseInt(selectedChildId, 10) : selectedChildId;
+        requestData = { child_id: childIdNum, student_id: childIdNum };
+      }
+      
+      await api.delete(
+        `/online-courses/courses/${courseId}/remove_from_wishlist/`,
+        { data: requestData }
+      );
       return courseId;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to remove from wishlist');

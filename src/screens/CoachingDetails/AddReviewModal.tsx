@@ -92,9 +92,12 @@ const AddReviewModal: React.FC<AddReviewModalProps> = ({
         content: content.trim(),
       };
 
-      // Add child ID for parents
+      // Add child_id/student_id for parents
       if (actualProfile?.user_type === 'parent' && selectedChildId) {
-        reviewData.child = selectedChildId;
+        const childIdNum = typeof selectedChildId === 'string' ? parseInt(selectedChildId, 10) : selectedChildId;
+        reviewData.child = childIdNum;
+        reviewData.child_id = childIdNum;
+        reviewData.student_id = childIdNum;
       }
 
       const response = await api.post(`/coachings/${coachingId}/add_review/`, reviewData);

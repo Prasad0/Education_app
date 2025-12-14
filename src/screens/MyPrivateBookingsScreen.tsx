@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import api, { getPrivateTutorBookingsUrl } from '../config/api';
+import { useAppSelector } from '../store/hooks';
 
 interface MyPrivateBookingsScreenProps {
   onBack: () => void;
@@ -51,6 +52,9 @@ interface PrivateBooking {
 }
 
 const MyPrivateBookingsScreen: React.FC<MyPrivateBookingsScreenProps> = ({ onBack }) => {
+  const { profile, user, selectedChildId } = useAppSelector(state => state.auth);
+  const actualProfile = user || profile;
+  
   const [bookings, setBookings] = useState<PrivateBooking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -80,7 +84,14 @@ const MyPrivateBookingsScreen: React.FC<MyPrivateBookingsScreenProps> = ({ onBac
       
       setError(null);
 
-      const response = await api.get(getPrivateTutorBookingsUrl());
+      let url = getPrivateTutorBookingsUrl();
+      
+      // Add child_id if parent user has selected a child
+      if (actualProfile?.user_type === 'parent' && selectedChildId) {
+        url += `?child_id=${selectedChildId}`;
+      }
+
+      const response = await api.get(url);
       
       if (response.data) {
         setBookings(response.data);
