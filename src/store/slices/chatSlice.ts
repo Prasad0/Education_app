@@ -274,21 +274,39 @@ const chatSlice = createSlice({
       state.sendingError = null;
     },
     addMessageLocally(state, action: PayloadAction<ChatMessage>) {
-      if (state.currentConversation) {
+      const message = action.payload;
+      
+      // Check if message already exists to avoid duplicates
+      const messageExists = state.currentConversation?.messages?.some(m => m.id === message.id);
+      if (messageExists) {
+        console.log('⚠️ [Chat] Message already exists, skipping:', message.id);
+        return;
+      }
+
+      if (state.currentConversation && state.currentConversation.id === message.conversation) {
         if (!state.currentConversation.messages) {
           state.currentConversation.messages = [];
         }
-        state.currentConversation.messages.push(action.payload);
-        state.currentConversation.last_message = action.payload;
-        state.currentConversation.updated_at = action.payload.created_at;
+        
+        // Add message and sort by created_at
+        state.currentConversation.messages.push(message);
+        state.currentConversation.messages.sort((a, b) => {
+          const dateA = new Date(a.created_at).getTime();
+          const dateB = new Date(b.created_at).getTime();
+          return dateA - dateB; // Ascending order (oldest first)
+        });
+        
+        state.currentConversation.last_message = message;
+        state.currentConversation.updated_at = message.created_at;
       }
+      
       // Update in conversations list
-      const conversation = state.conversations.find(c => c.id === action.payload.conversation);
+      const conversation = state.conversations.find(c => c.id === message.conversation);
       if (conversation) {
-        conversation.last_message = action.payload;
-        conversation.updated_at = action.payload.created_at;
+        conversation.last_message = message;
+        conversation.updated_at = message.created_at;
         // Increment unread count if message is from coaching
-        if (action.payload.sender_type === 'coaching_center') {
+        if (message.sender_type === 'coaching' || message.sender_type === 'coaching_center') {
           conversation.user_unread_count = (conversation.user_unread_count || 0) + 1;
         }
       }

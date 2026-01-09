@@ -28,6 +28,7 @@ import {
 } from '../store/slices/chatSlice';
 import { api } from '../config/api';
 import { BackHandler } from 'react-native';
+import { useRealtimeChat } from '../hooks/useRealtimeChat';
 
 interface ChatScreenProps {
   conversationId: number;
@@ -52,6 +53,12 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const flatListRef = useRef<FlatList>(null);
   const currentUserId = profile?.id || user?.id;
+
+  // Set up real-time chat listener
+  useRealtimeChat({ 
+    conversationId, 
+    enabled: true 
+  });
 
   useEffect(() => {
     // Fetch conversation detail and messages

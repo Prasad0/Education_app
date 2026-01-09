@@ -93,3 +93,4 @@ ios/Pods/Flipper*
 .env.local
 .env.development
 .env.production
+firebase-credentials.json
