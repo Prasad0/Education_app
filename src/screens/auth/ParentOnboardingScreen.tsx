@@ -17,6 +17,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { createProfile, addChild } from '../../store/slices/authSlice';
+import { useChoices } from '../../hooks/useChoices';
 import Toast from 'react-native-toast-message';
 import * as Location from 'expo-location';
 
@@ -38,68 +39,20 @@ const relationships = [
   { label: 'Other', value: 'other' }
 ];
 
-// Board choices (simplified - using common values)
-const boards = [
-  { label: 'CBSE', value: 'cbse' },
-  { label: 'ICSE', value: 'icse' },
-  { label: 'State Board', value: 'state_board' },
-  { label: 'International Board', value: 'international' }
-];
-
-// Stream choices matching API
-const streams = [
-  { label: 'Science (PCM+B)', value: 'science_pcmb' },
-  { label: 'Science (PCB)', value: 'science_pcb' },
-  { label: 'Science (PCM)', value: 'science_pcm' },
-  { label: 'Commerce (with Maths)', value: 'commerce_maths' },
-  { label: 'Commerce (without Maths)', value: 'commerce_no_maths' },
-  { label: 'Arts/Humanities', value: 'arts_humanities' },
-  { label: 'Vocational', value: 'vocational' },
-  { label: 'Other', value: 'other' }
-];
-
-// Target exam choices matching API exactly
-const targetExams = [
-  { label: 'JEE Main', value: 'jee_main' },
-  { label: 'JEE Advanced', value: 'jee_advanced' },
-  { label: 'NEET', value: 'neet' },
-  { label: 'BITSAT', value: 'bitsat' },
-  { label: 'COMEDK', value: 'comedk' },
-  { label: 'MHT CET', value: 'mht_cet' },
-  { label: 'WBJEE', value: 'wbjee' },
-  { label: 'KCET', value: 'kcet' },
-  { label: 'EAMCET', value: 'eamcet' },
-  { label: 'KEAM', value: 'keam' },
-  { label: 'GUJCET', value: 'gujcet' },
-  { label: 'CA Foundation', value: 'ca_foundation' },
-  { label: 'CS Foundation', value: 'cs_foundation' },
-  { label: 'CLAT', value: 'clat' },
-  { label: 'NDA', value: 'nda' },
-  { label: 'KVPY', value: 'kvpy' },
-  { label: 'Olympiads', value: 'olympiads' },
-  { label: 'Board Exam Preparation', value: 'boards_preparation' },
-  { label: 'Other', value: 'other' }
-];
-
 const subjects = [
   'Physics', 'Chemistry', 'Mathematics', 'Biology', 'English', 'Hindi', 'Social Studies', 'Science'
-];
-
-// Standard/Class options
-const standards = [
-  { label: '5th', value: '5th' },
-  { label: '6th', value: '6th' },
-  { label: '7th', value: '7th' },
-  { label: '8th', value: '8th' },
-  { label: '9th', value: '9th' },
-  { label: '10th', value: '10th' },
-  { label: '11th', value: '11th' },
-  { label: '12th', value: '12th' },
 ];
 
 const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
   const dispatch = useAppDispatch();
   const { accessToken, isLoading } = useAppSelector(state => state.auth);
+  const {
+    streamsForPicker,
+    standardsForPicker,
+    boardsForPicker,
+    targetExamsForPicker,
+    loading: choicesLoading,
+  } = useChoices();
   
   const [formData, setFormData] = useState({
     fullName: '',
@@ -891,7 +844,7 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
                       onValueChange={(value) => handleChildChange(index, 'current_standard', value)}
                       style={styles.picker}>
                       <Picker.Item label="Select standard" value="" />
-                      {standards.map((standard) => (
+                      {standardsForPicker.map((standard) => (
                         <Picker.Item key={standard.value} label={standard.label} value={standard.value} />
                       ))}
                     </Picker>
@@ -906,7 +859,7 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
                       onValueChange={(value) => handleChildChange(index, 'board', value)}
                       style={styles.picker}>
                       <Picker.Item label="Select board" value="" />
-                      {boards.map((board) => (
+                      {boardsForPicker.map((board) => (
                         <Picker.Item key={board.value} label={board.label} value={board.value} />
                       ))}
                     </Picker>
@@ -921,7 +874,7 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
                       onValueChange={(value) => handleChildChange(index, 'stream', value)}
                       style={styles.picker}>
                       <Picker.Item label="Select stream (optional)" value="" />
-                      {streams.map((stream) => (
+                      {streamsForPicker.map((stream) => (
                         <Picker.Item key={stream.value} label={stream.label} value={stream.value} />
                       ))}
                     </Picker>
@@ -963,7 +916,7 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Target Exams *</Text>
                   <View style={styles.checkboxContainer}>
-                    {targetExams.map((exam) => (
+                    {targetExamsForPicker.map((exam) => (
                       <TouchableOpacity
                         key={exam.value}
                         style={[

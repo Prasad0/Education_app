@@ -17,6 +17,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import { createProfile } from "../../store/slices/authSlice";
+import { useChoices } from "../../hooks/useChoices";
 import Toast from "react-native-toast-message";
 import * as Location from "expo-location";
 
@@ -24,51 +25,18 @@ interface StudentOnboardingFormProps {
   navigation: any;
 }
 
-const courseStreams = [
-  { label: "Science (PCM)", value: "science_pcm" },
-  { label: "Science (PCB)", value: "science_pcb" },
-  { label: "Science (PCMB)", value: "science_pcmb" },
-  { label: "Commerce (with Maths)", value: "commerce_with_maths" },
-  { label: "Commerce (without Maths)", value: "commerce_without_maths" },
-  { label: "Arts/Humanities", value: "arts_humanities" },
-  { label: "Vocational", value: "vocational" },
-];
-
-const standards = [
-  { label: "Class 8", value: "8th" },
-  { label: "Class 9", value: "9th" },
-  { label: "Class 10", value: "10th" },
-  { label: "Class 11", value: "11th" },
-  { label: "Class 12", value: "12th" },
-  { label: "Dropout (11th)", value: "dropout_11th" },
-  { label: "Dropout (12th)", value: "dropout_12th" },
-  { label: "Graduate", value: "graduate" },
-];
-
-const competitiveExams = [
-  { label: "JEE Main & Advanced", value: "jee_main" },
-  { label: "NEET", value: "neet" },
-  { label: "CET", value: "cet" },
-  { label: "BITSAT", value: "bitsat" },
-  { label: "CLAT", value: "clat" },
-  { label: "NDA", value: "nda" },
-  { label: "CA Foundation", value: "ca_foundation" },
-  { label: "Board Exam Focus", value: "board_exam" },
-  { label: "Other", value: "other" },
-];
-
-const boards = [
-  { label: "CBSE", value: "cbse" },
-  { label: "ICSE", value: "icse" },
-  { label: "State Board", value: "state_board" },
-  { label: "International Board", value: "international" },
-];
-
 const StudentOnboardingScreen = ({
   navigation,
 }: StudentOnboardingFormProps) => {
   const dispatch = useAppDispatch();
   const { accessToken, isLoading } = useAppSelector((state) => state.auth);
+  const {
+    streamsForPicker,
+    standardsForPicker,
+    boardsForPicker,
+    targetExamsForPicker,
+    loading: choicesLoading,
+  } = useChoices();
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -517,6 +485,12 @@ const StudentOnboardingScreen = ({
           contentContainerStyle={{ paddingBottom: 20 }}
         >
           <View style={styles.formContainer}>
+            {choicesLoading && (
+              <View style={styles.loadingChoicesRow}>
+                <ActivityIndicator size="small" />
+                <Text style={styles.loadingChoicesText}>Loading options...</Text>
+              </View>
+            )}
             {/* Header Icon */}
             <View style={styles.headerIcon}>
               <View style={styles.iconContainer}>
@@ -689,7 +663,7 @@ const StudentOnboardingScreen = ({
                     style={styles.picker}
                   >
                     <Picker.Item label="Select your course stream" value="" />
-                    {courseStreams.map((stream) => (
+                    {streamsForPicker.map((stream) => (
                       <Picker.Item
                         key={stream.value}
                         label={stream.label}
@@ -714,7 +688,7 @@ const StudentOnboardingScreen = ({
                       label="Select your current standard"
                       value=""
                     />
-                    {standards.map((standard) => (
+                    {standardsForPicker.map((standard) => (
                       <Picker.Item
                         key={standard.value}
                         label={standard.label}
@@ -734,7 +708,7 @@ const StudentOnboardingScreen = ({
                     style={styles.picker}
                   >
                     <Picker.Item label="Select board" value="" />
-                    {boards.map((board) => (
+                    {boardsForPicker.map((board) => (
                       <Picker.Item
                         key={board.value}
                         label={board.label}
@@ -748,7 +722,7 @@ const StudentOnboardingScreen = ({
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Target Exam/Goal *</Text>
                 <View style={styles.checkboxContainer}>
-                  {competitiveExams.map((exam) => (
+                  {targetExamsForPicker.map((exam) => (
                     <TouchableOpacity
                       key={exam.value}
                       style={[
@@ -1224,6 +1198,17 @@ const styles = StyleSheet.create({
   },
   checkboxTextSelected: {
     color: "#ffffff",
+  },
+  loadingChoicesRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 8,
+  },
+  loadingChoicesText: {
+    fontSize: 14,
+    color: "#6b7280",
   },
   bottomButton: {
     position: "absolute",

@@ -29,6 +29,7 @@ import MyDemoBookingsScreen from './MyDemoBookingsScreen';
 import MyPrivateBookingsScreen from './MyPrivateBookingsScreen';
 import MyWishlistScreen from './MyWishlistScreen';
 import MyOfflineWishlistScreen from './MyOfflineWishlistScreen';
+import TeacherProfileScreen from './TeacherProfileScreen';
 
 // Filter interface for the modal
 interface FilterState {
@@ -68,29 +69,29 @@ const promotionalBanners = [
 
 const HomeScreen: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { 
-    filteredCenters, 
-    isLoading, 
-    error, 
-    activeTab, 
+  const {
+    filteredCenters,
+    isLoading,
+    error,
+    activeTab,
     starredCenters,
     hasNextPage,
     loadingMore,
     totalCount
   } = useAppSelector(state => state.coaching);
-  
+
   const { accessToken, profile, user, selectedChildId } = useAppSelector(state => state.auth);
   const { currentLocation, isLocationLoading, coordinates, selectedLocation, selectedLocationData } = useAppSelector(state => state.location);
   const authState = useAppSelector(state => state.auth);
-  
+
   // Provide default values to prevent undefined errors
   const safeIsLocationLoading = isLocationLoading || false;
   const safeCurrentLocation = currentLocation || '';
   const safeSelectedLocation = selectedLocation || '';
   const safeCoordinates = coordinates || null;
   const safeSelectedLocationData = selectedLocationData || null;
-  
-  const [currentScreen, setCurrentScreen] = useState<'home' | 'search' | 'listing' | 'location' | 'profile' | 'detail' | 'searchFilter' | 'online' | 'private' | 'privateTutorDetail' | 'chat' | 'chatDetail' | 'editProfile' | 'bookDemo' | 'myDemoBookings' | 'myPrivateBookings' | 'myWishlist' | 'myOfflineWishlist'>('home');
+
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'search' | 'listing' | 'location' | 'profile' | 'detail' | 'searchFilter' | 'online' | 'private' | 'privateTutorDetail' | 'chat' | 'chatDetail' | 'editProfile' | 'bookDemo' | 'myDemoBookings' | 'myPrivateBookings' | 'myWishlist' | 'myOfflineWishlist' | 'teacherProfile'>('home');
   const [selectedCoachingId, setSelectedCoachingId] = useState<string>('');
   const [selectedTutorId, setSelectedTutorId] = useState<number | null>(null);
   const [currentChatConversationId, setCurrentChatConversationId] = useState<number | null>(null);
@@ -106,7 +107,7 @@ const HomeScreen: React.FC = () => {
 
   // Determine which profile data to use (user or profile field)
   const actualProfile = user || profile;
-  
+
   // Mock user profile for now - this should come from your auth state
   const mockUserProfile = actualProfile ? {
     user_type: actualProfile.user_type,
@@ -130,50 +131,49 @@ const HomeScreen: React.FC = () => {
       try {
         // Check direct accessToken
         const directToken = await AsyncStorage.getItem('accessToken');
-        
+
         // Check nested auth_tokens
         const tokensData = await AsyncStorage.getItem('auth_tokens');
         if (tokensData) {
           const tokens = JSON.parse(tokensData);
         }
-        
+
         // Check auth_user
         const userData = await AsyncStorage.getItem('auth_user');
-        
+
       } catch (error) {
         // Silent error handling
       }
     };
-    
+
     checkStoredTokens();
-    
+
     // Fetch user profile if we have an access token
     if (accessToken) {
       dispatch(fetchUserProfile());
     }
-    
+
     // Only fetch coaching centers if user is authenticated
     if (accessToken && authState.isAuthenticated) {
-      dispatch(fetchCoachingCenters({ radius: 2000 }));
+      dispatch(fetchCoachingCenters({}));
     }
   }, [dispatch, accessToken, authState.isAuthenticated]);
-  
+
   // Watch for selected location changes and fetch coaching centers
   useEffect(() => {
     // Only fetch coaching centers if user is authenticated
     if (!accessToken || !authState.isAuthenticated) {
       return;
     }
-    
+
     if (safeSelectedLocation && safeSelectedLocation !== 'Getting location...' && safeSelectedLocation !== 'Location unavailable' && safeSelectedLocation !== 'Location permission denied') {
       // Extract city name from selected location (e.g., "Mumbai, Maharashtra, India" -> "Mumbai")
       const cityName = safeSelectedLocation.split(',')[0].trim();
-      
-      const params = { 
+
+      const params: any = {
         search: cityName,
         latitude: safeCoordinates?.latitude,
         longitude: safeCoordinates?.longitude,
-        radius: 2000
       };
       dispatch(fetchCoachingCenters(params));
     }
@@ -194,21 +194,21 @@ const HomeScreen: React.FC = () => {
       );
     }
   }, [error, dispatch]);
-  
+
   // Watch for profile changes and update location if needed
   useEffect(() => {
     if (actualProfile?.latitude && actualProfile?.longitude && !safeCoordinates) {
       getCurrentLocation();
     }
   }, [actualProfile, safeCoordinates]);
-  
+
   // Watch for accessToken changes and fetch profile when available
   useEffect(() => {
     if (accessToken && !actualProfile) {
       dispatch(fetchUserProfile());
     }
   }, [accessToken, actualProfile, dispatch]);
-  
+
   // Function to get current location
   const getCurrentLocation = async () => {
     try {
@@ -221,16 +221,16 @@ const HomeScreen: React.FC = () => {
           position: 'top',
           visibilityTime: 1500,
         });
-        
+
         // Use the location slice action with profile coordinates
-        dispatch(getLocationFromSlice({ 
-          latitude: profile.latitude, 
-          longitude: profile.longitude 
+        dispatch(getLocationFromSlice({
+          latitude: profile.latitude,
+          longitude: profile.longitude
         }));
-        
+
         return;
       }
-      
+
       // Fallback to device location if profile location not available
       Toast.show({
         type: 'info',
@@ -239,10 +239,10 @@ const HomeScreen: React.FC = () => {
         position: 'top',
         visibilityTime: 1500,
       });
-      
+
       // Use the location slice action for device location
       dispatch(getLocationFromSlice());
-      
+
     } catch (error) {
       Toast.show({
         type: 'error',
@@ -253,7 +253,7 @@ const HomeScreen: React.FC = () => {
       });
     }
   };
-  
+
 
 
   useEffect(() => {
@@ -287,7 +287,7 @@ const HomeScreen: React.FC = () => {
     console.log('🔄 [HomeScreen] currentScreen changed to:', currentScreen);
     console.log('🔄 [HomeScreen] currentChatConversationId:', currentChatConversationId);
   }, [currentScreen, currentChatConversationId]);
-  
+
   // Force re-render when activeTab changes
   useEffect(() => {
     console.log('🔄 [HomeScreen] activeTab changed to:', activeTab);
@@ -315,20 +315,20 @@ const HomeScreen: React.FC = () => {
 
   const handleTabPress = (tab: 'offline' | 'online' | 'private' | 'chat' | 'profile') => {
     console.log('Tab pressed:', tab, 'Current screen:', currentScreen);
-    
+
     // Prevent unnecessary updates if already on the target tab
     const targetScreen = tab === 'offline' ? 'home' : tab;
     if ((currentScreen === targetScreen || (tab === 'chat' && currentScreen === 'chatDetail')) && activeTab === tab) {
       console.log('Already on target screen, skipping navigation');
       return;
     }
-    
+
     // Show loading indicator during tab switch
     setIsTabSwitching(true);
-    
+
     // Force immediate update
     forceUpdateRef.current += 1;
-    
+
     // Update local state first for immediate navigation
     switch (tab) {
       case 'profile':
@@ -358,17 +358,17 @@ const HomeScreen: React.FC = () => {
       default:
         setCurrentScreen('home');
     }
-    
+
     // Update Redux state for UI feedback (excluding profile)
     if (tab !== 'profile') {
       dispatch(setActiveTab(tab));
     }
-    
+
     // Hide loading indicator after a short delay to allow UI to update
     setTimeout(() => {
       setIsTabSwitching(false);
     }, 300);
-    
+
     console.log('After tab press - currentScreen will be:', tab === 'offline' ? 'home' : tab);
   };
 
@@ -398,13 +398,17 @@ const HomeScreen: React.FC = () => {
   const handleFilter = (filterParams: any) => {
     if (accessToken && authState.isAuthenticated) {
       // Add coordinates from current location if available
-      const paramsWithLocation = {
+      const paramsWithLocation: any = {
         ...filterParams,
         latitude: safeCoordinates?.latitude,
         longitude: safeCoordinates?.longitude,
-        radius: filterParams.radius || 2000,
       };
-      
+
+      // Add radius if provided in filters
+      if (filterParams.radius) {
+        paramsWithLocation.radius = filterParams.radius;
+      }
+
       dispatch(filterCoachingCenters(paramsWithLocation));
     }
   };
@@ -420,11 +424,9 @@ const HomeScreen: React.FC = () => {
 
   const handleApplyFilters = (filters: FilterState) => {
     setAppliedFilters(filters);
-    
+
     // Convert filters to API parameters
-    const filterParams: any = {
-      radius: 2000,
-    };
+    const filterParams: any = {};
 
     // Add coordinates if available
     if (safeCoordinates) {
@@ -529,13 +531,13 @@ const HomeScreen: React.FC = () => {
       }
     }
 
-    
+
 
     // Apply the filters by calling the API
     if (accessToken && authState.isAuthenticated) {
       dispatch(filterCoachingCenters(filterParams));
     }
-    
+
     // Close the modal
     setShowFilterModal(false);
   };
@@ -544,25 +546,25 @@ const HomeScreen: React.FC = () => {
 
   const handleClearLocation = () => {
     dispatch(deselectLocation());
-    // Clear coaching centers when location is deselected - only pass radius
+    // Clear coaching centers when location is deselected
     // Only fetch if user is authenticated
     if (accessToken && authState.isAuthenticated) {
-      dispatch(fetchCoachingCenters({ radius: 2000 }));
+      dispatch(fetchCoachingCenters({}));
     }
   };
 
   const handleClearFilters = () => {
     setAppliedFilters(null);
-    // Clear filters and fetch with only radius - only if authenticated
+    // Clear filters and fetch - only if authenticated
     if (accessToken && authState.isAuthenticated) {
-      dispatch(fetchCoachingCenters({ radius: 2000 }));
+      dispatch(fetchCoachingCenters({}));
     }
   };
 
   // Helper function to check if there are any active filters
   const hasActiveFilters = (filters: FilterState | null): boolean => {
     if (!filters) return false;
-    
+
     return !!(
       filters.search ||
       filters.feesRange ||
@@ -590,8 +592,8 @@ const HomeScreen: React.FC = () => {
       `Would you like to call ${center.name}?`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Call', 
+        {
+          text: 'Call',
           onPress: () => {
             // Handle call functionality
             const phoneNumber = center.phone?.replace(/\s+/g, '') || '';
@@ -608,16 +610,16 @@ const HomeScreen: React.FC = () => {
     try {
       // Check if already favorited
       const isCurrentlyFavorited = starredCenters.includes(centerId);
-      
+
       // Update UI immediately for better UX
       dispatch(toggleStarred(centerId));
-      
+
       // Get student_id based on user type
       const currentProfile = profile || user;
       const userType = currentProfile?.user_type || currentProfile?.userType;
-      
+
       let studentId: number;
-      
+
       if (userType === 'parent' && selectedChildId) {
         // If parent, use selected child's ID
         studentId = typeof selectedChildId === 'string' ? parseInt(selectedChildId, 10) : selectedChildId;
@@ -626,20 +628,20 @@ const HomeScreen: React.FC = () => {
         const userId = currentProfile?.id || currentProfile?.user_id || currentProfile?.user?.id;
         studentId = typeof userId === 'string' ? parseInt(userId, 10) : (userId || 0);
       }
-      
+
       if (!studentId || studentId === 0 || isNaN(studentId)) {
-        console.warn('No valid student ID found', { 
-          userType, 
-          selectedChildId, 
+        console.warn('No valid student ID found', {
+          userType,
+          selectedChildId,
           profileId: currentProfile?.id,
           userId: currentProfile?.user_id,
-          userUserId: currentProfile?.user?.id 
+          userUserId: currentProfile?.user?.id
         });
         return;
       }
-      
+
       console.log('Toggle star - studentId:', studentId, 'coachingId:', centerId, 'isCurrentlyFavorited:', isCurrentlyFavorited);
-      
+
       // Call the appropriate API based on current state
       let result;
       if (isCurrentlyFavorited) {
@@ -667,7 +669,7 @@ const HomeScreen: React.FC = () => {
   };
 
   const handleViewDetails = (center: CoachingCenter) => {
-    
+
     setSelectedCoachingId(center.id);
     setCurrentScreen('detail');
   };
@@ -774,8 +776,8 @@ const HomeScreen: React.FC = () => {
           Alert.alert('View Reviews', 'Reviews functionality coming soon!');
         }}
         onViewTeacherProfile={(teacherId: string) => {
-          // Handle view teacher profile
-          Alert.alert('Teacher Profile', `Teacher profile for ${teacherId} coming soon!`);
+          setSelectedTutorId(parseInt(teacherId, 10));
+          setCurrentScreen('teacherProfile');
         }}
         onBookDemo={(coachingId: string) => {
           setSelectedCoachingId(coachingId);
@@ -786,58 +788,31 @@ const HomeScreen: React.FC = () => {
             console.log('💬 [HomeScreen] Starting chat with coaching center');
             console.log('💬 [HomeScreen] Coaching ID:', coachingId, '(type:', typeof coachingId, ')');
             console.log('💬 [HomeScreen] Coaching Name:', coachingName);
-            console.log('💬 [HomeScreen] Current screen before chat:', currentScreen);
-            
-            // Set chat tab as active first
-            dispatch(setActiveTab('chat'));
-            console.log('💬 [HomeScreen] Chat tab set to active');
-            
-            // Start conversation FIRST before navigating
+
             const { startConversation, fetchConversations } = await import('../store/slices/chatSlice');
             const coachingIdNum = typeof coachingId === 'string' ? parseInt(coachingId, 10) : coachingId;
-            console.log('💬 [HomeScreen] Calling startConversation with coachingId:', coachingIdNum);
-            
             if (isNaN(coachingIdNum)) {
-              console.error('❌ [HomeScreen] Invalid coaching ID:', coachingId);
               Alert.alert('Error', 'Invalid coaching center ID');
               return;
             }
-            
+
             const result = await dispatch(startConversation(coachingIdNum));
-            
-            console.log('💬 [HomeScreen] Start conversation result type:', result.type);
-            console.log('💬 [HomeScreen] Result payload:', JSON.stringify(result.payload, null, 2));
-            
+
             if (startConversation.fulfilled.match(result)) {
-              console.log('✅ [HomeScreen] Conversation started successfully');
-              console.log('✅ [HomeScreen] Conversation ID:', result.payload?.id);
-              console.log('✅ [HomeScreen] Coaching object:', JSON.stringify(result.payload?.coaching, null, 2));
-              
-              // Set the conversation details - use coaching name from response or fallback
-              const conversationName = result.payload?.coaching?.branch_name || 
-                                      result.payload?.coaching?.tagline || 
-                                      coachingName;
-              
-              console.log('💬 [HomeScreen] Setting conversation details:', {
-                conversationId: result.payload.id,
-                conversationName: conversationName,
-              });
-              
-              // Refresh conversations list in background
-              dispatch(fetchConversations()).catch(err => {
-                console.error('Error refreshing conversations:', err);
-              });
-              
-              console.log('💬 [HomeScreen] Chat icon clicked - Opening individual chat message screen');
-              console.log('💬 [HomeScreen] Conversation ID:', result.payload.id);
-              console.log('💬 [HomeScreen] Participant Name:', conversationName);
-              
-              // Navigate directly to chat - no loading indicators
-              setCurrentChatConversationId(result.payload.id);
+              const conv = result.payload;
+              const conversationId = conv?.id;
+              if (!conversationId) {
+                console.error('❌ [HomeScreen] No conversation id in response');
+                Alert.alert('Error', 'Could not start conversation');
+                return;
+              }
+              const conversationName = conv?.coaching?.branch_name || conv?.coaching?.tagline || coachingName;
+
+              dispatch(fetchConversations()).catch(() => { });
+              setCurrentChatConversationId(conversationId);
               setCurrentChatParticipantName(conversationName);
+              dispatch(setActiveTab('chat'));
               setCurrentScreen('chatDetail');
-              
-              console.log('💬 [HomeScreen] ✅ Directly opened individual chat screen');
             } else {
               console.error('❌ [HomeScreen] Failed to start conversation:', result.payload);
               const errorMessage = result.payload as string || 'Failed to start conversation';
@@ -863,6 +838,15 @@ const HomeScreen: React.FC = () => {
           setSelectedTutorId(tutorId);
           setCurrentScreen('privateTutorDetail');
         }}
+      />
+    );
+  }
+
+  if (currentScreen === 'teacherProfile' && selectedTutorId !== null) {
+    return (
+      <TeacherProfileScreen
+        teacherId={selectedTutorId}
+        onBack={() => setCurrentScreen('detail')}
       />
     );
   }
@@ -989,7 +973,7 @@ const HomeScreen: React.FC = () => {
         <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
         {/* Profile Header */}
         <View style={styles.profileHeader}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.backButton}
             onPress={() => setCurrentScreen('home')}
           >
@@ -1004,7 +988,7 @@ const HomeScreen: React.FC = () => {
           {/* Loading State */}
           {isLoading && (
             <View style={styles.profileLoadingContainer}>
-              <Animated.View 
+              <Animated.View
                 style={[
                   styles.profileLoadingSpinner,
                   {
@@ -1022,7 +1006,7 @@ const HomeScreen: React.FC = () => {
               <Text style={styles.profileLoadingText}>Loading profile...</Text>
             </View>
           )}
-          
+
           {/* User Info Section */}
           <View style={styles.profileSection}>
             <View style={styles.userInfoContainer}>
@@ -1057,7 +1041,7 @@ const HomeScreen: React.FC = () => {
           {actualProfile && (
             <View style={styles.profileSection}>
               <Text style={styles.sectionTitle}>Profile Details</Text>
-              
+
               {actualProfile.education_level && (
                 <View style={styles.profileDetailRow}>
                   <Ionicons name="school-outline" size={20} color="#6b7280" />
@@ -1065,7 +1049,17 @@ const HomeScreen: React.FC = () => {
                   <Text style={styles.detailValue}>{actualProfile.education_level}</Text>
                 </View>
               )}
-              
+
+              {actualProfile.coaching_center_details && (
+                <View style={styles.profileDetailRow}>
+                  <Ionicons name="business-outline" size={20} color="#6b7280" />
+                  <Text style={styles.detailLabel}>Coaching Center:</Text>
+                  <Text style={styles.detailValue}>
+                    {actualProfile.coaching_center_details.name} ({actualProfile.coaching_center_details.branch})
+                  </Text>
+                </View>
+              )}
+
               {actualProfile.date_of_birth && (
                 <View style={styles.profileDetailRow}>
                   <Ionicons name="calendar-outline" size={20} color="#6b7280" />
@@ -1073,7 +1067,7 @@ const HomeScreen: React.FC = () => {
                   <Text style={styles.detailValue}>{actualProfile.date_of_birth}</Text>
                 </View>
               )}
-              
+
               {actualProfile.gender && (
                 <View style={styles.profileDetailRow}>
                   <Ionicons name="person-outline" size={20} color="#6b7280" />
@@ -1081,7 +1075,7 @@ const HomeScreen: React.FC = () => {
                   <Text style={styles.detailValue}>{actualProfile.gender}</Text>
                 </View>
               )}
-              
+
               {actualProfile.board && (
                 <View style={styles.profileDetailRow}>
                   <Ionicons name="school-outline" size={20} color="#6b7280" />
@@ -1089,7 +1083,7 @@ const HomeScreen: React.FC = () => {
                   <Text style={styles.detailValue}>{actualProfile.board.toUpperCase()}</Text>
                 </View>
               )}
-              
+
               {actualProfile.target_exams && actualProfile.target_exams.length > 0 && (
                 <View style={styles.profileDetailRow}>
                   <Ionicons name="trophy-outline" size={20} color="#6b7280" />
@@ -1097,7 +1091,7 @@ const HomeScreen: React.FC = () => {
                   <Text style={styles.detailValue}>{actualProfile.target_exams.join(', ').toUpperCase()}</Text>
                 </View>
               )}
-              
+
               {actualProfile.current_school && (
                 <View style={styles.profileDetailRow}>
                   <Ionicons name="business-outline" size={20} color="#6b7280" />
@@ -1105,7 +1099,7 @@ const HomeScreen: React.FC = () => {
                   <Text style={styles.detailValue}>{actualProfile.current_school}</Text>
                 </View>
               )}
-              
+
               {actualProfile.city && actualProfile.state && (
                 <View style={styles.profileDetailRow}>
                   <Ionicons name="location-outline" size={20} color="#6b7280" />
@@ -1113,7 +1107,7 @@ const HomeScreen: React.FC = () => {
                   <Text style={styles.detailValue}>{actualProfile.city}, {actualProfile.state}</Text>
                 </View>
               )}
-              
+
               {actualProfile.pincode && (
                 <View style={styles.profileDetailRow}>
                   <Ionicons name="mail-outline" size={20} color="#6b7280" />
@@ -1121,7 +1115,7 @@ const HomeScreen: React.FC = () => {
                   <Text style={styles.detailValue}>{actualProfile.pincode}</Text>
                 </View>
               )}
-              
+
               {actualProfile.address && actualProfile.address.trim() !== '' && (
                 <View style={styles.profileDetailRow}>
                   <Ionicons name="home-outline" size={20} color="#6b7280" />
@@ -1129,7 +1123,7 @@ const HomeScreen: React.FC = () => {
                   <Text style={styles.detailValue}>{actualProfile.address}</Text>
                 </View>
               )}
-              
+
               {actualProfile.preferred_search_radius_km && (
                 <View style={styles.profileDetailRow}>
                   <Ionicons name="search-outline" size={20} color="#6b7280" />
@@ -1137,7 +1131,7 @@ const HomeScreen: React.FC = () => {
                   <Text style={styles.detailValue}>{actualProfile.preferred_search_radius_km} km</Text>
                 </View>
               )}
-              
+
               {actualProfile.is_profile_completed && (
                 <View style={styles.profileDetailRow}>
                   <Ionicons name="checkmark-circle" size={20} color="#10b981" />
@@ -1145,7 +1139,7 @@ const HomeScreen: React.FC = () => {
                   <Text style={[styles.detailValue, { color: '#10b981' }]}>Completed</Text>
                 </View>
               )}
-              
+
               {actualProfile.profile_completed_at && (
                 <View style={styles.profileDetailRow}>
                   <Ionicons name="time-outline" size={20} color="#6b7280" />
@@ -1153,7 +1147,7 @@ const HomeScreen: React.FC = () => {
                   <Text style={styles.detailValue}>{actualProfile.profile_completed_at}</Text>
                 </View>
               )}
-              
+
               {actualProfile.user_type === 'parent' && actualProfile.relationship_with_child && (
                 <View style={styles.profileDetailRow}>
                   <Ionicons name="heart-outline" size={20} color="#6b7280" />
@@ -1161,7 +1155,7 @@ const HomeScreen: React.FC = () => {
                   <Text style={styles.detailValue}>{actualProfile.relationship_with_child}</Text>
                 </View>
               )}
-              
+
               {actualProfile.occupation && (
                 <View style={styles.profileDetailRow}>
                   <Ionicons name="briefcase-outline" size={20} color="#6b7280" />
@@ -1169,7 +1163,7 @@ const HomeScreen: React.FC = () => {
                   <Text style={styles.detailValue}>{actualProfile.occupation}</Text>
                 </View>
               )}
-              
+
               {(actualProfile.budget_min || actualProfile.budget_max) && (
                 <View style={styles.profileDetailRow}>
                   <Ionicons name="wallet-outline" size={20} color="#6b7280" />
@@ -1181,7 +1175,7 @@ const HomeScreen: React.FC = () => {
               )}
             </View>
           )}
-          
+
           {/* No Profile Data */}
           {!isLoading && !actualProfile && (
             <View style={styles.noProfileContainer}>
@@ -1204,7 +1198,7 @@ const HomeScreen: React.FC = () => {
                 const subjectsDisplay = selectedChild.subjects_interested && selectedChild.subjects_interested.length > 0
                   ? selectedChild.subjects_interested.join(', ')
                   : 'Not specified';
-                
+
                 return (
                   <View style={styles.childCard}>
                     <View style={styles.childHeader}>
@@ -1239,8 +1233,8 @@ const HomeScreen: React.FC = () => {
           {/* Profile Options Section */}
           <View style={styles.profileSection}>
             <Text style={styles.sectionTitle}>Account</Text>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.profileOption}
               onPress={() => setCurrentScreen('editProfile')}
             >
@@ -1250,8 +1244,8 @@ const HomeScreen: React.FC = () => {
               </View>
               <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
             </TouchableOpacity>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.profileOption}
               onPress={() => setCurrentScreen('myDemoBookings')}
             >
@@ -1261,8 +1255,8 @@ const HomeScreen: React.FC = () => {
               </View>
               <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
             </TouchableOpacity>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.profileOption}
               onPress={() => setCurrentScreen('myPrivateBookings')}
             >
@@ -1272,8 +1266,8 @@ const HomeScreen: React.FC = () => {
               </View>
               <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
             </TouchableOpacity>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.profileOption}
               onPress={() => setCurrentScreen('myWishlist')}
             >
@@ -1283,8 +1277,8 @@ const HomeScreen: React.FC = () => {
               </View>
               <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
             </TouchableOpacity>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.profileOption}
               onPress={() => setCurrentScreen('myOfflineWishlist')}
             >
@@ -1294,8 +1288,8 @@ const HomeScreen: React.FC = () => {
               </View>
               <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
             </TouchableOpacity>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.profileOption}
               onPress={() => {
                 if (accessToken) {
@@ -1329,19 +1323,19 @@ const HomeScreen: React.FC = () => {
             </TouchableOpacity>
 
             {/* Logout Button in Account Section */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.logoutOption}
               onPress={() => {
                 Alert.alert(
                   'Logout',
                   'Are you sure you want to logout?',
                   [
-                    { 
-                      text: 'Cancel', 
-                      style: 'cancel' 
+                    {
+                      text: 'Cancel',
+                      style: 'cancel'
                     },
-                    { 
-                      text: 'Logout', 
+                    {
+                      text: 'Logout',
                       style: 'destructive',
                       onPress: () => {
                         dispatch(logout());
@@ -1364,7 +1358,7 @@ const HomeScreen: React.FC = () => {
           {/* App Info Section */}
           <View style={styles.profileSection}>
             <Text style={styles.sectionTitle}>App</Text>
-            
+
             <TouchableOpacity style={styles.profileOption}>
               <View style={styles.optionLeft}>
                 <Ionicons name="help-circle-outline" size={20} color="#6b7280" />
@@ -1402,16 +1396,16 @@ const HomeScreen: React.FC = () => {
   console.log('🏠 [HomeScreen] Render - currentScreen:', currentScreen, 'activeTab:', activeTab);
   console.log('🏠 [HomeScreen] Render - currentChatConversationId:', currentChatConversationId);
   console.log('🏠 [HomeScreen] Render - currentChatParticipantName:', currentChatParticipantName);
-  
+
   // Debug: Check if there's a mismatch between activeTab and currentScreen
   console.log('Debug - activeTab:', activeTab, 'currentScreen:', currentScreen);
-  
-  
+
+
   // Debug: Check if we're rendering home screen when we should be rendering online/private
   if (currentScreen === 'home' && (activeTab === 'online' || activeTab === 'private')) {
     console.warn('WARNING: Rendering home screen but activeTab is', activeTab);
   }
-  
+
   return (
     <SafeAreaView key={`${currentScreen}-${forceUpdateRef.current}`} style={styles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
@@ -1429,7 +1423,7 @@ const HomeScreen: React.FC = () => {
       />
 
       {/* Content - With top padding for fixed header */}
-      <ScrollView 
+      <ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.contentContainer}
@@ -1461,7 +1455,7 @@ const HomeScreen: React.FC = () => {
           <Text style={styles.sectionTitle}>Coaching Centers</Text>
           <View style={styles.sectionHeaderRight}>
             {isLoading && <Text style={styles.loadingText}>Loading...</Text>}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.filterButton}
               onPress={handleOpenFilterModal}
             >
@@ -1472,15 +1466,15 @@ const HomeScreen: React.FC = () => {
                 </View>
               )}
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.refreshButton}
               onPress={getCurrentLocation}
               disabled={safeIsLocationLoading}
             >
-              <Ionicons 
-                name="refresh" 
-                size={16} 
-                color={safeIsLocationLoading ? "#9ca3af" : "#3b82f6"} 
+              <Ionicons
+                name="refresh"
+                size={16}
+                color={safeIsLocationLoading ? "#9ca3af" : "#3b82f6"}
               />
             </TouchableOpacity>
           </View>
@@ -1495,9 +1489,9 @@ const HomeScreen: React.FC = () => {
                 <Text style={styles.clearFiltersText}>Clear All</Text>
               </TouchableOpacity>
             </View>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false} 
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
               style={styles.appliedFiltersScroll}
               nestedScrollEnabled={true}
               scrollEventThrottle={16}
@@ -1554,7 +1548,7 @@ const HomeScreen: React.FC = () => {
                 <Ionicons name="location" size={16} color="#3b82f6" />
                 <Text style={styles.selectedLocationText}>{safeSelectedLocation}</Text>
               </View>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.clearLocationButton}
                 onPress={handleClearLocation}
               >
@@ -1574,7 +1568,7 @@ const HomeScreen: React.FC = () => {
         {/* Loading indicator */}
         {isLoading && (
           <View style={styles.loadingContainer}>
-            <Animated.View 
+            <Animated.View
               style={[
                 styles.loadingSpinner,
                 {
@@ -1602,21 +1596,21 @@ const HomeScreen: React.FC = () => {
               if (!center || !center.id) {
                 return false;
               }
-              
-              
+
+
               return true;
             })
             .map((center, index) => (
-            <CoachingCard
-              key={`${center.id}-${index}`}
-              center={center}
-              onBookDemo={handleBookDemo}
-              onCallNow={handleCallNow}
-              onToggleStar={handleToggleStar}
-              onViewDetails={handleViewDetails}
-              isStarred={starredCenters.includes(center.id)}
-            />
-          ))
+              <CoachingCard
+                key={`${center.id}-${index}`}
+                center={center}
+                onBookDemo={handleBookDemo}
+                onCallNow={handleCallNow}
+                onToggleStar={handleToggleStar}
+                onViewDetails={handleViewDetails}
+                isStarred={starredCenters.includes(center.id)}
+              />
+            ))
         )}
 
         {/* Empty state */}
@@ -1630,7 +1624,7 @@ const HomeScreen: React.FC = () => {
         {/* Loading More Spinner */}
         {loadingMore && hasNextPage && activeTab === 'offline' && (
           <View style={styles.loadMoreSpinnerContainer}>
-            <Animated.View 
+            <Animated.View
               style={[
                 styles.loadMoreSpinner,
                 {
@@ -1654,7 +1648,7 @@ const HomeScreen: React.FC = () => {
       {isTabSwitching && (
         <View style={styles.tabSwitchOverlay}>
           <View style={styles.tabSwitchLoadingContainer}>
-            <Animated.View 
+            <Animated.View
               style={[
                 styles.tabSwitchSpinner,
                 {

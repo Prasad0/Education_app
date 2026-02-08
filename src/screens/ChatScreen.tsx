@@ -13,20 +13,28 @@ import {
   Alert,
   Keyboard,
   StatusBar,
+  Image,
+  Dimensions,
+  Linking,
 } from 'react-native';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
   fetchConversationDetail,
   fetchMessages,
+  fetchMessagesRecent,
   ChatMessage,
   markConversationAsRead,
+  markAsReadBackend,
   clearCurrentConversation,
   fetchConversations,
   sendMessage,
 } from '../store/slices/chatSlice';
-import { api } from '../config/api';
+import { api, API_CONFIG } from '../config/api';
 import { BackHandler } from 'react-native';
 import { useRealtimeChat } from '../hooks/useRealtimeChat';
 
@@ -55,16 +63,25 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
   const currentUserId = profile?.id || user?.id;
 
   // Set up real-time chat listener
-  useRealtimeChat({ 
-    conversationId, 
-    enabled: true 
+  useRealtimeChat({
+    conversationId,
+    enabled: true
   });
 
   useEffect(() => {
     // Fetch conversation detail and messages
     dispatch(fetchConversationDetail(conversationId));
     dispatch(fetchMessages(conversationId));
+    dispatch(markAsReadBackend(conversationId));
     dispatch(markConversationAsRead(conversationId));
+  }, [conversationId, dispatch]);
+
+  // Poll lightweight recent-messages API every 3s while user is on this chat screen
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      dispatch(fetchMessagesRecent(conversationId));
+    }, 3000);
+    return () => clearInterval(intervalId);
   }, [conversationId, dispatch]);
 
   // Handle Android hardware back button
@@ -87,8 +104,18 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
+
+      // Check if there are unread messages from coaching
+      const hasUnread = currentConversation.messages.some(
+        msg => (msg.sender_type === 'coaching' || msg.sender_type === 'coaching_center') && !msg.is_read
+      );
+      if (hasUnread) {
+        console.log('💬 [ChatScreen] New unread messages from coaching detected, marking as read');
+        dispatch(markAsReadBackend(conversationId));
+        dispatch(markConversationAsRead(conversationId));
+      }
     }
-  }, [currentConversation?.messages]);
+  }, [currentConversation?.messages, conversationId, dispatch]);
 
   // Handle keyboard show/hide
   useEffect(() => {
@@ -126,6 +153,73 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
     setRefreshing(false);
   };
 
+  const getFullUrl = (url: string | null | undefined) => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    const baseUrl = API_CONFIG.BASE_URL.endsWith('/') ? API_CONFIG.BASE_URL.slice(0, -1) : API_CONFIG.BASE_URL;
+    return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+  };
+
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      handleSendAttachment(result.assets[0]);
+    }
+  };
+
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'Sorry, we need camera permissions to make this work!');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      handleSendAttachment(result.assets[0]);
+    }
+  };
+
+  const handleSendAttachment = async (asset: ImagePicker.ImagePickerAsset) => {
+    setSending(true);
+    try {
+      const result = await dispatch(sendMessage({
+        conversationId,
+        attachment: {
+          uri: asset.uri,
+          type: asset.mimeType || 'image/jpeg',
+          name: asset.fileName || 'photo.jpg',
+        }
+      }));
+
+      if (sendMessage.fulfilled.match(result)) {
+        dispatch(fetchMessages(conversationId));
+      } else {
+        Alert.alert('Error', result.payload as string || 'Failed to send image');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to send image');
+    } finally {
+      setSending(false);
+    }
+  };
+
   const handleSend = async () => {
     if (!messageText.trim() || sending || sendingMessage) return;
 
@@ -137,11 +231,11 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
       console.log('💬 [ChatScreen] Sending message');
       console.log('💬 [ChatScreen] Conversation ID:', conversationId);
       console.log('💬 [ChatScreen] Message text:', messageToSend);
-      
+
       // Send message via API
-      const result = await dispatch(sendMessage({ 
-        conversationId, 
-        text: messageToSend 
+      const result = await dispatch(sendMessage({
+        conversationId,
+        text: messageToSend
       }));
 
       if (sendMessage.fulfilled.match(result)) {
@@ -174,12 +268,63 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
     return new Date(dateString);
   };
 
+  const openDocument = async (rawUrl: string) => {
+    try {
+      if (!rawUrl) return;
+      const url = getFullUrl(rawUrl);
+
+      // For web URLs, always try to open directly first
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        await Linking.openURL(url);
+        return;
+      }
+
+      // Try to open the URL directly first (more direct "open" experience for other protocols)
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+        return;
+      }
+
+      // Fallback for native: Download and Share
+      if (Platform.OS !== 'web') {
+        const filename = url.split('/').pop() || 'document.pdf';
+        const fileUri = FileSystem.documentDirectory + filename;
+
+        const downloadResumable = FileSystem.createDownloadResumable(url, fileUri);
+        const result = await downloadResumable.downloadAsync();
+
+        if (result && result.uri) {
+          await Sharing.shareAsync(result.uri);
+        }
+      }
+    } catch (error) {
+      console.error('Error opening document:', error);
+      // Last resort fallback for URL
+      try {
+        await Linking.openURL(getFullUrl(rawUrl));
+      } catch (innerError) {
+        if (Platform.OS !== 'web') {
+          Alert.alert('Error', 'Failed to open document');
+        }
+      }
+    }
+  };
+
   const formatTime = (dateString: string) => {
     const date = parseDate(dateString);
     return date.toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
     });
+  };
+
+  const formatTimeOrJustNow = (dateString: string) => {
+    const date = parseDate(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    if (diffMs >= 0 && diffMs < 60 * 1000) return 'Just now';
+    return formatTime(dateString);
   };
 
   const formatDate = (dateString: string) => {
@@ -205,16 +350,20 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
     if (!item || !item.id) {
       return null;
     }
-    
+
     // User messages go on the right side, other messages on the left
     const isUserMessage = item.sender_type === 'user';
-    const isMyMessage = isUserMessage; // User messages go on right side
-    
+    const isAdminMessage = item.sender_type === 'admin';
+    const isMyMessage = isUserMessage;
+
     const prevMessage = index > 0 && currentConversation?.messages ? currentConversation.messages[index - 1] : null;
-    const showDate = !prevMessage || 
-      (item.created_at && prevMessage.created_at && 
-       parseDate(item.created_at).toDateString() !== parseDate(prevMessage.created_at).toDateString());
+    const showDate = !prevMessage ||
+      (item.created_at && prevMessage.created_at &&
+        parseDate(item.created_at).toDateString() !== parseDate(prevMessage.created_at).toDateString());
     const showAvatar = !prevMessage || prevMessage.sender_type !== item.sender_type;
+
+    const displaySenderName = isAdminMessage ? '👑 Admin' : (item.sender_name || 'Coaching');
+    const displayTime = isAdminMessage ? formatTimeOrJustNow(item.created_at) : formatTime(item.created_at);
 
     return (
       <View>
@@ -230,23 +379,58 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
           ]}
         >
           {!isMyMessage && showAvatar && (
-            <View style={styles.otherAvatar}>
-              <Ionicons name="person" size={16} color="#059669" />
+            <View style={[styles.otherAvatar, isAdminMessage && styles.adminAvatar]}>
+              <Ionicons name={isAdminMessage ? 'shield-checkmark' : 'person'} size={16} color={isAdminMessage ? '#7c3aed' : '#059669'} />
             </View>
           )}
           <View
             style={[
               styles.messageBubble,
-              isMyMessage ? styles.myBubble : styles.otherBubble,
+              isMyMessage ? styles.myBubble : (isAdminMessage ? styles.adminBubble : styles.otherBubble),
             ]}
           >
             {!isMyMessage && (
-              <Text style={styles.senderName}>{item.sender_name}</Text>
+              <Text style={[styles.senderName, isAdminMessage && styles.adminSenderName]}>{displaySenderName}</Text>
             )}
+            {item.content_type === 'image' && item.attachment && (
+              <TouchableOpacity
+                onPress={() => item.attachment && Sharing.shareAsync(getFullUrl(item.attachment))}
+                style={styles.imageContainer}
+              >
+                <Image
+                  source={{ uri: getFullUrl(item.attachment) }}
+                  style={styles.messageImage}
+                  resizeMode="cover"
+                />
+              </TouchableOpacity>
+            )}
+
+            {item.content_type === 'document' && item.attachment && (
+              <TouchableOpacity
+                onPress={() => item.attachment && openDocument(item.attachment)}
+                style={[
+                  styles.documentContainer,
+                  isMyMessage ? styles.myDocument : styles.otherDocument
+                ]}
+              >
+                <Ionicons
+                  name="document-text"
+                  size={24}
+                  color={isMyMessage ? '#ffffff' : '#059669'}
+                />
+                <Text style={[
+                  styles.documentText,
+                  isMyMessage ? styles.myDocumentText : styles.otherDocumentText
+                ]}>
+                  View Document
+                </Text>
+              </TouchableOpacity>
+            )}
+
             <Text
               style={[
                 styles.messageText,
-                isMyMessage ? styles.myMessageText : styles.otherMessageText,
+                isMyMessage ? styles.myMessageText : (isAdminMessage ? styles.adminMessageText : styles.otherMessageText),
               ]}
             >
               {item.text || item.message || ''}
@@ -256,10 +440,10 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
                 <Text
                   style={[
                     styles.messageTime,
-                    isMyMessage ? styles.myMessageTime : styles.otherMessageTime,
+                    isMyMessage ? styles.myMessageTime : (isAdminMessage ? styles.adminMessageTime : styles.otherMessageTime),
                   ]}
                 >
-                  {formatTime(item.created_at)}
+                  {displayTime}
                 </Text>
               )}
               {isUserMessage && (
@@ -281,7 +465,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
   const messages = (currentConversation?.messages || []).filter((msg): msg is ChatMessage => {
     return !!(msg && msg.id);
   });
-  
+
   // Debug logging
   useEffect(() => {
     console.log('🔍 [ChatScreen] Current conversation:', {
@@ -379,6 +563,20 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
           Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight }
         ]}>
           <View style={styles.inputContainer}>
+            <TouchableOpacity
+              style={styles.attachmentButton}
+              onPress={pickImage}
+              disabled={sending}
+            >
+              <Ionicons name="image-outline" size={24} color="#6b7280" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.attachmentButton}
+              onPress={takePhoto}
+              disabled={sending}
+            >
+              <Ionicons name="camera-outline" size={24} color="#6b7280" />
+            </TouchableOpacity>
             <TextInput
               style={styles.input}
               placeholder="Type a message..."
@@ -523,11 +721,30 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderBottomLeftRadius: 4,
   },
+  adminBubble: {
+    backgroundColor: '#f5f3ff',
+    borderBottomLeftRadius: 4,
+    borderLeftWidth: 3,
+    borderLeftColor: '#7c3aed',
+  },
   senderName: {
     fontSize: 12,
     fontWeight: '600',
     color: '#059669',
     marginBottom: 4,
+  },
+  adminSenderName: {
+    color: '#7c3aed',
+  },
+  adminMessageText: {
+    color: '#1f2937',
+  },
+  adminMessageTime: {
+    color: '#7c3aed',
+    fontWeight: '500',
+  },
+  adminAvatar: {
+    backgroundColor: '#ede9fe',
   },
   messageText: {
     fontSize: 15,
@@ -603,6 +820,48 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  attachmentButton: {
+    padding: 8,
+  },
+  imageContainer: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 8,
+    backgroundColor: '#f3f4f6',
+  },
+  messageImage: {
+    width: '100%',
+    height: '100%',
+  },
+  documentContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+  },
+  myDocument: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  otherDocument: {
+    backgroundColor: '#f3f4f6',
+    borderColor: '#e5e7eb',
+  },
+  documentText: {
+    marginLeft: 10,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  myDocumentText: {
+    color: '#ffffff',
+  },
+  otherDocumentText: {
+    color: '#059669',
   },
 });
 

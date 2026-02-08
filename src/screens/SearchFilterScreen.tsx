@@ -86,12 +86,12 @@ const FilterChip: React.FC<{
 };
 
 
-const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({ 
-  visible, 
-  onClose, 
-  onApply, 
-  searchQuery = '', 
-  initialFilters 
+const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({
+  visible,
+  onClose,
+  onApply,
+  searchQuery = '',
+  initialFilters
 }) => {
   const dispatch = useAppDispatch();
   const { accessToken, isAuthenticated } = useAppSelector(state => state.auth);
@@ -179,10 +179,10 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({
       subjects: [],
       targetExams: [],
     };
-    
+
     setActiveFilters(clearedFilters);
     setSearchText('');
-    
+
     // Apply the cleared filters to update the parent component
     onApply(clearedFilters);
   };
@@ -212,7 +212,7 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({
       ...activeFilters,
       search: searchText.trim()
     });
-    
+
     // Close the modal
     onClose();
   };
@@ -220,7 +220,7 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({
   const activeFilterCount = getActiveFilterCount();
 
   // No verbose logs in production
-  useEffect(() => {}, [showFilters, activeFilterCount, activeFilters]);
+  useEffect(() => { }, [showFilters, activeFilterCount, activeFilters]);
 
 
 
@@ -260,9 +260,9 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({
 
             {/* Active Filters Row */}
             {activeFilterCount > 0 && (
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false} 
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
                 style={styles.activeFiltersContainer}
                 nestedScrollEnabled={true}
                 scrollEventThrottle={16}
@@ -271,7 +271,7 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({
                   <FilterChip
                     label={`Search: ${activeFilters.search}`}
                     active={true}
-                    onPress={() => {}}
+                    onPress={() => { }}
                     onRemove={() => clearFilter('search')}
                   />
                 )}
@@ -279,7 +279,7 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({
                   <FilterChip
                     label={activeFilters.feesRange}
                     active={true}
-                    onPress={() => {}}
+                    onPress={() => { }}
                     onRemove={() => clearFilter('feesRange')}
                   />
                 )}
@@ -288,7 +288,7 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({
                   <FilterChip
                     label={activeFilters.batchTiming}
                     active={true}
-                    onPress={() => {}}
+                    onPress={() => { }}
                     onRemove={() => clearFilter('batchTiming')}
                   />
                 )}
@@ -297,7 +297,7 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({
                   <FilterChip
                     label={activeFilters.distance}
                     active={true}
-                    onPress={() => {}}
+                    onPress={() => { }}
                     onRemove={() => clearFilter('distance')}
                   />
                 )}
@@ -307,7 +307,7 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({
                     key={standard}
                     label={standard}
                     active={true}
-                    onPress={() => {}}
+                    onPress={() => { }}
                     onRemove={() => clearFilter('standard', standard)}
                   />
                 ))}
@@ -317,7 +317,7 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({
                     key={amenity}
                     label={amenity}
                     active={true}
-                    onPress={() => {}}
+                    onPress={() => { }}
                     onRemove={() => clearFilter('amenities', amenity)}
                   />
                 ))}
@@ -327,7 +327,7 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({
                     key={discount}
                     label={discount}
                     active={true}
-                    onPress={() => {}}
+                    onPress={() => { }}
                     onRemove={() => clearFilter('discounts', discount)}
                   />
                 ))}
@@ -337,7 +337,7 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({
                     key={subject}
                     label={subject}
                     active={true}
-                    onPress={() => {}}
+                    onPress={() => { }}
                     onRemove={() => clearFilter('subjects', subject)}
                   />
                 ))}
@@ -347,7 +347,7 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({
                     key={exam}
                     label={exam}
                     active={true}
-                    onPress={() => {}}
+                    onPress={() => { }}
                     onRemove={() => clearFilter('targetExams', exam)}
                   />
                 ))}
@@ -381,8 +381,8 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({
         </View>
 
         {/* Filters Section */}
-        <ScrollView 
-          style={styles.filtersContainer} 
+        <ScrollView
+          style={styles.filtersContainer}
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled={true}
           scrollEventThrottle={16}
@@ -540,21 +540,24 @@ const SearchFilterScreen: React.FC<SearchFilterScreenProps> = ({
             </View>
 
 
-            {/* Apply Filters Button */}
-            <View style={styles.applyFiltersContainer}>
-              <TouchableOpacity onPress={handleApplyFilters} style={styles.applyFiltersButton}>
-                <Ionicons name="checkmark" size={18} color="#ffffff" />
-                <Text style={styles.applyFiltersButtonText}>Apply Filters</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={clearAllFilters} style={styles.clearFiltersButton}>
-                <Ionicons name="refresh" size={16} color="#6b7280" />
-                <Text style={styles.clearFiltersButtonText}>Clear All</Text>
-              </TouchableOpacity>
-            </View>
+
           </View>
+
         </ScrollView>
-      </View>
-    </Modal>
+
+        {/* Apply Filters Button - Fixed at bottom */}
+        <View style={styles.applyFiltersContainer}>
+          <TouchableOpacity onPress={handleApplyFilters} style={styles.applyFiltersButton}>
+            <Ionicons name="checkmark" size={18} color="#ffffff" />
+            <Text style={styles.applyFiltersButtonText}>Apply Filters</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={clearAllFilters} style={styles.clearFiltersButton}>
+            <Ionicons name="refresh" size={16} color="#6b7280" />
+            <Text style={styles.clearFiltersButtonText}>Clear All</Text>
+          </TouchableOpacity>
+        </View>
+      </View >
+    </Modal >
   );
 };
 
@@ -773,7 +776,7 @@ const styles = StyleSheet.create({
   filtersContent: {
     paddingHorizontal: 20,
     paddingVertical: 20,
-    paddingBottom: 100, // Extra padding for apply button
+    paddingBottom: 20,
   },
   filterGroup: {
     marginBottom: 20,
@@ -790,10 +793,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   applyFiltersContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     backgroundColor: '#ffffff',
     paddingHorizontal: 20,
     paddingVertical: 20,

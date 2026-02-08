@@ -86,6 +86,9 @@ export interface CoachingState {
   currentPage: number;
   totalCount: number;
   loadingMore: boolean;
+  teacherProfile: any | null;
+  isTeacherLoading: boolean;
+  teacherError: string | null;
 }
 
 
@@ -95,26 +98,26 @@ const transformApiData = (apiData: any): CoachingCenter[] => {
     if (!apiData) {
       return [];
     }
-    
+
     if (!Array.isArray(apiData)) {
       return [];
     }
-    
+
     return apiData.map((item, index) => {
-      
+
       // Extract image URLs from gallery_images objects only
       const galleryImageUrls = (item.gallery_images || [])
         .map((img: any) => img?.image || img)
         .filter((url: string) => url && typeof url === 'string' && url.trim() !== '');
-      
+
       // No validation - use all gallery images as-is
       const validGalleryImages: string[] = galleryImageUrls;
       const validImages: string[] = [];
-      
+
       console.log('🔍 [transformApiData] Valid gallery images:', validGalleryImages);
       console.log('🔍 [transformApiData] Raw gallery_images from API:', item.gallery_images);
       console.log('🔍 [transformApiData] Gallery image URLs extracted:', galleryImageUrls);
-      
+
       const transformedItem = {
         id: item.id?.toString() || item.uuid || '',
         name: item.branch_name || item.name || '',
@@ -157,7 +160,7 @@ const transformApiData = (apiData: any): CoachingCenter[] => {
         slug: item.slug,
         uuid: item.uuid,
       };
-      
+
       return transformedItem;
     });
   } catch (error) {
@@ -168,13 +171,13 @@ const transformApiData = (apiData: any): CoachingCenter[] => {
 
 // Function to get fallback data when API fails
 const getFallbackData = (): CoachingCenter[] => {
-  
+
   return [];
 };
 
 // Test function to add sample data for debugging
 const getTestData = (): CoachingCenter[] => {
-  
+
   return [];
 };
 
@@ -196,6 +199,9 @@ const initialState: CoachingState = {
   currentPage: 0,
   totalCount: 0,
   loadingMore: false,
+  teacherProfile: null,
+  isTeacherLoading: false,
+  teacherError: null,
 };
 
 // Helper function to get auth token
@@ -239,7 +245,7 @@ export const addToFavorite = createAsyncThunk(
 
       // Prepare request body - only send student_id if user has children
       let requestBody: { student_id?: number } | null = null;
-      
+
       if (hasChildren && selectedChildId) {
         // User has children, use the currently selected student_id from navbar
         const studentIdNum = typeof selectedChildId === 'string' ? parseInt(selectedChildId, 10) : selectedChildId;
@@ -252,7 +258,7 @@ export const addToFavorite = createAsyncThunk(
         const studentIdNum = typeof studentId === 'string' ? parseInt(studentId, 10) : studentId;
         requestBody = { student_id: studentIdNum };
       }
-      
+
       // Log the request for debugging
       console.log('Adding to favoritesss:', {
         coachingId,
@@ -275,11 +281,11 @@ export const addToFavorite = createAsyncThunk(
       console.error('Error adding to favorites:', error);
       console.error('Error response:', error.response?.data.error?.child);
       console.error('Error status:', error.response?.status);
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.detail || 
-                          error.response?.data?.error ||
-                          error.message || 
-                          'Failed to add to favorites';
+      const errorMessage = error.response?.data?.message ||
+        error.response?.data?.detail ||
+        error.response?.data?.error ||
+        error.message ||
+        'Failed to add to favorites';
       return rejectWithValue(errorMessage);
     }
   }
@@ -304,7 +310,7 @@ export const removeFromFavorite = createAsyncThunk(
 
       // Prepare request data - only send student_id if user has children
       let requestData: { student_id?: number } | undefined;
-      
+
       if (hasChildren && selectedChildId) {
         // User has children, use the currently selected student_id from navbar
         const studentIdNum = typeof selectedChildId === 'string' ? parseInt(selectedChildId, 10) : selectedChildId;
@@ -317,7 +323,7 @@ export const removeFromFavorite = createAsyncThunk(
         const studentIdNum = typeof studentId === 'string' ? parseInt(studentId, 10) : studentId;
         requestData = { student_id: studentIdNum };
       }
-      
+
       // Log the request for debugging
       console.log('Removing from favorites:', {
         coachingId,
@@ -328,11 +334,11 @@ export const removeFromFavorite = createAsyncThunk(
       });
 
       // Make DELETE request with or without data
-      const response = requestData 
+      const response = requestData
         ? await api.delete(
-            `/coachings/${coachingId}/remove_favorite/`,
-            { data: requestData }
-          )
+          `/coachings/${coachingId}/remove_favorite/`,
+          { data: requestData }
+        )
         : await api.delete(`/coachings/${coachingId}/remove_favorite/`);
 
       console.log('Remove from favorite success:', response.data);
@@ -341,11 +347,11 @@ export const removeFromFavorite = createAsyncThunk(
       console.error('Error removing from favorites:', error);
       console.error('Error response:', error.response?.data);
       console.error('Error status:', error.response?.status);
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.detail || 
-                          error.response?.data?.error ||
-                          error.message || 
-                          'Failed to remove from favorites';
+      const errorMessage = error.response?.data?.message ||
+        error.response?.data?.detail ||
+        error.response?.data?.error ||
+        error.message ||
+        'Failed to remove from favorites';
       return rejectWithValue(errorMessage);
     }
   }
@@ -360,7 +366,7 @@ export const fetchCoachingCenters = createAsyncThunk(
       const state = getState() as any;
       const isAuthenticated = state.auth?.isAuthenticated;
       const accessToken = state.auth?.accessToken;
-      
+
       if (!isAuthenticated || !accessToken) {
         return {
           data: getTestData(),
@@ -370,13 +376,17 @@ export const fetchCoachingCenters = createAsyncThunk(
           page: 1
         };
       }
-        
+
       // Map parameters to match the API format from the curl command
       const apiParams: any = {
-        radius: params.radius || 2000,
         page_size: 20, // Reduced page size for proper pagination
         page: 1,        // Start from first page
       };
+
+      // Add radius if provided
+      if (params.radius) {
+        apiParams.radius = params.radius;
+      }
 
       // Add search parameter if provided
       if (params.search) {
@@ -434,15 +444,15 @@ export const fetchCoachingCenters = createAsyncThunk(
       } else if (userType === 'parent' && state.auth?.selectedChildId) {
         apiParams.child_id = String(state.auth.selectedChildId);
       }
-       
+
       const response = await api.get('/coachings/', { params: apiParams });
-      
+
       // Extract data and pagination info from response
       let allData: any[] = [];
       let nextUrl: string | null = null;
       let previousUrl: string | null = null;
       let totalCount = 0;
-      
+
       if (response.data) {
         // Handle paginated response structure
         if (response.data.data && Array.isArray(response.data.data)) {
@@ -463,11 +473,11 @@ export const fetchCoachingCenters = createAsyncThunk(
           allData = response.data.coaching_centers;
         }
       }
-            
+
       // Validate and transform the response data
       try {
         const transformedData = transformApiData(allData);
-        
+
         // Return data with pagination info
         return {
           data: transformedData,
@@ -477,7 +487,7 @@ export const fetchCoachingCenters = createAsyncThunk(
           page: 1
         };
       } catch (transformError) {
-         // Return test data if transformation fails
+        // Return test data if transformation fails
         return {
           data: getTestData(),
           next: null,
@@ -487,7 +497,7 @@ export const fetchCoachingCenters = createAsyncThunk(
         };
       }
     } catch (error: any) {
-      
+
       // Handle 401 Unauthorized error
       if (error.response?.status === 401) {
         // Don't clear tokens here - let the auth slice handle logout
@@ -500,7 +510,7 @@ export const fetchCoachingCenters = createAsyncThunk(
           page: 1
         };
       }
-      
+
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch coaching centers');
     }
   }
@@ -515,18 +525,18 @@ export const loadMoreCoachingCenters = createAsyncThunk(
       const coachingState = state.coaching as CoachingState;
       const isAuthenticated = state.auth?.isAuthenticated;
       const accessToken = state.auth?.accessToken;
-      
+
       if (!isAuthenticated || !accessToken) {
         return rejectWithValue('User not authenticated');
       }
-      
+
       if (!coachingState.next) {
         return rejectWithValue('No more pages to load');
       }
-      
+
       // Handle both full URLs and relative paths
       let nextUrlPath = coachingState.next;
-      
+
       // If it's a full URL, extract just the path
       if (nextUrlPath.startsWith('http://') || nextUrlPath.startsWith('https://')) {
         try {
@@ -541,28 +551,28 @@ export const loadMoreCoachingCenters = createAsyncThunk(
           }
         }
       }
-      
+
       // Remove /api prefix if present (since axios baseURL already includes /api)
       if (nextUrlPath.startsWith('/api/')) {
         nextUrlPath = nextUrlPath.substring(4); // Remove '/api'
       }
-      
+
       // Ensure it starts with /
       if (!nextUrlPath.startsWith('/')) {
         nextUrlPath = '/' + nextUrlPath;
       }
-      
+
       console.log('Loading more from URL:', nextUrlPath);
-      
+
       // Use the next URL (now guaranteed to be relative to baseURL)
       const response = await api.get(nextUrlPath);
-      
+
       // Extract data and pagination info from response
       let allData: any[] = [];
       let nextUrl: string | null = null;
       let previousUrl: string | null = null;
       let totalCount = 0;
-      
+
       if (response.data) {
         if (response.data.data && Array.isArray(response.data.data)) {
           allData = response.data.data;
@@ -578,9 +588,9 @@ export const loadMoreCoachingCenters = createAsyncThunk(
           allData = response.data;
         }
       }
-      
+
       const transformedData = transformApiData(allData);
-      
+
       return {
         data: transformedData,
         next: nextUrl,
@@ -597,6 +607,20 @@ export const loadMoreCoachingCenters = createAsyncThunk(
   }
 );
 
+// Async thunk for fetching teacher profile
+export const fetchTeacherProfile = createAsyncThunk(
+  'coaching/fetchTeacherProfile',
+  async (teacherId: number, { rejectWithValue }) => {
+    try {
+      const response = await api.get(`/coachings/teachers/${teacherId}/`);
+      return response.data.data || response.data;
+    } catch (error: any) {
+      console.error('Error fetching teacher profile:', error);
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch teacher profile');
+    }
+  }
+);
+
 // Async thunk for fetching detailed coaching center info
 export const fetchCoachingCenterDetails = createAsyncThunk(
   'coaching/fetchCoachingCenterDetails',
@@ -606,33 +630,33 @@ export const fetchCoachingCenterDetails = createAsyncThunk(
       const state = getState() as any;
       const isAuthenticated = state.auth?.isAuthenticated;
       const accessToken = state.auth?.accessToken;
-      
+
       if (!isAuthenticated || !accessToken) {
         return rejectWithValue('User not authenticated');
       }
-      
+
       let url = `/coachings/${coachingId}/detailed_info/`;
-      
+
       // Add child_id if parent user has selected a child
       const userType = state.auth?.user?.user_type || state.auth?.profile?.user_type || state.auth?.profileStatus?.userType;
       if (userType === 'parent' && state.auth?.selectedChildId) {
         url += `?child_id=${state.auth.selectedChildId}`;
       }
-      
+
       const response = await api.get(url);
-      
+
       // Return the raw API response data structure
       const detailedData = response.data.data || response.data;
-      
+
       return detailedData;
     } catch (error: any) {
       console.error('Error fetching coaching center details:', error);
-      
+
       // Handle 401 Unauthorized error
       if (error.response?.status === 401) {
         return rejectWithValue('Authentication required');
       }
-      
+
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch coaching center details');
     }
   }
@@ -647,23 +671,27 @@ export const filterCoachingCenters = createAsyncThunk(
       const state = getState() as any;
       const isAuthenticated = state.auth?.isAuthenticated;
       const accessToken = state.auth?.accessToken;
-      
-      
-      
+
+
+
       if (!isAuthenticated || !accessToken) {
-        
+
         return getTestData();
       }
-      
+
       const coordinates = state.location.coordinates;
-      
-      
+
+
       // Map parameters to match the API format from the curl command
       const apiParams: any = {
-        radius: filterParams.radius || 2000,
         page_size: 200, // Increased page size to get more results per request
         page: 1,
       };
+
+      // Add radius if provided
+      if (filterParams.radius) {
+        apiParams.radius = filterParams.radius;
+      }
 
       // Add all filter parameters
       if (filterParams.search) apiParams.search = filterParams.search;
@@ -687,49 +715,49 @@ export const filterCoachingCenters = createAsyncThunk(
         apiParams.latitude = coordinates.latitude;
         apiParams.longitude = coordinates.longitude;
       }
-      
+
       const response = await api.get('/coachings/', { params: apiParams });
-      
+
       // Handle different possible API response structures
       let dataToTransform: any[] = [];
-      
+
       if (response.data) {
         if (Array.isArray(response.data)) {
           dataToTransform = response.data;
-          
+
         } else if (response.data.data && Array.isArray(response.data.data)) {
           dataToTransform = response.data.data;
-          
+
         } else if (response.data.results && Array.isArray(response.data.results)) {
           dataToTransform = response.data.results;
-          
+
         } else if (response.data.coaching_centers && Array.isArray(response.data.coaching_centers)) {
           dataToTransform = response.data.coaching_centers;
-          
+
         } else {
-          
+
         }
       } else {
-        
+
       }
-      
+
       // Validate and transform the response data
       try {
         const transformedData = transformApiData(dataToTransform);
-        
+
         if (transformedData.length === 0 && dataToTransform.length > 0) {
-          
+
           return getTestData();
         }
-        
+
         if (transformedData.length === 0) {
-          
+
           return getTestData();
         }
-        
+
         return transformedData;
       } catch (transformError) {
-        
+
         return getTestData();
       }
     } catch (error: any) {
@@ -739,12 +767,12 @@ export const filterCoachingCenters = createAsyncThunk(
         statusText: error.response?.statusText,
         data: error.response?.data
       });
-      
+
       if (error.response?.status === 401) {
-        
+
         return getTestData();
       }
-      
+
       return rejectWithValue(error.response?.data?.message || 'Filter failed');
     }
   }
@@ -759,21 +787,20 @@ export const searchCoachingCenters = createAsyncThunk(
       const state = getState() as any;
       const isAuthenticated = state.auth?.isAuthenticated;
       const accessToken = state.auth?.accessToken;
-      
-      
-      
+
+
+
       if (!isAuthenticated || !accessToken) {
-        
+
         return getTestData();
       }
-      
+
       const coordinates = state.location.coordinates;
-      
-      
+
+
       // Map parameters to match the API format from the curl command
       const apiParams: any = {
         search: searchTerm,
-        radius: 2000,
         page_size: 200, // Increased page size to get more results per request
         page: 1,        // Start from first page
       };
@@ -789,59 +816,59 @@ export const searchCoachingCenters = createAsyncThunk(
       if (userType === 'parent' && state.auth?.selectedChildId) {
         apiParams.child_id = String(state.auth.selectedChildId);
       }
-      
-      
-      
+
+
+
       const response = await api.get('/coachings/', { params: apiParams });
-      
+
       // Handle different possible API response structures
       let dataToTransform: any[] = [];
-      
+
       if (response.data) {
         if (Array.isArray(response.data)) {
           // Direct array response
           dataToTransform = response.data;
-          
+
         } else if (response.data.data && Array.isArray(response.data.data)) {
           // Nested data response (primary format)
           dataToTransform = response.data.data;
-          
+
         } else if (response.data.results && Array.isArray(response.data.results)) {
           // Paginated response with results array
           dataToTransform = response.data.results;
-          
+
         } else if (response.data.coaching_centers && Array.isArray(response.data.coaching_centers)) {
           // Specific key response
           dataToTransform = response.data.coaching_centers;
-          
+
         } else {
           dataToTransform = [];
-          
+
         }
       } else {
         dataToTransform = [];
-        
+
       }
-      
+
       // Validate and transform the response data
       try {
         const transformedData = transformApiData(dataToTransform);
-        
+
         // If transformation returns empty array and we have data, use test data
         if (transformedData.length === 0 && dataToTransform.length > 0) {
-          
+
           return getTestData();
         }
-        
+
         // Final safety check - if we still have no data, use test data
         if (transformedData.length === 0) {
-          
+
           return getTestData();
         }
-        
+
         return transformedData;
       } catch (transformError) {
-        
+
         // Return test data if transformation fails
         return getTestData();
       }
@@ -852,15 +879,15 @@ export const searchCoachingCenters = createAsyncThunk(
         statusText: error.response?.statusText,
         data: error.response?.data
       });
-      
+
       // Handle 401 Unauthorized error
       if (error.response?.status === 401) {
-        
+
         // Don't clear tokens here - let the auth slice handle logout
         // Just return test data to prevent the error from bubbling up
         return getTestData();
       }
-      
+
       return rejectWithValue(error.response?.data?.message || 'Search failed');
     }
   }
@@ -875,7 +902,7 @@ const coachingSlice = createSlice({
       // Filter centers based on active tab
       if (action.payload === 'private') {
         // Show starred centers
-        state.filteredCenters = state.coachingCenters.filter(center => 
+        state.filteredCenters = state.coachingCenters.filter(center =>
           state.starredCenters.includes(center.id)
         );
         return;
@@ -909,7 +936,7 @@ const coachingSlice = createSlice({
     toggleStarred: (state, action: PayloadAction<string>) => {
       const centerId = String(action.payload);
       const isStarred = state.starredCenters.some(id => String(id) === centerId);
-      
+
       if (isStarred) {
         state.starredCenters = state.starredCenters.filter(id => String(id) !== centerId);
       } else {
@@ -917,7 +944,7 @@ const coachingSlice = createSlice({
       }
       // Update filtered centers if on starred tab (now handled by private tab)
       if (state.activeTab === 'private') {
-        state.filteredCenters = state.coachingCenters.filter(center => 
+        state.filteredCenters = state.coachingCenters.filter(center =>
           state.starredCenters.some(id => String(id) === String(center.id))
         );
       }
@@ -972,7 +999,7 @@ const coachingSlice = createSlice({
 
       if (params.subject) {
         filtered = filtered.filter(center =>
-          center.subjects?.some(subject => 
+          center.subjects?.some(subject =>
             subject.toLowerCase().includes(params.subject!.toLowerCase())
           )
         );
@@ -1015,7 +1042,7 @@ const coachingSlice = createSlice({
       })
       .addCase(fetchCoachingCenters.fulfilled, (state, action) => {
         state.isLoading = false;
-        
+
         // Handle new pagination structure
         if (action.payload && typeof action.payload === 'object' && 'data' in action.payload) {
           const payload = action.payload as { data: CoachingCenter[]; next: string | null; previous: string | null; count: number; page: number };
@@ -1053,18 +1080,18 @@ const coachingSlice = createSlice({
       })
       .addCase(loadMoreCoachingCenters.fulfilled, (state, action) => {
         state.loadingMore = false;
-        
+
         if (action.payload && typeof action.payload === 'object' && 'data' in action.payload) {
           const payload = action.payload as { data: CoachingCenter[]; next: string | null; previous: string | null; count: number; page: number };
-          
+
           // Get existing IDs to avoid duplicates
           const existingIds = new Set(state.coachingCenters.map(center => center.id));
           const existingFilteredIds = new Set(state.filteredCenters.map(center => center.id));
-          
+
           // Filter out duplicates from new data
           const newCenters = payload.data.filter(center => !existingIds.has(center.id));
           const newFilteredCenters = payload.data.filter(center => !existingFilteredIds.has(center.id));
-          
+
           // Append new data to existing centers (without duplicates)
           state.coachingCenters = [...state.coachingCenters, ...newCenters];
           state.filteredCenters = [...state.filteredCenters, ...newFilteredCenters];
@@ -1084,9 +1111,9 @@ const coachingSlice = createSlice({
         state.isLoading = true;
         state.error = null;
       })
-                   .addCase(searchCoachingCenters.fulfilled, (state, action) => {
+      .addCase(searchCoachingCenters.fulfilled, (state, action) => {
         state.isLoading = false;
-        
+
         // Data is already transformed in the thunk
         const centers = Array.isArray(action.payload) ? action.payload : [];
         state.filteredCenters = centers;
@@ -1102,7 +1129,7 @@ const coachingSlice = createSlice({
       })
       .addCase(filterCoachingCenters.fulfilled, (state, action) => {
         state.isLoading = false;
-        
+
         // Data is already transformed in the thunk
         const centers = Array.isArray(action.payload) ? action.payload : [];
         state.filteredCenters = centers;
@@ -1137,7 +1164,7 @@ const coachingSlice = createSlice({
         const { coachingId } = action.payload;
         // Ensure coachingId is a string for consistent comparison
         const coachingIdStr = String(coachingId);
-        
+
         // Update the favorite status (check and add as string)
         if (!state.starredCenters.some(id => String(id) === coachingIdStr)) {
           state.starredCenters.push(coachingIdStr);
@@ -1170,10 +1197,10 @@ const coachingSlice = createSlice({
         const { coachingId } = action.payload;
         // Ensure coachingId is a string for consistent comparison
         const coachingIdStr = String(coachingId);
-        
+
         // Remove from starred centers (ensure both are strings for comparison)
         state.starredCenters = state.starredCenters.filter(id => String(id) !== coachingIdStr);
-        
+
         // Update is_favorited in the center object
         const center = state.coachingCenters.find(c => String(c.id) === coachingIdStr);
         if (center) {
@@ -1194,6 +1221,19 @@ const coachingSlice = createSlice({
       .addCase(removeFromFavorite.rejected, (state, action) => {
         // Handle error - could show a toast or alert
         console.error('Failed to remove from favorites:', action.payload);
+      })
+      .addCase(fetchTeacherProfile.pending, (state) => {
+        state.isTeacherLoading = true;
+        state.teacherError = null;
+      })
+      .addCase(fetchTeacherProfile.fulfilled, (state, action) => {
+        state.isTeacherLoading = false;
+        state.teacherProfile = action.payload;
+        state.teacherError = null;
+      })
+      .addCase(fetchTeacherProfile.rejected, (state, action) => {
+        state.isTeacherLoading = false;
+        state.teacherError = action.payload as string;
       });
   },
 });

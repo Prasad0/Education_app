@@ -55,19 +55,19 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
   const [showAddReview, setShowAddReview] = useState(false);
   const [showBatchesDrawer, setShowBatchesDrawer] = useState(false);
   const [showFacultyDrawer, setShowFacultyDrawer] = useState(false);
-  
+
   // Use real data from API - handle nested structure
   const coachingData = detailedInfo?.coaching || detailedInfo;
-  
+
   // Sync isStarred with coaching data and Redux state
   const isStarred = coachingData?.is_favorited || starredCenters.includes(coachingId);
 
   useEffect(() => {
     if (coachingId) {
-      
+
       dispatch(fetchCoachingCenterDetails(coachingId));
     }
-    
+
     return () => {
       dispatch(clearDetailedInfo());
     };
@@ -122,27 +122,27 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
   const handleToggleStar = async () => {
     try {
       const isCurrentlyFavorited = isStarred;
-      
+
       // Update UI immediately for better UX
       dispatch(toggleStarred(coachingId));
-      
+
       // Get student_id based on user type
       const currentProfile = profile || user;
       const userType = currentProfile?.user_type || currentProfile?.userType;
-      
+
       let studentId: number;
-      
+
       if (userType === 'parent' && selectedChildId) {
         studentId = selectedChildId;
       } else {
         studentId = currentProfile?.id || currentProfile?.user_id || parseInt(currentProfile?.user?.id || '0', 10);
       }
-      
+
       if (!studentId || studentId === 0) {
         console.warn('No valid student ID found');
         return;
       }
-      
+
       // Call the appropriate API based on current state
       let result;
       if (isCurrentlyFavorited) {
@@ -203,7 +203,7 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
       'medical': 'medical',
       'laboratory': 'flask',
     };
-    
+
     const iconName = iconMap[amenityName.toLowerCase()] || 'checkmark-circle';
     return <Ionicons name={iconName as any} size={20} color="#3b82f6" />;
   };
@@ -275,7 +275,7 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
-        
+
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle} numberOfLines={1}>
             {coachingData?.branch_name || coachingData?.name}
@@ -288,14 +288,14 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
           </View>
         </View>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.starButton}
           onPress={handleToggleStar}
         >
-          <Ionicons 
-            name={isStarred ? 'star' : 'star-outline'} 
-            size={24} 
-            color={isStarred ? '#fbbf24' : '#6b7280'} 
+          <Ionicons
+            name={isStarred ? 'star' : 'star-outline'}
+            size={24}
+            color={isStarred ? '#fbbf24' : '#6b7280'}
           />
         </TouchableOpacity>
       </View>
@@ -330,7 +330,7 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
                   onPress={() => setActiveGalleryIndex(index)}
                 >
                   <Image
-                    source={{ 
+                    source={{
                       uri: imageObj.image,
                       headers: {
                         'Accept': 'image/*',
@@ -339,10 +339,10 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
                     style={styles.galleryImage}
                     resizeMode="cover"
                     onError={(error) => {
-                      
+
                     }}
                     onLoad={() => {
-                      
+
                     }}
                     defaultSource={require('../../../assets/icon.png')}
                   />
@@ -486,7 +486,7 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
                       <Text style={styles.seatsText}>{batch.available_seats || 0} seats left</Text>
                     </View>
                   </View>
-                  
+
                   <View style={styles.batchInfo}>
                     <View style={styles.batchInfoItem}>
                       <Ionicons name="time" size={16} color="#6b7280" />
@@ -534,8 +534,8 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
             </View>
             <View style={styles.teachersList}>
               {teachers.slice(0, 2).map((teacher: any, index: number) => (
-                <TouchableOpacity 
-                  key={index} 
+                <TouchableOpacity
+                  key={index}
                   style={styles.teacherCard}
                   onPress={() => onViewTeacherProfile?.(teacher.id)}
                 >
@@ -546,12 +546,12 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
                   </View>
                   <View style={styles.teacherInfo}>
                     <Text style={styles.teacherName}>{teacher.name || 'Teacher'}</Text>
-                    <Text style={styles.teacherSubject}>{teacher.subject || 'Subject not specified'} • {teacher.experience || 'Experience not specified'}</Text>
+                    <Text style={styles.teacherSubject}>{teacher.subjects_display || 'Subject not specified'} • {teacher.experience_years ? `${teacher.experience_years} yrs exp.` : 'Experience not specified'}</Text>
                     <View style={styles.teacherRating}>
                       <View style={styles.teacherStars}>
-                        {renderStars(teacher.rating || 4.5)}
+                        {renderStars(teacher.rating || teacher.average_rating || 4.5)}
                       </View>
-                      <Text style={styles.teacherRatingText}>{teacher.rating || 4.5}</Text>
+                      <Text style={styles.teacherRatingText}>{teacher.rating || teacher.average_rating || 4.5}</Text>
                     </View>
                   </View>
                   <Ionicons name="chevron-forward" size={20} color="#6b7280" />
@@ -567,8 +567,8 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Past Results</Text>
             </View>
-            <ScrollView 
-              horizontal 
+            <ScrollView
+              horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.resultsScroll}
             >
@@ -606,25 +606,27 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
         )}
 
         {/* Reviews Section */}
-        {reviews.length > 0 && (
-          <View style={styles.reviewsSection}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Reviews ({reviews.length})</Text>
-              <View style={styles.reviewActions}>
-                <TouchableOpacity 
-                  style={styles.addReviewButton}
-                  onPress={() => setShowAddReview(true)}
-                >
-                  <Text style={styles.addReviewText}>Add Review</Text>
-                </TouchableOpacity>
+        <View style={styles.reviewsSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Reviews ({reviews.length})</Text>
+            <View style={styles.reviewActions}>
+              <TouchableOpacity
+                style={styles.addReviewButton}
+                onPress={() => setShowAddReview(true)}
+              >
+                <Text style={styles.addReviewText}>Add Review</Text>
+              </TouchableOpacity>
+              {reviews.length > 0 && (
                 <TouchableOpacity onPress={() => setShowAllReviews(true)}>
                   <Text style={styles.viewAllText}>View All</Text>
                 </TouchableOpacity>
-              </View>
+              )}
             </View>
-            
-            <View style={styles.reviewsList}>
-              {reviews.slice(0, 2).map((review: any, index: number) => (
+          </View>
+
+          <View style={styles.reviewsList}>
+            {reviews.length > 0 ? (
+              reviews.slice(0, 2).map((review: any, index: number) => (
                 <View key={review.id} style={styles.reviewCard}>
                   <View style={styles.reviewHeader}>
                     <View style={styles.reviewerInfo}>
@@ -639,10 +641,15 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
                   </View>
                   <Text style={styles.reviewContent}>{review.content}</Text>
                 </View>
-              ))}
-            </View>
+              ))
+            ) : (
+              <View style={styles.emptyReviews}>
+                <Ionicons name="chatbubble-outline" size={32} color="#9ca3af" />
+                <Text style={styles.emptyReviewsText}>No reviews yet. Be the first to share your experience!</Text>
+              </View>
+            )}
           </View>
-        )}
+        </View>
 
         {/* Bottom Spacing */}
         <View style={styles.bottomSpacing} />
@@ -657,14 +664,14 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
           <Ionicons name="call" size={20} color="#ffffff" />
           <Text style={styles.callNowText}>Call Now</Text>
         </TouchableOpacity>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.messageButton}
           onPress={() => {
             console.log('💬 [CoachingDetailScreen] Chat button pressed');
             console.log('💬 [CoachingDetailScreen] coachingData:', coachingData);
             console.log('💬 [CoachingDetailScreen] coachingId:', coachingId);
             console.log('💬 [CoachingDetailScreen] onStartChat:', !!onStartChat);
-            
+
             if (coachingData && onStartChat) {
               const coachingName = coachingData.branch_name || coachingData.name || 'Coaching Center';
               console.log('💬 [CoachingDetailScreen] Calling onStartChat with:', coachingId, coachingName);
@@ -728,7 +735,7 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
                       <Text style={styles.seatsText}>{batch.available_seats || 0} seats left</Text>
                     </View>
                   </View>
-                  
+
                   <View style={styles.batchInfo}>
                     <View style={styles.batchInfoItem}>
                       <Ionicons name="time" size={16} color="#6b7280" />
@@ -787,8 +794,8 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
             {/* Faculty List */}
             <ScrollView style={styles.drawerContent} showsVerticalScrollIndicator={false}>
               {teachers.map((teacher: any, index: number) => (
-                <TouchableOpacity 
-                  key={index} 
+                <TouchableOpacity
+                  key={index}
                   style={styles.drawerTeacherCard}
                   onPress={() => {
                     setShowFacultyDrawer(false);
@@ -1492,6 +1499,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 8,
+  },
+  emptyReviews: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderStyle: 'dashed',
+    marginTop: 8,
+  },
+  emptyReviewsText: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 20,
   },
   footer: {
     position: 'absolute',

@@ -18,15 +18,15 @@ interface CoachingListingScreenProps {
 
 const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack, onBookDemo }) => {
   const dispatch = useAppDispatch();
-  const { 
-    filteredCenters, 
-    isLoading, 
-    error, 
-    activeTab, 
+  const {
+    filteredCenters,
+    isLoading,
+    error,
+    activeTab,
     starredCenters,
-    searchParams 
+    searchParams
   } = useAppSelector(state => state.coaching);
-  
+
   const { accessToken, profile, user, selectedChildId } = useAppSelector(state => state.auth);
   const { selectedLocation, selectedLocationData, coordinates } = useAppSelector(state => state.location);
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
@@ -47,32 +47,32 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack, o
     console.log('📍 [CoachingListingScreen] LOCATION CHANGED - useEffect triggered');
     console.log('📍 [CoachingListingScreen] New selectedLocation:', selectedLocation);
     console.log('📍 [CoachingListingScreen] New coordinates:', coordinates);
-    
+
     // Fetch coaching centers using selected location
     if (selectedLocation) {
       // Extract area name from selected location (e.g., "Borivali, Maharashtra, India" -> "Borivali")
       const areaName = selectedLocation.split(',')[0].trim();
-      
+
       console.log('📍 [CoachingListingScreen] Using selected location:', selectedLocation);
       console.log('🔍 [CoachingListingScreen] Area name for search:', areaName);
       console.log('📍 [CoachingListingScreen] Coordinates:', coordinates);
-      
+
       // Use the area name for search and include coordinates directly
-      const params = { 
+      const params = {
         search: areaName,
         latitude: coordinates?.latitude,
         longitude: coordinates?.longitude
       };
-      
+
       console.log('📋 [CoachingListingScreen] Dispatching fetchCoachingCenters with params:', JSON.stringify(params, null, 2));
       dispatch(fetchCoachingCenters(params));
     } else {
       // Fallback to default location if no location selected
-      const params = { 
+      const params = {
         location: 'Koramangala',
         city: 'Bangalore'
       };
-      
+
       console.log('📋 [CoachingListingScreen] No location selected, using default params:', JSON.stringify(params, null, 2));
       dispatch(fetchCoachingCenters(params));
     }
@@ -104,7 +104,7 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack, o
     if (tab === 'profile') {
       return;
     }
-    
+
     // This will be handled by the parent component
   };
 
@@ -129,7 +129,7 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack, o
       // Only fetch if user is authenticated
       if (selectedLocation && accessToken) {
         const areaName = selectedLocation.split(',')[0].trim();
-        const params = { 
+        const params = {
           search: areaName,
           latitude: coordinates?.latitude,
           longitude: coordinates?.longitude
@@ -154,8 +154,8 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack, o
       `Would you like to call ${center.name}?`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Call', 
+        {
+          text: 'Call',
           onPress: () => {
             const phoneNumber = center.phone?.replace(/\s+/g, '') || '';
             if (phoneNumber) {
@@ -170,26 +170,26 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack, o
   const handleToggleStar = async (centerId: string) => {
     try {
       const isCurrentlyFavorited = starredCenters.includes(centerId);
-      
+
       // Update UI immediately for better UX
       dispatch(toggleStarred(centerId));
-      
+
       const currentProfile = profile || user;
       const userType = currentProfile?.user_type || currentProfile?.userType;
-      
+
       let studentId: number;
-      
+
       if (userType === 'parent' && selectedChildId) {
         studentId = selectedChildId;
       } else {
         studentId = currentProfile?.id || currentProfile?.user_id || parseInt(currentProfile?.user?.id || '0', 10);
       }
-      
+
       if (!studentId || studentId === 0) {
         console.warn('No valid student ID found');
         return;
       }
-      
+
       let result;
       if (isCurrentlyFavorited) {
         result = await dispatch(removeFromFavorite({ coachingId: centerId, studentId }));
@@ -219,9 +219,9 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack, o
   const clearFilters = () => {
     dispatch(setSearchParams({}));
     dispatch(filterCenters({}));
-    // Clear filters and fetch with only radius - only if authenticated
+    // Clear filters and fetch - only if authenticated
     if (accessToken) {
-      dispatch(fetchCoachingCenters({ radius: 2000 }));
+      dispatch(fetchCoachingCenters({}));
     }
   };
 
@@ -239,60 +239,60 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack, o
         selectedLocationData={selectedLocationData}
       />
 
-             {/* Search Bar */}
-       <View style={styles.searchBar}>
-         <View style={styles.searchInputContainer}>
-           <Ionicons name="search" size={20} color="#9ca3af" style={styles.searchIcon} />
-           <TextInput
-             style={styles.searchInput}
-             placeholder="Search coaching centers..."
-             value={searchText}
-             onChangeText={handleSearchChange}
-             onSubmitEditing={handleSearchSubmit}
-             returnKeyType="search"
-           />
-           {searchText.length > 0 && (
-             <TouchableOpacity
-               style={styles.clearSearchButton}
-               onPress={() => handleSearchChange('')}
-             >
-               <Ionicons name="close-circle" size={20} color="#9ca3af" />
-             </TouchableOpacity>
-           )}
-         </View>
-         <TouchableOpacity
-           style={styles.searchButton}
-           onPress={handleSearchSubmit}
-           disabled={!searchText.trim()}
-         >
-           <Text style={[styles.searchButtonText, !searchText.trim() && styles.searchButtonTextDisabled]}>
-             Search
-           </Text>
-         </TouchableOpacity>
-       </View>
+      {/* Search Bar */}
+      <View style={styles.searchBar}>
+        <View style={styles.searchInputContainer}>
+          <Ionicons name="search" size={20} color="#9ca3af" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search coaching centers..."
+            value={searchText}
+            onChangeText={handleSearchChange}
+            onSubmitEditing={handleSearchSubmit}
+            returnKeyType="search"
+          />
+          {searchText.length > 0 && (
+            <TouchableOpacity
+              style={styles.clearSearchButton}
+              onPress={() => handleSearchChange('')}
+            >
+              <Ionicons name="close-circle" size={20} color="#9ca3af" />
+            </TouchableOpacity>
+          )}
+        </View>
+        <TouchableOpacity
+          style={styles.searchButton}
+          onPress={handleSearchSubmit}
+          disabled={!searchText.trim()}
+        >
+          <Text style={[styles.searchButtonText, !searchText.trim() && styles.searchButtonTextDisabled]}>
+            Search
+          </Text>
+        </TouchableOpacity>
+      </View>
 
-       {/* Filter Bar */}
-       <View style={styles.filterBar}>
-         <TouchableOpacity
-           style={styles.filterButton}
-           onPress={() => setShowFilters(!showFilters)}
-         >
-           <Ionicons name="filter" size={20} color="#6b7280" />
-           <Text style={styles.filterButtonText}>Filters</Text>
-           <Ionicons 
-             name={showFilters ? "chevron-up" : "chevron-down"} 
-             size={16} 
-             color="#6b7280" 
-           />
-         </TouchableOpacity>
-         
-         <TouchableOpacity
-           style={styles.clearFiltersButton}
-           onPress={clearFilters}
-         >
-           <Text style={styles.clearFiltersText}>Clear</Text>
-         </TouchableOpacity>
-       </View>
+      {/* Filter Bar */}
+      <View style={styles.filterBar}>
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={() => setShowFilters(!showFilters)}
+        >
+          <Ionicons name="filter" size={20} color="#6b7280" />
+          <Text style={styles.filterButtonText}>Filters</Text>
+          <Ionicons
+            name={showFilters ? "chevron-up" : "chevron-down"}
+            size={16}
+            color="#6b7280"
+          />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.clearFiltersButton}
+          onPress={clearFilters}
+        >
+          <Text style={styles.clearFiltersText}>Clear</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Filters Panel */}
       {showFilters && (
@@ -378,7 +378,7 @@ const CoachingListingScreen: React.FC<CoachingListingScreenProps> = ({ onBack, o
       )}
 
       {/* Content - With top padding for fixed header */}
-      <ScrollView 
+      <ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.contentContainer}

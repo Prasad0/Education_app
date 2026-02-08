@@ -19,6 +19,7 @@ import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { updateProfile, fetchUserProfile } from '../store/slices/authSlice';
+import { useChoices } from '../hooks/useChoices';
 import Toast from 'react-native-toast-message';
 
 // Relationship choices
@@ -35,49 +36,6 @@ const relationships = [
   { label: 'Other', value: 'other' }
 ];
 
-// Board choices
-const boards = [
-  { label: 'CBSE', value: 'cbse' },
-  { label: 'ICSE', value: 'icse' },
-  { label: 'State Board', value: 'state_board' },
-  { label: 'International Board', value: 'international' }
-];
-
-// Standard/Class options
-const standards = [
-  { label: '5th', value: '5th' },
-  { label: '6th', value: '6th' },
-  { label: '7th', value: '7th' },
-  { label: '8th', value: '8th' },
-  { label: '9th', value: '9th' },
-  { label: '10th', value: '10th' },
-  { label: '11th', value: '11th' },
-  { label: '12th', value: '12th' },
-];
-
-// Target exam choices
-const targetExams = [
-  { label: 'JEE Main', value: 'jee_main' },
-  { label: 'JEE Advanced', value: 'jee_advanced' },
-  { label: 'NEET', value: 'neet' },
-  { label: 'BITSAT', value: 'bitsat' },
-  { label: 'COMEDK', value: 'comedk' },
-  { label: 'MHT CET', value: 'mht_cet' },
-  { label: 'WBJEE', value: 'wbjee' },
-  { label: 'KCET', value: 'kcet' },
-  { label: 'EAMCET', value: 'eamcet' },
-  { label: 'KEAM', value: 'keam' },
-  { label: 'GUJCET', value: 'gujcet' },
-  { label: 'CA Foundation', value: 'ca_foundation' },
-  { label: 'CS Foundation', value: 'cs_foundation' },
-  { label: 'CLAT', value: 'clat' },
-  { label: 'NDA', value: 'nda' },
-  { label: 'KVPY', value: 'kvpy' },
-  { label: 'Olympiads', value: 'olympiads' },
-  { label: 'Board Exam Preparation', value: 'boards_preparation' },
-  { label: 'Other', value: 'other' }
-];
-
 const subjects = [
   'Physics', 'Chemistry', 'Mathematics', 'Biology', 'English', 'Hindi', 'Social Studies', 'Science'
 ];
@@ -90,6 +48,11 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack }) => {
   const dispatch = useAppDispatch();
   const { profile, user, isLoading } = useAppSelector(state => state.auth);
   const actualProfile = user || profile;
+  const {
+    standardsForPicker,
+    boardsForPicker,
+    targetExamsForPicker,
+  } = useChoices();
 
   const [formData, setFormData] = useState({
     full_name: '',
@@ -669,7 +632,7 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack }) => {
                         style={styles.picker}
                       >
                         <Picker.Item label="Select standard" value="" />
-                        {standards.map((std) => (
+                        {standardsForPicker.map((std) => (
                           <Picker.Item key={std.value} label={std.label} value={std.value} />
                         ))}
                       </Picker>
@@ -685,7 +648,7 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack }) => {
                         style={styles.picker}
                       >
                         <Picker.Item label="Select board" value="" />
-                        {boards.map((board) => (
+                        {boardsForPicker.map((board) => (
                           <Picker.Item key={board.value} label={board.label} value={board.value} />
                         ))}
                       </Picker>
@@ -718,7 +681,7 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack }) => {
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>Target Exams</Text>
                     <View style={styles.chipContainer}>
-                      {targetExams.map((exam) => (
+                      {targetExamsForPicker.map((exam) => (
                         <TouchableOpacity
                           key={exam.value}
                           style={[

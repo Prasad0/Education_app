@@ -14,14 +14,14 @@ interface ExtendedAxiosRequestConfig extends InternalAxiosRequestConfig {
 // In production, use HTTPS URLs
 const ENV_CONFIG = {
   development: {
-    BASE_URL: 'https://learn.crusheducation.in', // Development server (port 3000)
-    API_BASE_URL: 'https://learn.crusheducation.in/api',
+    BASE_URL: 'http://192.168.0.104:8000/', // Development server (port 3000)
+    API_BASE_URL: 'http://192.168.0.104:8000/api',
     API_TIMEOUT: 10000,
     LOG_LEVEL: 'debug' as const,
   },
   production: {
-    BASE_URL: 'https://learn.crusheducation.in',
-    API_BASE_URL: 'https://learn.crusheducation.in/api',
+    BASE_URL: 'http://192.168.0.104:8000/',
+    API_BASE_URL: 'http://192.168.0.104:8000/api',
     API_TIMEOUT: 15000,
     LOG_LEVEL: 'error' as const,
   },
@@ -42,6 +42,7 @@ export const API_CONFIG = {
     SEND_OTP: '/user_auth/users/send_otp/',
     VERIFY_OTP: '/user_auth/users/verify_otp/',
     PROFILE_STATUS: '/user_auth/users/profile_status/',
+    CHOICES: '/user_auth/choices/',
     CREATE_PROFILE: '/user_auth/users/create_profile/',
     UPDATE_PROFILE: '/user_auth/users/update_profile/',
     ADD_CHILD: '/user_auth/users/add_child/',
@@ -198,7 +199,7 @@ api.interceptors.request.use(
 
       // Get authentication token
       let token = await AsyncStorage.getItem('accessToken');
-      
+
       if (!token) {
         const tokensData = await AsyncStorage.getItem('auth_tokens');
         if (tokensData) {
@@ -210,22 +211,22 @@ api.interceptors.request.use(
           }
         }
       }
-      
+
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
         if (isDevelopment) {
-          
+
         }
       }
 
       // Add request timestamp for debugging
       config.metadata = { startTime: new Date() };
-      
+
     } catch (error) {
       logError(error as AxiosError, 'Request Interceptor');
       // Don't fail the request, just log the error
     }
-    
+
     return config;
   },
   (error: AxiosError) => {
@@ -240,10 +241,10 @@ api.interceptors.response.use(
     // Log response in development
     if (isDevelopment) {
       const extendedConfig = response.config as ExtendedAxiosRequestConfig;
-      const duration = extendedConfig.metadata?.startTime 
+      const duration = extendedConfig.metadata?.startTime
         ? new Date().getTime() - extendedConfig.metadata.startTime.getTime()
         : 'unknown';
-      
+
       console.log(`📥 API Response: ${response.status} ${response.config.url}`, {
         status: response.status,
         statusText: response.statusText,
@@ -259,7 +260,7 @@ api.interceptors.response.use(
     if (error.response) {
       // Server responded with error status (4xx, 5xx)
       const { status, data } = error.response;
-      
+
       switch (status) {
         case 401:
           // Unauthorized - clear tokens and redirect to login
@@ -267,36 +268,36 @@ api.interceptors.response.use(
           await AsyncStorage.multiRemove(['accessToken', 'auth_tokens']);
           // You might want to trigger a navigation to login screen here
           break;
-          
+
         case 403:
           console.warn('🚫 Forbidden access');
           break;
-          
+
         case 404:
           console.warn('🔍 Resource not found');
           break;
-          
+
         case 429:
           console.warn('⏰ Rate limited, consider implementing retry logic');
           break;
-          
+
         case 500:
           console.error('💥 Internal server error');
           break;
-          
+
         default:
           console.warn(`⚠️ HTTP Error ${status}`);
       }
-      
+
       logError(error, `Response Error ${status}`);
-      
+
     } else if (error.request) {
       // Request was made but no response received (network error)
       logError(error, 'Network Error - No Response');
-      
+
       // Provide user-friendly error message
       error.message = 'Network error: Unable to connect to server. Please check your internet connection.';
-      
+
     } else {
       // Something else happened while setting up the request
       logError(error, 'Request Setup Error');
@@ -322,27 +323,27 @@ export const getUserFriendlyErrorMessage = (error: any): string => {
   if (isNetworkError(error)) {
     return 'Network error: Please check your internet connection and try again.';
   }
-  
+
   if (error.response?.status === 401) {
     return 'Session expired. Please log in again.';
   }
-  
+
   if (error.response?.status === 403) {
     return 'Access denied. You don\'t have permission to perform this action.';
   }
-  
+
   if (error.response?.status === 404) {
     return 'The requested resource was not found.';
   }
-  
+
   if (error.response?.status === 409) {
     return 'Conflict: This action cannot be completed due to a conflict with the current state.';
   }
-  
+
   if (error.response?.status >= 500) {
     return 'Server error: Please try again later.';
   }
-  
+
   return error.userMessage || 'An unexpected error occurred. Please try again.';
 };
 
@@ -351,7 +352,7 @@ export const getEnrollmentErrorMessage = (error: any): string => {
   if (isNetworkError(error)) {
     return 'Network error: Please check your internet connection and try again.';
   }
-  
+
   if (error.response?.status === 400) {
     const errorData = error.response.data;
     if (errorData?.detail || errorData?.message) {
@@ -362,23 +363,23 @@ export const getEnrollmentErrorMessage = (error: any): string => {
       return 'You may already be enrolled in this course or the enrollment request is invalid.';
     }
   }
-  
+
   if (error.response?.status === 401) {
     return 'Session expired. Please log in again.';
   }
-  
+
   if (error.response?.status === 403) {
     return 'Access denied. You don\'t have permission to enroll in this course.';
   }
-  
+
   if (error.response?.status === 404) {
     return 'Course not found.';
   }
-  
+
   if (error.response?.status === 409) {
     return 'You are already enrolled in this course!';
   }
-  
+
   if (error.response?.status === 500) {
     const errorData = error.response.data;
     if (errorData?.detail && (
@@ -391,7 +392,7 @@ export const getEnrollmentErrorMessage = (error: any): string => {
       return 'Server error occurred during enrollment. Please try again later.';
     }
   }
-  
+
   return 'An unexpected error occurred during enrollment. Please try again.';
 };
 

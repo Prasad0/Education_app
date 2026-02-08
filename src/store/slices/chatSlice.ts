@@ -7,7 +7,7 @@ export interface ChatMessage {
   conversation: number;
   sender?: number;
   sender_name?: string;
-  sender_type: 'student' | 'coaching_center' | 'tutor' | 'user';
+  sender_type: 'student' | 'coaching_center' | 'tutor' | 'user' | 'admin' | 'coaching';
   message?: string;
   text?: string; // API returns 'text' field
   content_type?: string;
@@ -97,20 +97,20 @@ export const fetchConversations = createAsyncThunk(
         resultsCount: data?.results?.length || 0,
         hasResults: !!data?.results,
       });
-      
+
       // Handle the response format: { success: true, results: [...] }
       const conversations = data?.results || (Array.isArray(data) ? data : []);
       console.log('📥 [Chat] Processed conversations:', conversations.length);
       console.log('📥 [Chat] First conversation sample:', conversations[0] ? JSON.stringify(conversations[0], null, 2) : 'No conversations');
-      
+
       return conversations;
     } catch (error: any) {
       console.error('❌ [Chat] Error fetching conversations:', error);
       console.error('❌ [Chat] Error response:', error.response?.data);
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.detail || 
-                          error.message || 
-                          'Failed to fetch conversations';
+      const errorMessage = error.response?.data?.message ||
+        error.response?.data?.detail ||
+        error.message ||
+        'Failed to fetch conversations';
       return rejectWithValue(errorMessage);
     }
   }
@@ -126,21 +126,35 @@ export const fetchConversationDetail = createAsyncThunk(
       const { data } = await api.get(`/chat/conversations/${conversationId}/`);
       console.log('📥 [Chat] Conversation detail response:', JSON.stringify(data, null, 2));
       console.log('📥 [Chat] Response structure:', {
-        id: data?.id,
-        hasCoaching: !!data?.coaching,
+        id: data?.conversation?.id || data?.id,
+        hasCoaching: !!(data?.conversation?.coaching || data?.coaching),
       });
-      return data;
+      return data?.conversation ?? data;
     } catch (error: any) {
       console.error('❌ [Chat] Error fetching conversation detail:', error);
       console.error('❌ [Chat] Error response:', error.response?.data);
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.detail || 
-                          error.message || 
-                          'Failed to fetch conversation';
+      const errorMessage = error.response?.data?.message ||
+        error.response?.data?.detail ||
+        error.message ||
+        'Failed to fetch conversation';
       return rejectWithValue(errorMessage);
     }
   }
 );
+
+// Map raw message to ChatMessage format
+const mapToChatMessage = (msg: any, conversationId: number): ChatMessage => ({
+  id: msg.id,
+  conversation: msg.conversation ?? conversationId,
+  sender_type: msg.sender_type || 'user',
+  text: msg.text || '',
+  message: msg.text || msg.message || '',
+  content_type: msg.content_type || 'text',
+  attachment: msg.attachment ?? null,
+  is_read: msg.is_read || false,
+  created_at: msg.created_at || '',
+  updated_at: msg.updated_at || msg.created_at || '',
+});
 
 // Fetch messages for a conversation
 export const fetchMessages = createAsyncThunk(
@@ -148,43 +162,28 @@ export const fetchMessages = createAsyncThunk(
   async (conversationId: number, { rejectWithValue }) => {
     try {
       console.log('📤 [Chat] Fetching messages - API: GET /chat/conversations/' + conversationId + '/messages/');
-      console.log('📤 [Chat] Conversation ID:', conversationId);
       const { data } = await api.get(`/chat/conversations/${conversationId}/messages/`);
-      console.log('📥 [Chat] Messages response:', JSON.stringify(data, null, 2));
-      console.log('📥 [Chat] Response structure:', {
-        isArray: Array.isArray(data),
-        hasResults: !!data?.results,
-        messagesCount: Array.isArray(data) ? data.length : (data?.results?.length || 0),
-      });
-      
-      // Handle both array and paginated response
       const rawMessages = Array.isArray(data) ? data : (data?.results || []);
-      console.log('📥 [Chat] Processed messages:', rawMessages.length);
-      console.log('📥 [Chat] First message sample:', rawMessages[0] ? JSON.stringify(rawMessages[0], null, 2) : 'No messages');
-      
-      // Map API response to ChatMessage format
-      const messages = rawMessages.map((msg: any) => ({
-        id: msg.id,
-        conversation: msg.conversation,
-        sender_type: msg.sender_type || 'user',
-        text: msg.text || '',
-        message: msg.text || msg.message || '', // Support both 'text' and 'message'
-        content_type: msg.content_type || 'text',
-        attachment: msg.attachment || null,
-        is_read: msg.is_read || false,
-        created_at: msg.created_at || '',
-        updated_at: msg.updated_at || msg.created_at || '',
-      }));
-      
+      const messages = rawMessages.map((msg: any) => mapToChatMessage(msg, conversationId));
       return { conversationId, messages };
     } catch (error: any) {
-      console.error('❌ [Chat] Error fetching messages:', error);
-      console.error('❌ [Chat] Error response:', error.response?.data);
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.detail || 
-                          error.message || 
-                          'Failed to fetch messages';
+      const errorMessage = error.response?.data?.message || error.response?.data?.detail || error.message || 'Failed to fetch messages';
       return rejectWithValue(errorMessage);
+    }
+  }
+);
+
+// Lightweight poll: recent messages only (for 3s polling on chat screen)
+export const fetchMessagesRecent = createAsyncThunk(
+  'chat/fetchMessagesRecent',
+  async (conversationId: number, { rejectWithValue }) => {
+    try {
+      const { data } = await api.get(`/chat/conversations/${conversationId}/messages/recent/`);
+      const rawMessages = data?.results || [];
+      const messages = rawMessages.map((msg: any) => mapToChatMessage(msg, conversationId));
+      return { conversationId, messages };
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || error.response?.data?.detail || error.message || 'Failed to fetch recent messages');
     }
   }
 );
@@ -200,25 +199,26 @@ export const startConversation = createAsyncThunk(
       console.log('📤 [Chat] Starting conversation - API: POST /chat/conversations/start/');
       console.log('📤 [Chat] Request body:', JSON.stringify(requestBody, null, 2));
       console.log('📤 [Chat] Coaching ID:', coachingId, '(type:', typeof coachingId, ')');
-      
+
       const { data } = await api.post('/chat/conversations/start/', requestBody);
       console.log('📥 [Chat] Start conversation response:', JSON.stringify(data, null, 2));
+      // API returns { success, conversation }; use conversation so payload has id, coaching, etc.
+      const conversation = data?.conversation ?? data;
       console.log('📥 [Chat] Response structure:', {
-        id: data?.id,
-        hasCoaching: !!data?.coaching,
-        coachingId: data?.coaching?.id,
-        coachingName: data?.coaching?.branch_name,
+        id: conversation?.id,
+        hasCoaching: !!conversation?.coaching,
+        coachingId: conversation?.coaching?.id,
+        coachingName: conversation?.coaching?.branch_name,
       });
-      
-      return data;
+      return conversation;
     } catch (error: any) {
       console.error('❌ [Chat] Error starting conversation:', error);
       console.error('❌ [Chat] Error response:', error.response?.data);
       console.error('❌ [Chat] Error status:', error.response?.status);
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.detail || 
-                          error.message || 
-                          'Failed to start conversation';
+      const errorMessage = error.response?.data?.message ||
+        error.response?.data?.detail ||
+        error.message ||
+        'Failed to start conversation';
       return rejectWithValue(errorMessage);
     }
   }
@@ -228,35 +228,69 @@ export const startConversation = createAsyncThunk(
 export const sendMessage = createAsyncThunk(
   'chat/sendMessage',
   async (
-    { conversationId, text }: { conversationId: number; text: string },
+    { conversationId, text, attachment }: { conversationId: number; text?: string; attachment?: any },
     { rejectWithValue }
   ) => {
     try {
-      const requestBody = {
-        text: text,
-        content_type: 'text',
-      };
+      let requestData: any;
+      let headers = {};
+
+      if (attachment) {
+        const formData = new FormData();
+        if (text) formData.append('text', text);
+        formData.append('content_type', attachment.type?.startsWith('image/') ? 'image' : 'document');
+
+        // Handle attachment for React Native FormData
+        const fileToUpload = {
+          uri: attachment.uri,
+          name: attachment.name || (attachment.type?.startsWith('image/') ? 'image.jpg' : 'document.pdf'),
+          type: attachment.type || (attachment.uri.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg'),
+        };
+        formData.append('attachment', fileToUpload as any);
+        requestData = formData;
+        headers = { 'Content-Type': 'multipart/form-data' };
+      } else {
+        requestData = {
+          text: text || '',
+          content_type: 'text',
+        };
+      }
+
       console.log('📤 [Chat] Sending message - API: POST /chat/conversations/' + conversationId + '/send/');
-      console.log('📤 [Chat] Request body:', JSON.stringify(requestBody, null, 2));
       console.log('📤 [Chat] Conversation ID:', conversationId);
-      
-      const { data } = await api.post(`/chat/conversations/${conversationId}/send/`, requestBody);
+
+      const { data } = await api.post(`/chat/conversations/${conversationId}/send/`, requestData, { headers });
       console.log('📥 [Chat] Send message response:', JSON.stringify(data, null, 2));
       return data;
     } catch (error: any) {
       console.error('❌ [Chat] Error sending message:', error);
       console.error('❌ [Chat] Error response:', error.response?.data);
       console.error('❌ [Chat] Error status:', error.response?.status);
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.detail || 
-                          error.message || 
-                          'Failed to send message';
+      const errorMessage = error.response?.data?.message ||
+        error.response?.data?.detail ||
+        error.message ||
+        'Failed to send message';
       return rejectWithValue(errorMessage);
     }
   }
 );
 
-const chatSlice = createSlice({
+// Mark conversation as read
+export const markAsReadBackend = createAsyncThunk(
+  'chat/markAsReadBackend',
+  async (conversationId: number, { rejectWithValue }) => {
+    try {
+      console.log('📤 [Chat] Marking as read - API: POST /chat/conversations/' + conversationId + '/read/');
+      const { data } = await api.post(`/chat/conversations/${conversationId}/read/`);
+      return { conversationId, success: data.success, updated: data.updated };
+    } catch (error: any) {
+      console.error('❌ [Chat] Error marking as read:', error);
+      return rejectWithValue(error.response?.data?.message || error.message || 'Failed to mark as read');
+    }
+  }
+);
+
+export const chatSlice = createSlice({
   name: 'chat',
   initialState,
   reducers: {
@@ -275,7 +309,7 @@ const chatSlice = createSlice({
     },
     addMessageLocally(state, action: PayloadAction<ChatMessage>) {
       const message = action.payload;
-      
+
       // Check if message already exists to avoid duplicates
       const messageExists = state.currentConversation?.messages?.some(m => m.id === message.id);
       if (messageExists) {
@@ -287,7 +321,7 @@ const chatSlice = createSlice({
         if (!state.currentConversation.messages) {
           state.currentConversation.messages = [];
         }
-        
+
         // Add message and sort by created_at
         state.currentConversation.messages.push(message);
         state.currentConversation.messages.sort((a, b) => {
@@ -295,11 +329,11 @@ const chatSlice = createSlice({
           const dateB = new Date(b.created_at).getTime();
           return dateA - dateB; // Ascending order (oldest first)
         });
-        
+
         state.currentConversation.last_message = message;
         state.currentConversation.updated_at = message.created_at;
       }
-      
+
       // Update in conversations list
       const conversation = state.conversations.find(c => c.id === message.conversation);
       if (conversation) {
@@ -417,6 +451,11 @@ const chatSlice = createSlice({
         state.messagesLoading = false;
         state.messagesError = action.payload as string;
       })
+      // Poll recent messages (silent update, no loading state)
+      .addCase(fetchMessagesRecent.fulfilled, (state, action) => {
+        if (!action.payload || !state.currentConversation || state.currentConversation.id !== action.payload.conversationId) return;
+        state.currentConversation.messages = action.payload.messages;
+      })
       // Start conversation
       .addCase(startConversation.pending, (state) => {
         state.startingConversation = true;
@@ -431,7 +470,7 @@ const chatSlice = createSlice({
             ...action.payload,
             messages: action.payload.messages || [],
           };
-          
+
           // Add to conversations list if not already there
           const exists = state.conversations.find(c => c.id === action.payload.id);
           if (!exists) {
@@ -463,10 +502,10 @@ const chatSlice = createSlice({
         if (action.payload && state.currentConversation) {
           console.log('✅ [Chat] Message sent successfully');
           console.log('✅ [Chat] Message response:', JSON.stringify(action.payload, null, 2));
-          
+
           // The API might return the message object directly or in a nested structure
           const rawMessage = action.payload.message || action.payload;
-          
+
           // Map API response to ChatMessage format
           const message: ChatMessage = {
             id: rawMessage.id,
@@ -480,7 +519,7 @@ const chatSlice = createSlice({
             created_at: rawMessage.created_at || '',
             updated_at: rawMessage.updated_at || rawMessage.created_at || '',
           };
-          
+
           // Add message to current conversation
           if (!state.currentConversation.messages) {
             state.currentConversation.messages = [];
@@ -492,14 +531,14 @@ const chatSlice = createSlice({
           }
           state.currentConversation.last_message = message;
           state.currentConversation.updated_at = message.created_at || new Date().toISOString();
-          
+
           // Update in conversations list
           const conversation = state.conversations.find(c => c.id === state.currentConversation?.id);
           if (conversation) {
             conversation.last_message = message;
             conversation.updated_at = message.created_at || new Date().toISOString();
           }
-          
+
           console.log('✅ [Chat] Message added to conversation');
         }
       })
@@ -510,13 +549,13 @@ const chatSlice = createSlice({
   },
 });
 
-export const { 
-  clearCurrentConversation, 
-  clearError, 
+export const {
+  clearCurrentConversation,
+  clearError,
   clearStartingError,
   clearSendingError,
-  addMessageLocally, 
-  markConversationAsRead 
+  addMessageLocally,
+  markConversationAsRead
 } = chatSlice.actions;
 export default chatSlice.reducer;
 
