@@ -53,7 +53,7 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
     targetExamsForPicker,
     loading: choicesLoading,
   } = useChoices();
-  
+
   const [formData, setFormData] = useState({
     fullName: '',
     dateOfBirth: '',
@@ -94,13 +94,13 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
   }, []);
 
   // Minimized logs
-  useEffect(() => {}, [accessToken]);
+  useEffect(() => { }, [accessToken]);
 
   const checkLocationStatus = async () => {
     try {
       // Check current permission status first
       const { status } = await Location.getForegroundPermissionsAsync();
-      
+
       if (status === 'granted') {
         setLocationPermission(true);
         // Try to get location, but don't fail if it doesn't work
@@ -124,7 +124,7 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
   const requestLocationPermission = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      
+
       if (status === 'granted') {
         setLocationPermission(true);
         // Try to get location after permission is granted
@@ -147,8 +147,8 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
           'Location access is required to submit this form. Please enable location permissions in your device settings.',
           [
             { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Open Settings', 
+            {
+              text: 'Open Settings',
               onPress: () => {
                 // On Android, we can try to open app settings
                 if (Platform.OS === 'android') {
@@ -167,9 +167,9 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
           'Location access is required to submit this form. This helps us find coaching centers near you.',
           [
             { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Try Again', 
-              onPress: () => requestLocationPermission() 
+            {
+              text: 'Try Again',
+              onPress: () => requestLocationPermission()
             }
           ]
         );
@@ -178,22 +178,22 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
       console.error('Error requesting location permission:', error);
       setLocationPermission(false);
       setLocation(null);
-      
+
       let errorMessage = 'Failed to request location permission. Please try again.';
       let errorTitle = 'Permission Error';
-      
+
       if (error.message?.includes('Location request failed due to unsatisfied device settings')) {
         errorTitle = 'Device Settings Issue';
         errorMessage = 'Location services are not properly configured on your device. Please check your device settings and ensure location is enabled.';
       }
-      
+
       Alert.alert(
         errorTitle,
         errorMessage,
         [
           { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Retry', 
+          {
+            text: 'Retry',
             onPress: () => {
               setTimeout(() => {
                 requestLocationPermission();
@@ -213,7 +213,7 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
         distanceInterval: 10,
         mayShowUserSettingsDialog: true, // Show settings if needed
       });
-      
+
       // Round coordinates to 4 decimal places to match API requirements
       const roundedLatitude = Math.round(currentLocation.coords.latitude * 10000) / 10000;
       const roundedLongitude = Math.round(currentLocation.coords.longitude * 10000) / 10000;
@@ -222,7 +222,7 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
         latitude: roundedLatitude,
         longitude: roundedLongitude
       });
-      
+
       console.log('Location obtained successfully:', {
         original: {
           latitude: currentLocation.coords.latitude,
@@ -233,13 +233,13 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
           longitude: roundedLongitude,
         }
       });
-      
+
     } catch (error: any) {
       console.error('Error getting current location:', error);
-      
+
       let errorMessage = 'Could not get your current location. Please try again.';
       let errorTitle = 'Location Error';
-      
+
       // Handle specific error cases
       if (error.message?.includes('Location request failed due to unsatisfied device settings')) {
         errorTitle = 'Device Settings Issue';
@@ -255,10 +255,10 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
         errorMessage = 'Location permission was denied. Please enable location access in settings.';
         setLocationPermission(false);
       }
-      
+
       // Don't show alert for every error, just log and update state
       setLocation(null);
-      
+
       // Only show alert for critical errors
       if (errorTitle !== 'Location Error') {
         Alert.alert(
@@ -266,8 +266,8 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
           errorMessage,
           [
             { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Retry', 
+            {
+              text: 'Retry',
               onPress: () => {
                 // Wait a bit before retrying
                 setTimeout(() => {
@@ -306,7 +306,7 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
 
 
   const handleChildChange = (index: number, field: string, value: string) => {
-    setChildren(prev => prev.map((child, i) => 
+    setChildren(prev => prev.map((child, i) =>
       i === index ? { ...child, [field]: value } : child
     ));
   };
@@ -361,8 +361,8 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
           'Location services are disabled on your device. Please enable them in your device settings to continue.',
           [
             { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Open Settings', 
+            {
+              text: 'Open Settings',
               onPress: () => {
                 if (Platform.OS === 'android') {
                   // Try to open location settings
@@ -399,9 +399,9 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
   const isFormValid = () => {
     // At least one child is required
     if (children.length === 0) return false;
-    
+
     const parentValid = formData.fullName && formData.relationshipWithChild && formData.dateOfBirth && formData.gender && formData.city && formData.state && formData.pincode;
-    const childrenValid = children.every(child => 
+    const childrenValid = children.every(child =>
       child.name && child.date_of_birth && child.gender && child.current_standard && child.board && child.target_exams.length > 0
     );
     return parentValid && childrenValid;
@@ -412,7 +412,7 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
     console.log('📋 Parent Form Data:', formData);
     console.log('👶 Children Data:', children);
     console.log('✅ Form Valid:', isFormValid());
-    
+
     // Validate at least one child
     if (children.length === 0) {
       Toast.show({
@@ -434,7 +434,7 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
     }
 
     console.log('✅ All validations passed, proceeding with profile creation...');
-    
+
     try {
       // Prepare children data in API format
       const childrenData = children.map(child => ({
@@ -465,11 +465,11 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
         budget_max: formData.budgetMax ? parseInt(formData.budgetMax) : null,
         children: childrenData // Include children in the same request
       };
-      
+
       console.log('📤 Dispatching createProfile with parent + children data:', profileData);
       const result = await dispatch(createProfile(profileData));
       console.log('📥 createProfile result:', result);
-      
+
       if (createProfile.fulfilled.match(result)) {
         console.log('✅ Profile created successfully!');
         Toast.show({
@@ -481,14 +481,14 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
         navigation.navigate('Home');
       } else if (createProfile.rejected.match(result)) {
         console.log('❌ Profile creation failed:', result.error);
-        
+
         // Handle specific API errors
         if (result.payload && typeof result.payload === 'object' && 'data' in result.payload) {
           const apiResponse = result.payload.data as any;
           if (apiResponse && apiResponse.errors && typeof apiResponse.errors === 'object') {
             const errorMessages = Object.values(apiResponse.errors).flat();
             const errorText = errorMessages.join(', ');
-            
+
             Toast.show({
               type: 'error',
               text1: 'Validation Error',
@@ -534,478 +534,478 @@ const ParentOnboardingScreen = ({ navigation }: ParentOnboardingFormProps) => {
             <Text style={styles.headerSubtitle}>Help us find the perfect coaching for your child</Text>
           </View>
         </View>
-        
+
         <View style={styles.progressBar}>
           <View style={[styles.progressFill, { width: '50%' }]} />
         </View>
       </View>
 
-      <KeyboardAvoidingView 
-        style={{ flex: 1 }} 
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <ScrollView 
-          style={styles.scrollView} 
+        <ScrollView
+          style={styles.scrollView}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingBottom: 20 }}
         >
           <View style={styles.formContainer}>
-          {/* Header Icon */}
-          <View style={styles.headerIcon}>
-            <View style={styles.iconContainer}>
-              <Text style={styles.icon}>👨‍👩‍👧‍👦</Text>
+            {/* Header Icon */}
+            <View style={styles.headerIcon}>
+              <View style={styles.iconContainer}>
+                <Text style={styles.icon}>👨‍👩‍👧‍👦</Text>
+              </View>
             </View>
-          </View>
 
-          {/* Location Status */}
-          <View style={[
-            styles.locationStatus, 
-            !locationPermission || !location ? styles.locationStatusWarning : styles.locationStatusSuccess
-          ]}>
-            <Text style={[
-              styles.locationStatusText,
-              !locationPermission || !location ? styles.locationStatusTextWarning : styles.locationStatusTextSuccess
+            {/* Location Status */}
+            <View style={[
+              styles.locationStatus,
+              !locationPermission || !location ? styles.locationStatusWarning : styles.locationStatusSuccess
             ]}>
-              📍 Location: {(() => {
-                try {
-                  if (!locationPermission) return 'Permission Required';
-                  if (!location) return 'Permission Granted - Getting Location...';
-                  return 'Enabled & Available';
-                } catch (error) {
-                  return 'Status Unknown';
-                }
-              })()}
-            </Text>
-            
-            <View style={styles.locationButtonContainer}>
-              {(() => {
-                try {
-                  if (!locationPermission) {
+              <Text style={[
+                styles.locationStatusText,
+                !locationPermission || !location ? styles.locationStatusTextWarning : styles.locationStatusTextSuccess
+              ]}>
+                📍 Location: {(() => {
+                  try {
+                    if (!locationPermission) return 'Permission Required';
+                    if (!location) return 'Permission Granted - Getting Location...';
+                    return 'Enabled & Available';
+                  } catch (error) {
+                    return 'Status Unknown';
+                  }
+                })()}
+              </Text>
+
+              <View style={styles.locationButtonContainer}>
+                {(() => {
+                  try {
+                    if (!locationPermission) {
+                      return (
+                        <TouchableOpacity onPress={requestLocationPermission} style={styles.enableLocationButton}>
+                          <Text style={styles.enableLocationButtonText}>Enable Location</Text>
+                        </TouchableOpacity>
+                      );
+                    } else if (!location) {
+                      return (
+                        <TouchableOpacity onPress={getCurrentLocation} style={styles.enableLocationButton}>
+                          <Text style={styles.enableLocationButtonText}>Get Location</Text>
+                        </TouchableOpacity>
+                      );
+                    } else {
+                      return <Text style={styles.locationSuccessText}>✓ Location Ready</Text>;
+                    }
+                  } catch (error) {
                     return (
                       <TouchableOpacity onPress={requestLocationPermission} style={styles.enableLocationButton}>
                         <Text style={styles.enableLocationButtonText}>Enable Location</Text>
                       </TouchableOpacity>
                     );
-                  } else if (!location) {
-                    return (
-                      <TouchableOpacity onPress={getCurrentLocation} style={styles.enableLocationButton}>
-                        <Text style={styles.enableLocationButtonText}>Get Location</Text>
-                      </TouchableOpacity>
-                    );
-                  } else {
-                    return <Text style={styles.locationSuccessText}>✓ Location Ready</Text>;
                   }
-                } catch (error) {
-                  return (
-                    <TouchableOpacity onPress={requestLocationPermission} style={styles.enableLocationButton}>
-                      <Text style={styles.enableLocationButtonText}>Enable Location</Text>
-                    </TouchableOpacity>
-                  );
-                }
-              })()}
-              
-              <TouchableOpacity onPress={checkLocationStatus} style={styles.refreshLocationButton}>
-                <Text style={styles.refreshLocationButtonText}>🔄</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={checkDeviceLocationServices} style={styles.deviceLocationButton}>
-                <Text style={styles.deviceLocationButtonText}>⚙️</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+                })()}
 
-          {/* Location Warning Banner */}
-          {(!locationPermission || !location) && (
-            <View style={styles.locationWarningBanner}>
-              <Text style={styles.locationWarningText}>
-                ⚠️ Location access is mandatory to submit this form. We need your location to find coaching centers near you.
-              </Text>
-            </View>
-          )}
-
-          {/* Parent Information */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Parent Information</Text>
-            
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Your Full Name *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter your full name"
-                value={formData.fullName}
-                onChangeText={(value) => handleInputChange('fullName', value)}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Date of Birth *</Text>
-              <View style={styles.dateInputContainer}>
-                <TextInput
-                  style={[styles.input, styles.dateInput]}
-                  placeholder="DD-MM-YYYY"
-                  value={formData.dateOfBirth}
-                  onChangeText={(value) => handleInputChange('dateOfBirth', value)}
-                  editable={false}
-                />
-                <TouchableOpacity onPress={showDatePickerModal} style={styles.calendarButton}>
-                  <Text style={styles.calendarButtonText}>📅</Text>
+                <TouchableOpacity onPress={checkLocationStatus} style={styles.refreshLocationButton}>
+                  <Text style={styles.refreshLocationButtonText}>🔄</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={checkDeviceLocationServices} style={styles.deviceLocationButton}>
+                  <Text style={styles.deviceLocationButtonText}>⚙️</Text>
                 </TouchableOpacity>
               </View>
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Gender *</Text>
-              <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={formData.gender}
-                  onValueChange={(value) => handleInputChange('gender', value)}
-                  style={styles.picker}>
-                  <Picker.Item label="Select gender" value="" />
-                  <Picker.Item label="Male" value="male" />
-                  <Picker.Item label="Female" value="female" />
-                  <Picker.Item label="Other" value="other" />
-                </Picker>
+            {/* Location Warning Banner */}
+            {(!locationPermission || !location) && (
+              <View style={styles.locationWarningBanner}>
+                <Text style={styles.locationWarningText}>
+                  ⚠️ Location access is mandatory to submit this form. We need your location to find coaching centers near you.
+                </Text>
               </View>
-            </View>
+            )}
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Relationship with Child *</Text>
-              <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={formData.relationshipWithChild}
-                  onValueChange={(value) => handleInputChange('relationshipWithChild', value)}
-                  style={styles.picker}>
-                  <Picker.Item label="Select relationship" value="" />
-                  {relationships.map((relation) => (
-                    <Picker.Item key={relation.value} label={relation.label} value={relation.value} />
-                  ))}
-                </Picker>
-              </View>
-            </View>
+            {/* Parent Information */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Parent Information</Text>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Occupation</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Your occupation"
-                value={formData.occupation}
-                onChangeText={(value) => handleInputChange('occupation', value)}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Education Level</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Your education level"
-                value={formData.educationLevel}
-                onChangeText={(value) => handleInputChange('educationLevel', value)}
-              />
-            </View>
-          </View>
-
-          {/* Address Information */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Address Information</Text>
-            
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>City *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Your city"
-                value={formData.city}
-                onChangeText={(value) => handleInputChange('city', value)}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>State *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Your state"
-                value={formData.state}
-                onChangeText={(value) => handleInputChange('state', value)}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Pincode *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Your pincode"
-                value={formData.pincode}
-                onChangeText={(value) => handleInputChange('pincode', value)}
-                keyboardType="numeric"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Address</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Your complete address"
-                value={formData.address}
-                onChangeText={(value) => handleInputChange('address', value)}
-                multiline
-                numberOfLines={3}
-              />
-            </View>
-          </View>
-
-          {/* Preferences */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Preferences</Text>
-            
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Budget Range (per month)</Text>
-              <View style={styles.budgetContainer}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Your Full Name *</Text>
                 <TextInput
-                  style={[styles.input, styles.budgetInput]}
-                  placeholder="Min"
-                  value={formData.budgetMin}
-                  onChangeText={(value) => handleInputChange('budgetMin', value)}
-                  keyboardType="numeric"
-                />
-                <Text style={styles.budgetSeparator}>to</Text>
-                <TextInput
-                  style={[styles.input, styles.budgetInput]}
-                  placeholder="Max"
-                  value={formData.budgetMax}
-                  onChangeText={(value) => handleInputChange('budgetMax', value)}
-                  keyboardType="numeric"
+                  style={styles.input}
+                  placeholder="Enter your full name"
+                  value={formData.fullName}
+                  onChangeText={(value) => handleInputChange('fullName', value)}
                 />
               </View>
-            </View>
-          </View>
 
-          {/* Children Information */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Children ({children.length})</Text>
-              <TouchableOpacity onPress={addChild} style={styles.addChildButton}>
-                <Text style={styles.addChildButtonText}>+ Add Child</Text>
-              </TouchableOpacity>
-            </View>
-
-            {children.map((child, index) => (
-              <View key={index} style={styles.childCard}>
-                <View style={styles.childHeader}>
-                  <Text style={styles.childTitle}>Child {index + 1}</Text>
-                  {children.length > 1 && (
-                    <TouchableOpacity
-                      onPress={() => removeChild(index)}
-                      style={styles.removeChildButton}>
-                      <Text style={styles.removeChildButtonText}>✕</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Full Name *</Text>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Date of Birth *</Text>
+                <View style={styles.dateInputContainer}>
                   <TextInput
-                    style={styles.input}
-                    placeholder="Child's full name"
-                    value={child.name}
-                    onChangeText={(value) => handleChildChange(index, 'name', value)}
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Date of Birth *</Text>
-                  <TextInput
-                    style={styles.input}
+                    style={[styles.input, styles.dateInput]}
                     placeholder="DD-MM-YYYY"
-                    value={child.date_of_birth}
-                    onChangeText={(value) => handleChildChange(index, 'date_of_birth', value)}
+                    value={formData.dateOfBirth}
+                    onChangeText={(value) => handleInputChange('dateOfBirth', value)}
+                    editable={false}
                   />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Gender *</Text>
-                  <View style={styles.pickerContainer}>
-                    <Picker
-                      selectedValue={child.gender}
-                      onValueChange={(value) => handleChildChange(index, 'gender', value)}
-                      style={styles.picker}>
-                      <Picker.Item label="Select gender" value="" />
-                      <Picker.Item label="Male" value="male" />
-                      <Picker.Item label="Female" value="female" />
-                      <Picker.Item label="Other" value="other" />
-                    </Picker>
-                  </View>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Current Standard *</Text>
-                  <View style={styles.pickerContainer}>
-                    <Picker
-                      selectedValue={child.current_standard}
-                      onValueChange={(value) => handleChildChange(index, 'current_standard', value)}
-                      style={styles.picker}>
-                      <Picker.Item label="Select standard" value="" />
-                      {standardsForPicker.map((standard) => (
-                        <Picker.Item key={standard.value} label={standard.label} value={standard.value} />
-                      ))}
-                    </Picker>
-                  </View>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Board *</Text>
-                  <View style={styles.pickerContainer}>
-                    <Picker
-                      selectedValue={child.board}
-                      onValueChange={(value) => handleChildChange(index, 'board', value)}
-                      style={styles.picker}>
-                      <Picker.Item label="Select board" value="" />
-                      {boardsForPicker.map((board) => (
-                        <Picker.Item key={board.value} label={board.label} value={board.value} />
-                      ))}
-                    </Picker>
-                  </View>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Stream</Text>
-                  <View style={styles.pickerContainer}>
-                    <Picker
-                      selectedValue={child.stream}
-                      onValueChange={(value) => handleChildChange(index, 'stream', value)}
-                      style={styles.picker}>
-                      <Picker.Item label="Select stream (optional)" value="" />
-                      {streamsForPicker.map((stream) => (
-                        <Picker.Item key={stream.value} label={stream.label} value={stream.value} />
-                      ))}
-                    </Picker>
-                  </View>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>School/College Name</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Child's current school/college"
-                    value={child.current_school}
-                    onChangeText={(value) => handleChildChange(index, 'current_school', value)}
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Subjects Interested</Text>
-                  <View style={styles.checkboxContainer}>
-                    {subjects.map((subject) => (
-                      <TouchableOpacity
-                        key={subject}
-                        style={[
-                          styles.checkbox,
-                          child.subjects_interested.includes(subject) && styles.checkboxSelected
-                        ]}
-                        onPress={() => handleChildArrayChange(index, 'subjects_interested', subject)}>
-                        <Text style={[
-                          styles.checkboxText,
-                          child.subjects_interested.includes(subject) && styles.checkboxTextSelected
-                        ]}>
-                          {subject}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Target Exams *</Text>
-                  <View style={styles.checkboxContainer}>
-                    {targetExamsForPicker.map((exam) => (
-                      <TouchableOpacity
-                        key={exam.value}
-                        style={[
-                          styles.checkbox,
-                          child.target_exams.includes(exam.value) && styles.checkboxSelected
-                        ]}
-                        onPress={() => handleChildArrayChange(index, 'target_exams', exam.value)}>
-                        <Text style={[
-                          styles.checkboxText,
-                          child.target_exams.includes(exam.value) && styles.checkboxTextSelected
-                        ]}>
-                          {exam.label}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Budget Range (per month)</Text>
-                  <View style={styles.budgetContainer}>
-                    <TextInput
-                      style={[styles.input, styles.budgetInput]}
-                      placeholder="Min"
-                      value={child.budget_min}
-                      onChangeText={(value) => handleChildChange(index, 'budget_min', value)}
-                      keyboardType="numeric"
-                    />
-                    <Text style={styles.budgetSeparator}>to</Text>
-                    <TextInput
-                      style={[styles.input, styles.budgetInput]}
-                      placeholder="Max"
-                      value={child.budget_max}
-                      onChangeText={(value) => handleChildChange(index, 'budget_max', value)}
-                      keyboardType="numeric"
-                    />
-                  </View>
+                  <TouchableOpacity onPress={showDatePickerModal} style={styles.calendarButton}>
+                    <Text style={styles.calendarButtonText}>📅</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
-            ))}
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Gender *</Text>
+                <View style={styles.pickerContainer}>
+                  <Picker
+                    selectedValue={formData.gender}
+                    onValueChange={(value) => handleInputChange('gender', value)}
+                    style={styles.picker}>
+                    <Picker.Item label="Select gender" value="" />
+                    <Picker.Item label="Male" value="male" />
+                    <Picker.Item label="Female" value="female" />
+                    <Picker.Item label="Other" value="other" />
+                  </Picker>
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Relationship with Child *</Text>
+                <View style={styles.pickerContainer}>
+                  <Picker
+                    selectedValue={formData.relationshipWithChild}
+                    onValueChange={(value) => handleInputChange('relationshipWithChild', value)}
+                    style={styles.picker}>
+                    <Picker.Item label="Select relationship" value="" />
+                    {relationships.map((relation) => (
+                      <Picker.Item key={relation.value} label={relation.label} value={relation.value} />
+                    ))}
+                  </Picker>
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Occupation</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Your occupation"
+                  value={formData.occupation}
+                  onChangeText={(value) => handleInputChange('occupation', value)}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Education Level</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Your education level"
+                  value={formData.educationLevel}
+                  onChangeText={(value) => handleInputChange('educationLevel', value)}
+                />
+              </View>
+            </View>
+
+            {/* Address Information */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Address Information</Text>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>City *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Your city"
+                  value={formData.city}
+                  onChangeText={(value) => handleInputChange('city', value)}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>State *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Your state"
+                  value={formData.state}
+                  onChangeText={(value) => handleInputChange('state', value)}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Pincode *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Your pincode"
+                  value={formData.pincode}
+                  onChangeText={(value) => handleInputChange('pincode', value)}
+                  keyboardType="numeric"
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Address</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Your complete address"
+                  value={formData.address}
+                  onChangeText={(value) => handleInputChange('address', value)}
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+            </View>
+
+            {/* Preferences */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Preferences</Text>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Budget Range (per month)</Text>
+                <View style={styles.budgetContainer}>
+                  <TextInput
+                    style={[styles.input, styles.budgetInput]}
+                    placeholder="Min"
+                    value={formData.budgetMin}
+                    onChangeText={(value) => handleInputChange('budgetMin', value)}
+                    keyboardType="numeric"
+                  />
+                  <Text style={styles.budgetSeparator}>to</Text>
+                  <TextInput
+                    style={[styles.input, styles.budgetInput]}
+                    placeholder="Max"
+                    value={formData.budgetMax}
+                    onChangeText={(value) => handleInputChange('budgetMax', value)}
+                    keyboardType="numeric"
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* Children Information */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Children ({children.length})</Text>
+                <TouchableOpacity onPress={addChild} style={styles.addChildButton}>
+                  <Text style={styles.addChildButtonText}>+ Add Child</Text>
+                </TouchableOpacity>
+              </View>
+
+              {children.map((child, index) => (
+                <View key={index} style={styles.childCard}>
+                  <View style={styles.childHeader}>
+                    <Text style={styles.childTitle}>Child {index + 1}</Text>
+                    {children.length > 1 && (
+                      <TouchableOpacity
+                        onPress={() => removeChild(index)}
+                        style={styles.removeChildButton}>
+                        <Text style={styles.removeChildButtonText}>✕</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Full Name *</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Child's full name"
+                      value={child.name}
+                      onChangeText={(value) => handleChildChange(index, 'name', value)}
+                    />
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Date of Birth *</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="DD-MM-YYYY"
+                      value={child.date_of_birth}
+                      onChangeText={(value) => handleChildChange(index, 'date_of_birth', value)}
+                    />
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Gender *</Text>
+                    <View style={styles.pickerContainer}>
+                      <Picker
+                        selectedValue={child.gender}
+                        onValueChange={(value) => handleChildChange(index, 'gender', value)}
+                        style={styles.picker}>
+                        <Picker.Item label="Select gender" value="" />
+                        <Picker.Item label="Male" value="male" />
+                        <Picker.Item label="Female" value="female" />
+                        <Picker.Item label="Other" value="other" />
+                      </Picker>
+                    </View>
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Current Standard *</Text>
+                    <View style={styles.pickerContainer}>
+                      <Picker
+                        selectedValue={child.current_standard}
+                        onValueChange={(value) => handleChildChange(index, 'current_standard', value)}
+                        style={styles.picker}>
+                        <Picker.Item label="Select standard" value="" />
+                        {standardsForPicker.map((standard) => (
+                          <Picker.Item key={standard.value} label={standard.label} value={standard.value} />
+                        ))}
+                      </Picker>
+                    </View>
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Board *</Text>
+                    <View style={styles.pickerContainer}>
+                      <Picker
+                        selectedValue={child.board}
+                        onValueChange={(value) => handleChildChange(index, 'board', value)}
+                        style={styles.picker}>
+                        <Picker.Item label="Select board" value="" />
+                        {boardsForPicker.map((board) => (
+                          <Picker.Item key={board.value} label={board.label} value={board.value} />
+                        ))}
+                      </Picker>
+                    </View>
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Stream</Text>
+                    <View style={styles.pickerContainer}>
+                      <Picker
+                        selectedValue={child.stream}
+                        onValueChange={(value) => handleChildChange(index, 'stream', value)}
+                        style={styles.picker}>
+                        <Picker.Item label="Select stream (optional)" value="" />
+                        {streamsForPicker.map((stream) => (
+                          <Picker.Item key={stream.value} label={stream.label} value={stream.value} />
+                        ))}
+                      </Picker>
+                    </View>
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>School/College Name</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Child's current school/college"
+                      value={child.current_school}
+                      onChangeText={(value) => handleChildChange(index, 'current_school', value)}
+                    />
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Subjects Interested</Text>
+                    <View style={styles.checkboxContainer}>
+                      {subjects.map((subject) => (
+                        <TouchableOpacity
+                          key={subject}
+                          style={[
+                            styles.checkbox,
+                            child.subjects_interested.includes(subject) && styles.checkboxSelected
+                          ]}
+                          onPress={() => handleChildArrayChange(index, 'subjects_interested', subject)}>
+                          <Text style={[
+                            styles.checkboxText,
+                            child.subjects_interested.includes(subject) && styles.checkboxTextSelected
+                          ]}>
+                            {subject}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Target Exams *</Text>
+                    <View style={styles.checkboxContainer}>
+                      {targetExamsForPicker.map((exam) => (
+                        <TouchableOpacity
+                          key={exam.value}
+                          style={[
+                            styles.checkbox,
+                            child.target_exams.includes(exam.value) && styles.checkboxSelected
+                          ]}
+                          onPress={() => handleChildArrayChange(index, 'target_exams', exam.value)}>
+                          <Text style={[
+                            styles.checkboxText,
+                            child.target_exams.includes(exam.value) && styles.checkboxTextSelected
+                          ]}>
+                            {exam.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Budget Range (per month)</Text>
+                    <View style={styles.budgetContainer}>
+                      <TextInput
+                        style={[styles.input, styles.budgetInput]}
+                        placeholder="Min"
+                        value={child.budget_min}
+                        onChangeText={(value) => handleChildChange(index, 'budget_min', value)}
+                        keyboardType="numeric"
+                      />
+                      <Text style={styles.budgetSeparator}>to</Text>
+                      <TextInput
+                        style={[styles.input, styles.budgetInput]}
+                        placeholder="Max"
+                        value={child.budget_max}
+                        onChangeText={(value) => handleChildChange(index, 'budget_max', value)}
+                        keyboardType="numeric"
+                      />
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
           </View>
-        </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
-             {/* Fixed Bottom Button */}
-       <View style={styles.bottomButton}>
-         <TouchableOpacity
-           style={[styles.submitButton, (!isFormValid()) && styles.submitButtonDisabled]}
-           onPress={handleSubmit}
-           disabled={!isFormValid() || isLoading}>
-           {isLoading ? (
-             <ActivityIndicator color="#ffffff" />
-           ) : (
-             <Text style={styles.submitButtonText}>Complete Setup</Text>
-           )}
-                   </TouchableOpacity>
-        </View>
+      {/* Fixed Bottom Button */}
+      <View style={styles.bottomButton}>
+        <TouchableOpacity
+          style={[styles.submitButton, (!isFormValid()) && styles.submitButtonDisabled]}
+          onPress={handleSubmit}
+          disabled={!isFormValid() || isLoading}>
+          {isLoading ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <Text style={styles.submitButtonText}>Complete Setup</Text>
+          )}
+        </TouchableOpacity>
+      </View>
 
-        {/* Date Picker Modal */}
-        {showDatePickerDOB && (
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Select Date of Birth</Text>
-                             <DateTimePicker
-                 value={selectedDate}
-                 mode="date"
-                 display="default"
-                 onChange={handleDateChange}
-                 maximumDate={new Date()}
-                 minimumDate={new Date(1900, 0, 1)}
-               />
+      {/* Date Picker Modal */}
+      {showDatePickerDOB && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Date of Birth</Text>
+            <DateTimePicker
+              value={selectedDate}
+              mode="date"
+              display="default"
+              onChange={handleDateChange}
+              maximumDate={new Date()}
+              minimumDate={new Date(1900, 0, 1)}
+            />
 
-                 
-                 
-              <View style={styles.modalButtons}>
-                <TouchableOpacity onPress={() => setShowDatePickerDOB(false)} style={styles.modalButton}>
-                  <Text style={styles.modalButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setShowDatePickerDOB(false)} style={styles.modalButton}>
-                  <Text style={styles.modalButtonText}>Done</Text>
-                </TouchableOpacity>
-              </View>
+
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity onPress={() => setShowDatePickerDOB(false)} style={styles.modalButton}>
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowDatePickerDOB(false)} style={styles.modalButton}>
+                <Text style={styles.modalButtonText}>Done</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        )}
-      </SafeAreaView>
-    );
-  };
+        </View>
+      )}
+    </SafeAreaView>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -1345,6 +1345,7 @@ const styles = StyleSheet.create({
   },
   picker: {
     height: 50,
+    color: '#111827',
   },
   checkboxContainer: {
     flexDirection: 'row',

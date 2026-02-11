@@ -40,7 +40,7 @@ interface MyOfflineWishlistScreenProps {
 const MyOfflineWishlistScreen: React.FC<MyOfflineWishlistScreenProps> = ({ onBack, onCoachingSelect }) => {
   const { profile, user, selectedChildId } = useAppSelector(state => state.auth);
   const actualProfile = user || profile;
-  
+
   const [favorites, setFavorites] = useState<OfflineFavoriteItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -68,14 +68,14 @@ const MyOfflineWishlistScreen: React.FC<MyOfflineWishlistScreenProps> = ({ onBac
       }
 
       let url = getOfflineFavoritesUrl(pageNum);
-      
+
       // Add child_id if parent user has selected a child
       if (actualProfile?.user_type === 'parent' && selectedChildId) {
         url += `&child_id=${selectedChildId}`;
       }
 
       const response = await api.get<OfflineFavoritesResponse>(url);
-      
+
       if (response.data?.data) {
         if (pageNum === 1) {
           setFavorites(response.data.data);
@@ -117,7 +117,7 @@ const MyOfflineWishlistScreen: React.FC<MyOfflineWishlistScreenProps> = ({ onBac
 
   const handleRemoveFromFavorites = async (coachingId: number, e: any) => {
     e.stopPropagation();
-    
+
     Alert.alert(
       'Remove from Favorites',
       'Are you sure you want to remove this coaching center from your favorites?',
@@ -130,11 +130,11 @@ const MyOfflineWishlistScreen: React.FC<MyOfflineWishlistScreenProps> = ({ onBac
             try {
               // Optimistically remove from UI
               setFavorites(prev => prev.filter(item => item.coaching.id !== coachingId));
-              
+
               // Call API to remove from favorites
               // Note: You might need to add the remove API endpoint
               // await api.delete(`/coachings/${coachingId}/remove_favorite/`);
-              
+
             } catch (error) {
               console.error('Failed to remove from favorites:', error);
               // Refresh the list to restore the item
@@ -155,23 +155,23 @@ const MyOfflineWishlistScreen: React.FC<MyOfflineWishlistScreenProps> = ({ onBac
 
   const renderFavoriteItem = ({ item }: { item: OfflineFavoriteItem }) => {
     const coaching = item.coaching;
-    
+
     // Get image URL
     let imageUrl = coaching.featured_image?.image || coaching.gallery_images?.[0]?.image || coaching.icon;
     if (imageUrl && imageUrl.startsWith('/')) {
-      imageUrl = `https://learn.crusheducation.in${imageUrl}`;
+      imageUrl = `http://192.168.0.104:8000${imageUrl}`;
     }
 
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.coachingCard}
         onPress={() => handleCoachingPress(coaching)}
         activeOpacity={0.9}
       >
         <View style={styles.coachingImageContainer}>
           {imageUrl ? (
-            <Image 
-              source={{ uri: imageUrl }} 
+            <Image
+              source={{ uri: imageUrl }}
               style={styles.coachingImage}
               resizeMode="cover"
             />
@@ -180,14 +180,14 @@ const MyOfflineWishlistScreen: React.FC<MyOfflineWishlistScreenProps> = ({ onBac
               <Ionicons name="school-outline" size={32} color="#9ca3af" />
             </View>
           )}
-          
+
           {coaching.is_featured && (
             <View style={styles.featuredBadge}>
               <Text style={styles.featuredBadgeText}>⭐ FEATURED</Text>
             </View>
           )}
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={styles.removeButton}
             onPress={(e) => handleRemoveFromFavorites(coaching.id, e)}
             activeOpacity={0.7}
@@ -200,7 +200,7 @@ const MyOfflineWishlistScreen: React.FC<MyOfflineWishlistScreenProps> = ({ onBac
           <Text style={styles.coachingName} numberOfLines={2}>
             {coaching.branch_name}
           </Text>
-          
+
           <View style={styles.locationRow}>
             <Ionicons name="location-outline" size={14} color="#6b7280" />
             <Text style={styles.locationText}>

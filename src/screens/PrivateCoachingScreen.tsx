@@ -1,23 +1,24 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Modal, Alert, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Modal, Alert, StatusBar, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import BottomNavigation from '../components/BottomNavigation';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { 
-  fetchPrivateTutors, 
-  fetchTutorAvailability, 
+import {
+  fetchPrivateTutors,
+  fetchTutorAvailability,
   createBooking,
   clearAvailability,
   clearBookingState,
   AvailabilitySlot,
-  PrivateTutorApiItem 
+  PrivateTutorApiItem
 } from '../store/slices/privateTutorsSlice';
 
 interface PrivateCoachingScreenProps {
   onBack: () => void;
   onTabPress?: (tab: 'offline' | 'online' | 'private' | 'chat' | 'profile') => void;
   onViewDetails?: (tutorId: number) => void;
+  onStartChat?: (tutorId: number, name: string) => void;
 }
 
 interface PrivateTutor {
@@ -37,6 +38,7 @@ interface PrivateTutor {
   responseTime: string;
   completedSessions: number;
   teachingStyle: string[];
+  profilePhoto: string | null;
 }
 
 // Map API item to UI model used by the screen
@@ -60,11 +62,12 @@ const mapApiToUi = (item: any): PrivateTutor => ({
   responseTime: item.response_time_hours ? `< ${item.response_time_hours} hours` : '',
   completedSessions: item.total_sessions_completed || 0,
   teachingStyle: (item.teaching_styles || []).map((s: any) => s.name),
+  profilePhoto: item.profile_image || item.teacher?.photo || null,
 });
 
-const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack, onTabPress, onViewDetails }) => {
+const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack, onTabPress, onViewDetails, onStartChat }) => {
   const dispatch = useAppDispatch();
-  const { items, loading, error, availability, availabilityLoading, availabilityError, bookingLoading, bookingSuccess, bookingError } = useAppSelector(state => state.privateTutors);
+  const { items, loading, loadingMore, error, next, previous, availability, availabilityLoading, availabilityError, bookingLoading, bookingSuccess, bookingError } = useAppSelector(state => state.privateTutors);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('all');
@@ -79,15 +82,15 @@ const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack, o
 
   useEffect(() => {
     console.log('Booking state changed - Success:', bookingSuccess, 'Error:', bookingError);
-    
+
     if (bookingSuccess) {
       console.log('Showing success alert');
       Alert.alert(
-        'Success', 
+        'Success',
         'Slot has been booked!',
         [
-          { 
-            text: 'OK', 
+          {
+            text: 'OK',
             onPress: () => {
               dispatch(clearBookingState());
             }
@@ -96,15 +99,15 @@ const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack, o
         { cancelable: false }
       );
     }
-    
+
     if (bookingError) {
       console.log('Showing error alert:', bookingError);
       Alert.alert(
-        'Booking Failed', 
+        'Booking Failed',
         bookingError,
         [
-          { 
-            text: 'OK', 
+          {
+            text: 'OK',
             onPress: () => {
               dispatch(clearBookingState());
             }
@@ -139,9 +142,9 @@ const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack, o
 
   const handleSlotSelect = async (slot: AvailabilitySlot) => {
     if (!slot.is_available || !selectedTutor || bookingLoading) return;
-    
+
     setSelectedSlot(slot);
-    
+
     // Show confirmation dialog
     Alert.alert(
       'Confirm Booking',
@@ -158,10 +161,10 @@ const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack, o
           text: 'Yes',
           onPress: () => {
             if (!selectedTutor) return;
-            
+
             // Store tutor ID before clearing state
             const tutorId = selectedTutor.id;
-            
+
             // Calculate session date (next occurrence of the day)
             const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
             const slotDayIndex = days.indexOf(slot.day_of_week.toLowerCase());
@@ -169,7 +172,7 @@ const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack, o
             const currentDay = today.getDay();
             let daysUntilSlot = (slotDayIndex - currentDay + 7) % 7;
             if (daysUntilSlot === 0) daysUntilSlot = 7; // Next week if today
-            
+
             const sessionDate = new Date(today);
             sessionDate.setDate(today.getDate() + daysUntilSlot);
             // Format date as DD-MM-YYYY
@@ -177,14 +180,14 @@ const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack, o
             const month = String(sessionDate.getMonth() + 1).padStart(2, '0');
             const year = sessionDate.getFullYear();
             const sessionDateStr = `${day}-${month}-${year}`;
-            
+
             // Calculate duration
             const [startHour, startMin] = slot.start_time.split(':').map(Number);
             const [endHour, endMin] = slot.end_time.split(':').map(Number);
             const startMinutes = startHour * 60 + startMin;
             const endMinutes = endHour * 60 + endMin;
             const durationHours = (endMinutes - startMinutes) / 60;
-            
+
             // Create booking data
             const bookingData = {
               tutor: tutorId,
@@ -195,13 +198,13 @@ const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack, o
               notes: `Session with ${selectedTutor.teacher.name} - ${slot.day_display} ${slot.time_slot_display}`,
               is_online: true, // Default to online, can be made configurable
             };
-            
+
             // Close drawer immediately
             setShowBookingDrawer(false);
             setSelectedTutor(null);
             setSelectedSlot(null);
             dispatch(clearAvailability());
-            
+
             // Create booking (this is async)
             dispatch(createBooking(bookingData)).then((result) => {
               // This will be handled by the useEffect watching bookingSuccess
@@ -216,6 +219,22 @@ const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack, o
     );
   };
 
+  const loadMore = async () => {
+    if (next && !loading && !loadingMore) {
+      dispatch(fetchPrivateTutors({ pageUrl: next, isLoadMore: true }));
+    }
+  };
+
+  const handleScroll = ({ nativeEvent }: any) => {
+    const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+    const paddingToBottom = 20;
+    const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+
+    if (isCloseToBottom) {
+      loadMore();
+    }
+  };
+
   // Group availability by day
   const groupedAvailability = useMemo(() => {
     const grouped: { [key: string]: AvailabilitySlot[] } = {};
@@ -225,17 +244,17 @@ const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack, o
       }
       grouped[slot.day_display].push(slot);
     });
-    
+
     // Sort days and time slots
     const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     const timeOrder = ['morning', 'afternoon', 'evening'];
-    
+
     Object.keys(grouped).forEach(day => {
       grouped[day].sort((a, b) => {
         return timeOrder.indexOf(a.time_slot) - timeOrder.indexOf(b.time_slot);
       });
     });
-    
+
     return dayOrder
       .filter(day => grouped[day])
       .map(day => ({ day, slots: grouped[day] }));
@@ -255,114 +274,126 @@ const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack, o
     };
 
     return (
-    <View style={styles.card}>
-      <TouchableOpacity 
-        onPress={handleCardPress}
-        activeOpacity={0.7}
-      >
-      <View style={styles.cardHeader}>
-        <View style={styles.avatarPlaceholder}>
-          <Ionicons name="person-outline" size={26} color="#10b981" />
-          {tutor.verified && (
-            <View style={styles.verifiedBadge}>
-              <Ionicons name="checkmark" size={10} color="#ffffff" />
-            </View>
-          )}
-        </View>
-
-        <View style={styles.cardHeaderCenter}>
-          <Text style={styles.tutorName}>{tutor.name}</Text>
-          <Text style={styles.tutorQual}>{tutor.qualification}</Text>
-          <View style={styles.headerMetaRow}>
-            <Text style={styles.headerMetaText}>{tutor.experience} exp</Text>
-            <Text style={styles.headerMetaDot}>•</Text>
-            <Text style={styles.headerMetaText}>{tutor.completedSessions}+ sessions</Text>
-          </View>
-        </View>
-
-        <View style={styles.cardHeaderRight}>
-          <View style={styles.ratingRow}>
-            <Ionicons name="star" size={14} color="#fbbf24" />
-            <Text style={styles.ratingText}>{tutor.rating}</Text>
-            <Text style={styles.reviewsText}>({tutor.reviews})</Text>
-          </View>
-          <Text style={styles.rateText}>{tutor.hourlyRate}/hr</Text>
-        </View>
-      </View>
-
-      <View style={styles.chipsRow}>
-        {tutor.subjects.slice(0, 3).map((subject, i) => (
-          <View key={`${tutor.id}-sub-${i}`} style={styles.subjectChip}>
-            <Text style={styles.subjectChipText}>{subject}</Text>
-          </View>
-        ))}
-        {tutor.subjects.length > 3 && (
-          <View style={[styles.subjectChip, styles.subjectChipOutline]}>
-            <Text style={[styles.subjectChipText, styles.subjectChipOutlineText]}>+{tutor.subjects.length - 3} more</Text>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.stylesRow}>
-        {tutor.teachingStyle.map((s, i) => (
-          <View key={`${tutor.id}-style-${i}`} style={styles.stylePill}>
-            <Text style={styles.stylePillText}>{s}</Text>
-          </View>
-        ))}
-      </View>
-
-      <View style={styles.metaRow}>
-        <View style={styles.metaItem}>
-          <Ionicons name="location" size={14} color="#6b7280" />
-          <Text style={styles.metaText}>{tutor.location} • {tutor.distance}</Text>
-        </View>
-        <View style={styles.metaItem}>
-          <Ionicons name="time-outline" size={14} color="#6b7280" />
-          <Text style={styles.metaText}>Responds in {tutor.responseTime}</Text>
-        </View>
-      </View>
-
-      <View style={styles.metaRow}>
-        <Text style={styles.metaText}>Available:</Text>
-        <View style={styles.availabilityRow}>
-          {tutor.availability.map((t, i) => (
-            <View key={`${tutor.id}-avail-${i}`} style={styles.availabilityChip}>
-              <Text style={styles.availabilityChipText}>{t}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.metaRow}>
-        <Text style={styles.metaText}>Languages:</Text>
-        <Text style={styles.metaTextStrong}>{tutor.languages.join(', ')}</Text>
-      </View>
-      </TouchableOpacity>
-
-      <View style={styles.actionsRow}>
-        <TouchableOpacity 
-          style={styles.primaryButton}
-          onPress={() => {
-            const apiTutor = items.find(t => String(t.id) === String(tutor.id));
-            if (apiTutor) {
-              handleBookSession(apiTutor);
-            }
-          }}
+      <View style={styles.card}>
+        <TouchableOpacity
+          onPress={handleCardPress}
+          activeOpacity={0.7}
         >
-          <Ionicons name="calendar-outline" size={16} color="#ffffff" />
-          <Text style={styles.primaryButtonText}>Book Session</Text>
+          <View style={styles.cardHeader}>
+            <View style={styles.avatarContainer}>
+              {tutor.profilePhoto ? (
+                <Image
+                  source={{ uri: tutor.profilePhoto }}
+                  style={styles.avatar}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <Ionicons name="person-outline" size={26} color="#10b981" />
+                </View>
+              )}
+              {tutor.verified && (
+                <View style={styles.verifiedBadge}>
+                  <Ionicons name="checkmark" size={10} color="#ffffff" />
+                </View>
+              )}
+            </View>
+
+            <View style={styles.cardHeaderCenter}>
+              <Text style={styles.tutorName}>{tutor.name}</Text>
+              <Text style={styles.tutorQual}>{tutor.qualification}</Text>
+              <View style={styles.headerMetaRow}>
+                <Text style={styles.headerMetaText}>{tutor.experience} exp</Text>
+                <Text style={styles.headerMetaDot}>•</Text>
+                <Text style={styles.headerMetaText}>{tutor.completedSessions}+ sessions</Text>
+              </View>
+            </View>
+
+            <View style={styles.cardHeaderRight}>
+              <View style={styles.ratingRow}>
+                <Ionicons name="star" size={14} color="#fbbf24" />
+                <Text style={styles.ratingText}>{tutor.rating}</Text>
+                <Text style={styles.reviewsText}>({tutor.reviews})</Text>
+              </View>
+              <Text style={styles.rateText}>{tutor.hourlyRate}/hr</Text>
+            </View>
+          </View>
+
+          <View style={styles.chipsRow}>
+            {tutor.subjects.slice(0, 3).map((subject, i) => (
+              <View key={`${tutor.id}-sub-${i}`} style={styles.subjectChip}>
+                <Text style={styles.subjectChipText}>{subject}</Text>
+              </View>
+            ))}
+            {tutor.subjects.length > 3 && (
+              <View style={[styles.subjectChip, styles.subjectChipOutline]}>
+                <Text style={[styles.subjectChipText, styles.subjectChipOutlineText]}>+{tutor.subjects.length - 3} more</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.stylesRow}>
+            {tutor.teachingStyle.map((s, i) => (
+              <View key={`${tutor.id}-style-${i}`} style={styles.stylePill}>
+                <Text style={styles.stylePillText}>{s}</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.metaRow}>
+            <View style={styles.metaItem}>
+              <Ionicons name="location" size={14} color="#6b7280" />
+              <Text style={styles.metaText}>{tutor.location} • {tutor.distance}</Text>
+            </View>
+            <View style={styles.metaItem}>
+              <Ionicons name="time-outline" size={14} color="#6b7280" />
+              <Text style={styles.metaText}>Responds in {tutor.responseTime}</Text>
+            </View>
+          </View>
+
+          <View style={styles.metaRow}>
+            <Text style={styles.metaText}>Available:</Text>
+            <View style={styles.availabilityRow}>
+              {tutor.availability.map((t, i) => (
+                <View key={`${tutor.id}-avail-${i}`} style={styles.availabilityChip}>
+                  <Text style={styles.availabilityChipText}>{t}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.metaRow}>
+            <Text style={styles.metaText}>Languages:</Text>
+            <Text style={styles.metaTextStrong}>{tutor.languages.join(', ')}</Text>
+          </View>
         </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.secondaryButton}
-          onPress={() => {
-            // Message functionality
-          }}
-        >
-          <Ionicons name="chatbubble-ellipses-outline" size={16} color="#1d4ed8" />
-          <Text style={styles.secondaryButtonText}>Message</Text>
-        </TouchableOpacity>
+
+        <View style={styles.actionsRow}>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={() => {
+              const apiTutor = items.find(t => String(t.id) === String(tutor.id));
+              if (apiTutor) {
+                handleBookSession(apiTutor);
+              }
+            }}
+          >
+            <Ionicons name="calendar-outline" size={16} color="#ffffff" />
+            <Text style={styles.primaryButtonText}>Book Session</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={() => {
+              if (onStartChat) {
+                onStartChat(parseInt(tutor.id, 10), tutor.name);
+              }
+            }}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={16} color="#1d4ed8" />
+            <Text style={styles.secondaryButtonText}>Message</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
     );
   };
 
@@ -421,12 +452,17 @@ const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack, o
       )}
 
       {/* Content */}
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        onScroll={handleScroll}
+        scrollEventThrottle={400}
+      >
         <View style={styles.statsRow}>
           <Text style={styles.statsText}>{filteredTutors.length} tutors available</Text>
         </View>
 
-        {loading && (
+        {loading && items.length === 0 && (
           <View style={{ paddingVertical: 24, alignItems: 'center' }}>
             <ActivityIndicator size="large" color="#059669" />
             <Text style={{ marginTop: 8, color: '#6b7280' }}>Loading tutors...</Text>
@@ -447,7 +483,7 @@ const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack, o
           </View>
         )}
 
-        {!loading && !error && (
+        {(items.length > 0 || !loading) && !error && (
           <View>
             {filteredTutors.map(t => (
               <TutorCard key={t.id} tutor={t} />
@@ -466,6 +502,13 @@ const PrivateCoachingScreen: React.FC<PrivateCoachingScreenProps> = ({ onBack, o
             >
               <Text style={styles.clearFiltersText}>Clear Filters</Text>
             </TouchableOpacity>
+          </View>
+        )}
+
+        {loadingMore && (
+          <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+            <ActivityIndicator size="small" color="#059669" />
+            <Text style={{ marginTop: 8, color: '#6b7280', fontSize: 12 }}>Loading more...</Text>
           </View>
         )}
       </ScrollView>
@@ -633,8 +676,10 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 2, padding: 16
   },
   cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12 },
+  avatarContainer: { width: 64, height: 64, borderRadius: 32, position: 'relative' },
+  avatar: { width: 64, height: 64, borderRadius: 32 },
   avatarPlaceholder: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#ecfdf5', alignItems: 'center', justifyContent: 'center' },
-  verifiedBadge: { position: 'absolute', top: -2, right: -2, width: 18, height: 18, borderRadius: 9, backgroundColor: '#10b981', alignItems: 'center', justifyContent: 'center' },
+  verifiedBadge: { position: 'absolute', top: -2, right: -2, width: 18, height: 18, borderRadius: 9, backgroundColor: '#10b981', alignItems: 'center', justifyContent: 'center', zIndex: 1 },
   cardHeaderCenter: { flex: 1, minWidth: 0 },
   tutorName: { fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 2 },
   tutorQual: { fontSize: 12, color: '#6b7280', marginBottom: 4 },

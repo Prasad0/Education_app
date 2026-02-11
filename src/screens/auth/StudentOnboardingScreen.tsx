@@ -187,9 +187,9 @@ const StudentOnboardingScreen = ({
         mayShowUserSettingsDialog: true, // Show settings if needed
       });
 
-             // Round coordinates to 4 decimal places to match API requirements
-       const roundedLatitude = Math.round(currentLocation.coords.latitude * 10000) / 10000;
-       const roundedLongitude = Math.round(currentLocation.coords.longitude * 10000) / 10000;
+      // Round coordinates to 4 decimal places to match API requirements
+      const roundedLatitude = Math.round(currentLocation.coords.latitude * 10000) / 10000;
+      const roundedLongitude = Math.round(currentLocation.coords.longitude * 10000) / 10000;
 
       setLocation({
         latitude: roundedLatitude,
@@ -373,7 +373,7 @@ const StudentOnboardingScreen = ({
       return;
     }
 
-    
+
 
     try {
       const profileData = {
@@ -398,10 +398,10 @@ const StudentOnboardingScreen = ({
           `${formData.currentStandard} ${formData.courseStream} Student`,
       };
 
-      
+
       const result = await dispatch(createProfile(profileData));
-      
-      
+
+
       if (createProfile.fulfilled.match(result)) {
         Toast.show({
           type: "success",
@@ -410,7 +410,7 @@ const StudentOnboardingScreen = ({
         });
         navigation.navigate("Home");
       } else if (createProfile.rejected.match(result)) {
-        
+
         // Handle specific API errors
         if (result.payload && typeof result.payload === 'object' && 'data' in result.payload) {
           const apiResponse = result.payload.data as any;
@@ -418,7 +418,7 @@ const StudentOnboardingScreen = ({
             // Show specific error messages
             const errorMessages = Object.values(apiResponse.errors).flat();
             const errorText = errorMessages.join(', ');
-            
+
             Toast.show({
               type: "error",
               text1: "Validation Error",
@@ -728,7 +728,7 @@ const StudentOnboardingScreen = ({
                       style={[
                         styles.checkbox,
                         formData.targetExams.includes(exam.value) &&
-                          styles.checkboxSelected,
+                        styles.checkboxSelected,
                       ]}
                       onPress={() => handleTargetExamChange(exam.value)}
                     >
@@ -736,7 +736,7 @@ const StudentOnboardingScreen = ({
                         style={[
                           styles.checkboxText,
                           formData.targetExams.includes(exam.value) &&
-                            styles.checkboxTextSelected,
+                          styles.checkboxTextSelected,
                         ]}
                       >
                         {exam.label}
@@ -845,7 +845,7 @@ const StudentOnboardingScreen = ({
           style={[
             styles.submitButton,
             (!isFormValid() || !locationPermission || !location) &&
-              styles.submitButtonDisabled,
+            styles.submitButtonDisabled,
           ]}
           onPress={handleSubmit}
           disabled={
@@ -1174,6 +1174,7 @@ const styles = StyleSheet.create({
   },
   picker: {
     height: 50,
+    color: '#111827',
   },
   checkboxContainer: {
     flexDirection: "row",

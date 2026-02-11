@@ -26,6 +26,7 @@ interface PrivateTutorDetailScreenProps {
   tutorId: number;
   onBack: () => void;
   onTabPress?: (tab: 'offline' | 'online' | 'private' | 'chat' | 'profile') => void;
+  onStartChat?: (tutorId: number, name: string) => void;
 }
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -34,6 +35,7 @@ const PrivateTutorDetailScreen: React.FC<PrivateTutorDetailScreenProps> = ({
   tutorId,
   onBack,
   onTabPress,
+  onStartChat,
 }) => {
   const dispatch = useAppDispatch();
   const { tutorDetail, tutorDetailLoading, tutorDetailError, availability, availabilityLoading, bookingLoading, bookingSuccess, bookingError } = useAppSelector(state => state.privateTutors);
@@ -49,7 +51,7 @@ const PrivateTutorDetailScreen: React.FC<PrivateTutorDetailScreenProps> = ({
     if (tutorId) {
       dispatch(fetchTutorDetail(tutorId));
     }
-    
+
     return () => {
       dispatch(clearTutorDetail());
     };
@@ -92,7 +94,7 @@ const PrivateTutorDetailScreen: React.FC<PrivateTutorDetailScreenProps> = ({
         { cancelable: false }
       );
     }
-    
+
     if (bookingError) {
       Alert.alert(
         'Booking Failed',
@@ -150,10 +152,10 @@ const PrivateTutorDetailScreen: React.FC<PrivateTutorDetailScreenProps> = ({
 
       const isCurrentlyFavorited = isFavorited;
       const teacherId = tutorDetail.teacher.id;
-      
+
       // Update UI immediately for better UX
       setIsFavorited(!isCurrentlyFavorited);
-      
+
       // Call the appropriate API based on current state
       let result;
       if (isCurrentlyFavorited) {
@@ -180,9 +182,9 @@ const PrivateTutorDetailScreen: React.FC<PrivateTutorDetailScreenProps> = ({
 
   const handleSlotSelect = async (slot: AvailabilitySlot) => {
     if (!slot.is_available || bookingLoading) return;
-    
+
     setSelectedSlot(slot);
-    
+
     Alert.alert(
       'Confirm Booking',
       `Do you want to book this session?\n\n${slot.day_display}\n${slot.time_slot_display}`,
@@ -198,27 +200,27 @@ const PrivateTutorDetailScreen: React.FC<PrivateTutorDetailScreenProps> = ({
           text: 'Yes',
           onPress: () => {
             if (!tutorDetail) return;
-            
+
             const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
             const slotDayIndex = days.indexOf(slot.day_of_week.toLowerCase());
             const today = new Date();
             const currentDay = today.getDay();
             let daysUntilSlot = (slotDayIndex - currentDay + 7) % 7;
             if (daysUntilSlot === 0) daysUntilSlot = 7;
-            
+
             const sessionDate = new Date(today);
             sessionDate.setDate(today.getDate() + daysUntilSlot);
             const day = String(sessionDate.getDate()).padStart(2, '0');
             const month = String(sessionDate.getMonth() + 1).padStart(2, '0');
             const year = sessionDate.getFullYear();
             const sessionDateStr = `${day}-${month}-${year}`;
-            
+
             const [startHour, startMin] = slot.start_time.split(':').map(Number);
             const [endHour, endMin] = slot.end_time.split(':').map(Number);
             const startMinutes = startHour * 60 + startMin;
             const endMinutes = endHour * 60 + endMin;
             const durationHours = (endMinutes - startMinutes) / 60;
-            
+
             const bookingData = {
               tutor: tutorId,
               scheduled_date: sessionDateStr,
@@ -228,7 +230,7 @@ const PrivateTutorDetailScreen: React.FC<PrivateTutorDetailScreenProps> = ({
               notes: `Session with ${tutorDetail.teacher.name} - ${slot.day_display} ${slot.time_slot_display}`,
               is_online: true,
             };
-            
+
             dispatch(createBooking(bookingData));
           },
         },
@@ -257,16 +259,16 @@ const PrivateTutorDetailScreen: React.FC<PrivateTutorDetailScreenProps> = ({
       }
       grouped[slot.day_display].push(slot);
     });
-    
+
     const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     const timeOrder = ['morning', 'afternoon', 'evening'];
-    
+
     Object.keys(grouped).forEach(day => {
       grouped[day].sort((a, b) => {
         return timeOrder.indexOf(a.time_slot) - timeOrder.indexOf(b.time_slot);
       });
     });
-    
+
     return dayOrder
       .filter(day => grouped[day])
       .map(day => ({ day, slots: grouped[day] }));
@@ -344,7 +346,7 @@ const PrivateTutorDetailScreen: React.FC<PrivateTutorDetailScreenProps> = ({
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
-        
+
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle} numberOfLines={1}>
             {tutorDetail.teacher.name}
@@ -363,14 +365,14 @@ const PrivateTutorDetailScreen: React.FC<PrivateTutorDetailScreenProps> = ({
           </View>
         )}
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.starButton}
           onPress={handleToggleFavorite}
         >
-          <Ionicons 
-            name={isFavorited ? 'star' : 'star-outline'} 
-            size={24} 
-            color={isFavorited ? '#fbbf24' : '#6b7280'} 
+          <Ionicons
+            name={isFavorited ? 'star' : 'star-outline'}
+            size={24}
+            color={isFavorited ? '#fbbf24' : '#6b7280'}
           />
         </TouchableOpacity>
       </View>
@@ -409,12 +411,12 @@ const PrivateTutorDetailScreen: React.FC<PrivateTutorDetailScreenProps> = ({
               </View>
             )}
           </View>
-          
+
           <View style={styles.profileInfo}>
             <Text style={styles.tutorName}>{tutorDetail.teacher.name}</Text>
             <Text style={styles.tutorQualification}>{tutorDetail.teacher.qualification}</Text>
             <Text style={styles.tutorSpecialization}>{tutorDetail.teacher.specialization}</Text>
-            
+
             <View style={styles.ratingContainer}>
               <View style={styles.stars}>
                 {renderStars(parseFloat(tutorDetail.average_rating || '0'))}
@@ -453,6 +455,17 @@ const PrivateTutorDetailScreen: React.FC<PrivateTutorDetailScreenProps> = ({
           <TouchableOpacity style={styles.secondaryButton} onPress={handleCall}>
             <Ionicons name="call-outline" size={20} color="#3b82f6" />
             <Text style={styles.secondaryButtonText}>Call</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={() => {
+              if (onStartChat && tutorDetail) {
+                onStartChat(tutorDetail.id, tutorDetail.teacher.name);
+              }
+            }}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color="#1d4ed8" />
+            <Text style={styles.secondaryButtonText}>Message</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.secondaryButton, styles.whatsappButton]} onPress={handleWhatsApp}>
             <Ionicons name="logo-whatsapp" size={20} color="#25D366" />

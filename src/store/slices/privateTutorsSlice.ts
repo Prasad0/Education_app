@@ -58,6 +58,7 @@ export interface PrivateTutorsResponse {
   next: string | null;
   previous: string | null;
   results: PrivateTutorApiItem[];
+  isLoadMore?: boolean;
 }
 
 export interface AvailabilitySlot {
@@ -143,6 +144,7 @@ export interface PrivateTutorDetail {
 export interface PrivateTutorsState {
   items: PrivateTutorApiItem[];
   loading: boolean;
+  loadingMore: boolean;
   error: string | null;
   count: number;
   next: string | null;
@@ -161,6 +163,7 @@ export interface PrivateTutorsState {
 const initialState: PrivateTutorsState = {
   items: [],
   loading: false,
+  loadingMore: false,
   error: null,
   count: 0,
   next: null,
@@ -176,28 +179,29 @@ const initialState: PrivateTutorsState = {
   tutorDetailError: null,
 };
 
-export const fetchPrivateTutors = createAsyncThunk<PrivateTutorsResponse, { pageUrl?: string } | void>(
+export const fetchPrivateTutors = createAsyncThunk<PrivateTutorsResponse, { pageUrl?: string; isLoadMore?: boolean } | void>(
   'privateTutors/fetch',
   async (arg, { getState, rejectWithValue }) => {
     try {
       const state = getState() as any;
       let url = arg && arg.pageUrl ? arg.pageUrl : '/private-tutors/tutors/';
-      
+      const isLoadMore = arg?.isLoadMore ?? false;
+
       // Add child_id if parent user has selected a child
       const userType = state.auth?.user?.user_type || state.auth?.profile?.user_type || state.auth?.profileStatus?.userType;
       if (userType === 'parent' && state.auth?.selectedChildId) {
         const separator = url.includes('?') ? '&' : '?';
         url += `${separator}child_id=${state.auth.selectedChildId}`;
       }
-      
+
       const { data } = await api.get<PrivateTutorsResponse>(url);
-      return data;
+      return { ...data, isLoadMore };
     } catch (error: any) {
       console.error('Error fetching private tutors:', error);
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.detail || 
-                          error.message || 
-                          'Failed to fetch private tutors';
+      const errorMessage = error.response?.data?.message ||
+        error.response?.data?.detail ||
+        error.message ||
+        'Failed to fetch private tutors';
       return rejectWithValue(errorMessage);
     }
   }
@@ -209,21 +213,21 @@ export const fetchTutorAvailability = createAsyncThunk<AvailabilitySlot[], numbe
     try {
       const state = getState() as any;
       let url = `/private-tutors/tutors/${tutorId}/availability/`;
-      
+
       // Add child_id if parent user has selected a child
       const userType = state.auth?.user?.user_type || state.auth?.profile?.user_type || state.auth?.profileStatus?.userType;
       if (userType === 'parent' && state.auth?.selectedChildId) {
         url += `?child_id=${state.auth.selectedChildId}`;
       }
-      
+
       const { data } = await api.get<AvailabilitySlot[]>(url);
       return data;
     } catch (error: any) {
       console.error('Error fetching tutor availability:', error);
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.detail || 
-                          error.message || 
-                          'Failed to fetch tutor availability';
+      const errorMessage = error.response?.data?.message ||
+        error.response?.data?.detail ||
+        error.message ||
+        'Failed to fetch tutor availability';
       return rejectWithValue(errorMessage);
     }
   }
@@ -235,21 +239,21 @@ export const fetchTutorDetail = createAsyncThunk<PrivateTutorDetail, number>(
     try {
       const state = getState() as any;
       let url = `/private-tutors/tutors/${tutorId}/`;
-      
+
       // Add child_id if parent user has selected a child
       const userType = state.auth?.user?.user_type || state.auth?.profile?.user_type || state.auth?.profileStatus?.userType;
       if (userType === 'parent' && state.auth?.selectedChildId) {
         url += `?child_id=${state.auth.selectedChildId}`;
       }
-      
+
       const { data } = await api.get<PrivateTutorDetail>(url);
       return data;
     } catch (error: any) {
       console.error('Error fetching tutor detail:', error);
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.detail || 
-                          error.message || 
-                          'Failed to fetch tutor details';
+      const errorMessage = error.response?.data?.message ||
+        error.response?.data?.detail ||
+        error.message ||
+        'Failed to fetch tutor details';
       return rejectWithValue(errorMessage);
     }
   }
@@ -262,7 +266,7 @@ export const createBooking = createAsyncThunk<any, BookingRequest>(
       const state = getState() as any;
       const userType = state.auth?.user?.user_type || state.auth?.profile?.user_type || state.auth?.profileStatus?.userType;
       const selectedChildId = state.auth?.selectedChildId;
-      
+
       // Add child_id or student_id to booking data if parent is logged in
       const requestData = { ...bookingData };
       if (userType === 'parent' && selectedChildId) {
@@ -270,7 +274,7 @@ export const createBooking = createAsyncThunk<any, BookingRequest>(
         requestData.child_id = childIdNum;
         requestData.student_id = childIdNum;
       }
-      
+
       console.log('Creating booking with data:', requestData);
       const { data } = await api.post(
         '/private-tutors/bookings/',
@@ -280,10 +284,10 @@ export const createBooking = createAsyncThunk<any, BookingRequest>(
       return data;
     } catch (error: any) {
       console.error('Booking error:', error);
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.detail || 
-                          error.message || 
-                          'Failed to create booking';
+      const errorMessage = error.response?.data?.message ||
+        error.response?.data?.detail ||
+        error.message ||
+        'Failed to create booking';
       return rejectWithValue(errorMessage);
     }
   }
@@ -303,7 +307,7 @@ export const addTutorToFavorite = createAsyncThunk(
 
       // Prepare request body - only send tutor (teacher ID) if user has children
       let requestBody: { tutor?: number } | null = null;
-      
+
       if (hasChildren && selectedChildId) {
         // User has children, send the teacher ID
         // The API expects { "tutor": teacherId } when user has children
@@ -315,7 +319,7 @@ export const addTutorToFavorite = createAsyncThunk(
         // Fallback: if hasChildren but no selectedChildId, still send teacher ID
         requestBody = { tutor: teacherId };
       }
-      
+
       // Log the request for debugging
       console.log('Adding tutor to favorites:', {
         teacherId,
@@ -338,11 +342,11 @@ export const addTutorToFavorite = createAsyncThunk(
       console.error('Error adding tutor to favorites:', error);
       console.error('Error response:', error.response?.data);
       console.error('Error status:', error.response?.status);
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.detail || 
-                          error.response?.data?.error ||
-                          error.message || 
-                          'Failed to add tutor to favorites';
+      const errorMessage = error.response?.data?.message ||
+        error.response?.data?.detail ||
+        error.response?.data?.error ||
+        error.message ||
+        'Failed to add tutor to favorites';
       return rejectWithValue(errorMessage);
     }
   }
@@ -362,7 +366,7 @@ export const removeTutorFromFavorite = createAsyncThunk(
 
       // Prepare request data - only send tutor (teacher ID) if user has children
       let requestData: { tutor?: number } | null = null;
-      
+
       if (hasChildren && selectedChildId) {
         // User has children, send the teacher ID
         requestData = { tutor: teacherId };
@@ -373,7 +377,7 @@ export const removeTutorFromFavorite = createAsyncThunk(
         // Fallback: if hasChildren but no selectedChildId, still send teacher ID
         requestData = { tutor: teacherId };
       }
-      
+
       // Log the request for debugging
       console.log('Removing tutor from favorites:', {
         teacherId,
@@ -386,8 +390,8 @@ export const removeTutorFromFavorite = createAsyncThunk(
       // Make DELETE request with or without data
       const response = requestData !== null
         ? await api.delete('/private-tutors/favorites/', {
-            data: requestData
-          })
+          data: requestData
+        })
         : await api.delete('/private-tutors/favorites/');
 
       console.log('Remove tutor from favorite success:', response.data);
@@ -396,11 +400,11 @@ export const removeTutorFromFavorite = createAsyncThunk(
       console.error('Error removing tutor from favorites:', error);
       console.error('Error response:', error.response?.data);
       console.error('Error status:', error.response?.status);
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.detail || 
-                          error.response?.data?.error ||
-                          error.message || 
-                          'Failed to remove tutor from favorites';
+      const errorMessage = error.response?.data?.message ||
+        error.response?.data?.detail ||
+        error.response?.data?.error ||
+        error.message ||
+        'Failed to remove tutor from favorites';
       return rejectWithValue(errorMessage);
     }
   }
@@ -431,19 +435,30 @@ const privateTutorsSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchPrivateTutors.pending, (state) => {
-        state.loading = true;
+      .addCase(fetchPrivateTutors.pending, (state, action) => {
+        if (action.meta.arg && (action.meta.arg as any).isLoadMore) {
+          state.loadingMore = true;
+        } else {
+          state.loading = true;
+        }
         state.error = null;
       })
       .addCase(fetchPrivateTutors.fulfilled, (state, action: PayloadAction<PrivateTutorsResponse>) => {
         state.loading = false;
-        state.items = action.payload.results || [];
+        state.loadingMore = false;
+        // If isLoadMore is true, append results; otherwise replace them
+        if (action.payload.isLoadMore) {
+          state.items = [...state.items, ...(action.payload.results || [])];
+        } else {
+          state.items = action.payload.results || [];
+        }
         state.count = action.payload.count;
         state.next = action.payload.next;
         state.previous = action.payload.previous;
       })
       .addCase(fetchPrivateTutors.rejected, (state, action) => {
         state.loading = false;
+        state.loadingMore = false;
         state.error = action.error.message || 'Failed to load private tutors';
       })
       .addCase(fetchTutorAvailability.pending, (state) => {

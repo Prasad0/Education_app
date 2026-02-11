@@ -493,98 +493,7 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack }) => {
                 </View>
               </View>
             )}
-          </View>
-
-
-          {/* Educational Details (for students) */}
-          {actualProfile?.user_type === 'student' && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Educational Details</Text>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Course Stream</Text>
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={formData.stream}
-                    onValueChange={(value) => setFormData({ ...formData, stream: value })}
-                    style={styles.picker}
-                  >
-                    <Picker.Item label="Select your course stream" value="" />
-                    {streamsForPicker.map((stream) => (
-                      <Picker.Item key={stream.value} label={stream.label} value={stream.value} />
-                    ))}
-                  </Picker>
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Current Standard</Text>
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={formData.current_standard}
-                    onValueChange={(value) => setFormData({ ...formData, current_standard: value })}
-                    style={styles.picker}
-                  >
-                    <Picker.Item label="Select your current standard" value="" />
-                    {standardsForPicker.map((standard) => (
-                      <Picker.Item key={standard.value} label={standard.label} value={standard.value} />
-                    ))}
-                  </Picker>
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Board</Text>
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={formData.board}
-                    onValueChange={(value) => setFormData({ ...formData, board: value })}
-                    style={styles.picker}
-                  >
-                    <Picker.Item label="Select board" value="" />
-                    {boardsForPicker.map((board) => (
-                      <Picker.Item key={board.value} label={board.label} value={board.value} />
-                    ))}
-                  </Picker>
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>School/College Name</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.current_school}
-                  onChangeText={(text) => setFormData({ ...formData, current_school: text })}
-                  placeholder="Enter school/college name"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Target Exams/Goals</Text>
-                <View style={styles.chipContainer}>
-                  {targetExamsForPicker.map((exam) => (
-                    <TouchableOpacity
-                      key={exam.value}
-                      style={[
-                        styles.chip,
-                        formData.target_exams.includes(exam.value) && styles.chipActive
-                      ]}
-                      onPress={() => toggleTargetExam(exam.value)}
-                    >
-                      <Text style={[
-                        styles.chipText,
-                        formData.target_exams.includes(exam.value) && styles.chipTextActive
-                      ]}>
-                        {exam.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* Location Information */}
+          \u003c/View\u003e\r\n\r\n          {/* Educational Details (for students) */}\r\n          {actualProfile?.user_type === 'student' \&\& (\r\n            \u003cView style={styles.section}\u003e\r\n              \u003cText style={styles.sectionTitle}\u003eEducational Details\u003c/Text\u003e\r\n              INSERT_CODE_HERE\r\n            \u003c/View\u003e\r\n          )}\r\n\r\n          {/* Location Information */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Location</Text>
 
@@ -1063,4 +972,5 @@ const styles = StyleSheet.create({
 });
 
 export default EditProfileScreen;
+
 

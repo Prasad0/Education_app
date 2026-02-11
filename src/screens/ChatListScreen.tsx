@@ -36,10 +36,10 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ onTabPress, onOpenChat 
     const focusHandler = () => {
       dispatch(fetchConversations());
     };
-    
+
     // Refresh on mount and when component comes into focus
     focusHandler();
-    
+
     // Optional: Refresh periodically to get new conversations
     const interval = setInterval(() => {
       dispatch(fetchConversations());
@@ -72,20 +72,42 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ onTabPress, onOpenChat 
   const handleConversationPress = (conversation: Conversation) => {
     // Mark as read
     dispatch(markConversationAsRead(conversation.id));
-    // Open chat - use coaching branch_name or name
-    const coachingName = conversation.coaching?.branch_name || conversation.coaching?.tagline || 'Coaching Center';
-    onOpenChat?.(conversation.id, coachingName);
+
+    // Determine participant name
+    let participantName = 'Chat';
+    if (conversation.conversation_type === 'tutor' && conversation.private_tutor) {
+      participantName = conversation.private_tutor.teacher_name;
+    } else if (conversation.coaching) {
+      participantName = conversation.coaching.branch_name || conversation.coaching.tagline || 'Coaching Center';
+    }
+
+    onOpenChat?.(conversation.id, participantName);
   };
 
   const renderConversation = ({ item }: { item: Conversation }) => {
-    if (!item || !item.id || !item.coaching) {
+    if (!item || !item.id) {
       return null;
     }
-    
-    const coachingName = item.coaching.branch_name || item.coaching.tagline || 'Coaching Center';
+
+    let participantName = 'Chat';
+    let avatarImage = null;
+    let fallbackIcon = 'school';
+
+    if (item.conversation_type === 'tutor' && item.private_tutor) {
+      participantName = item.private_tutor.teacher_name;
+      avatarImage = item.private_tutor.teacher_photo;
+      fallbackIcon = 'person';
+    } else if (item.coaching) {
+      participantName = item.coaching.branch_name || item.coaching.tagline || 'Coaching Center';
+      avatarImage = item.coaching.featured_image?.image || item.coaching.icon;
+      fallbackIcon = 'school';
+    } else if (item.conversation_type === 'admin') {
+      participantName = 'Support Admin';
+      fallbackIcon = 'shield-checkmark';
+    }
+
     const unreadCount = item.user_unread_count || 0;
-    const avatarImage = item.coaching.featured_image?.image || item.coaching.icon;
-    
+
     return (
       <TouchableOpacity
         style={styles.conversationItem}
@@ -100,7 +122,7 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ onTabPress, onOpenChat 
             />
           ) : (
             <View style={styles.avatarPlaceholder}>
-              <Ionicons name="school" size={24} color="#059669" />
+              <Ionicons name={fallbackIcon as any} size={24} color="#059669" />
             </View>
           )}
           {unreadCount > 0 && (
@@ -114,7 +136,7 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ onTabPress, onOpenChat 
         <View style={styles.conversationContent}>
           <View style={styles.conversationHeader}>
             <Text style={styles.participantName} numberOfLines={1}>
-              {coachingName}
+              {participantName}
             </Text>
             {item.last_message?.created_at && (
               <Text style={styles.timeText}>
@@ -128,11 +150,11 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ onTabPress, onOpenChat 
             )}
           </View>
           {item.last_message?.text || item.last_message?.message ? (
-            <Text 
+            <Text
               style={[
                 styles.lastMessage,
                 unreadCount > 0 && styles.lastMessageUnread
-              ]} 
+              ]}
               numberOfLines={1}
             >
               {item.last_message.text || item.last_message.message}

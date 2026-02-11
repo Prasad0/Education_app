@@ -30,6 +30,7 @@ import MyPrivateBookingsScreen from './MyPrivateBookingsScreen';
 import MyWishlistScreen from './MyWishlistScreen';
 import MyOfflineWishlistScreen from './MyOfflineWishlistScreen';
 import TeacherProfileScreen from './TeacherProfileScreen';
+import NotificationsScreen from './NotificationsScreen';
 
 // Filter interface for the modal
 interface FilterState {
@@ -91,7 +92,7 @@ const HomeScreen: React.FC = () => {
   const safeCoordinates = coordinates || null;
   const safeSelectedLocationData = selectedLocationData || null;
 
-  const [currentScreen, setCurrentScreen] = useState<'home' | 'search' | 'listing' | 'location' | 'profile' | 'detail' | 'searchFilter' | 'online' | 'private' | 'privateTutorDetail' | 'chat' | 'chatDetail' | 'editProfile' | 'bookDemo' | 'myDemoBookings' | 'myPrivateBookings' | 'myWishlist' | 'myOfflineWishlist' | 'teacherProfile'>('home');
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'search' | 'listing' | 'location' | 'profile' | 'detail' | 'searchFilter' | 'online' | 'private' | 'privateTutorDetail' | 'chat' | 'chatDetail' | 'editProfile' | 'bookDemo' | 'myDemoBookings' | 'myPrivateBookings' | 'myWishlist' | 'myOfflineWishlist' | 'teacherProfile' | 'notifications'>('home');
   const [selectedCoachingId, setSelectedCoachingId] = useState<string>('');
   const [selectedTutorId, setSelectedTutorId] = useState<number | null>(null);
   const [currentChatConversationId, setCurrentChatConversationId] = useState<number | null>(null);
@@ -796,7 +797,10 @@ const HomeScreen: React.FC = () => {
               return;
             }
 
-            const result = await dispatch(startConversation(coachingIdNum));
+            const result = await dispatch(startConversation({
+              coachingId: coachingIdNum,
+              childId: selectedChildId ? (typeof selectedChildId === 'string' ? parseInt(selectedChildId, 10) : selectedChildId) : null
+            }));
 
             if (startConversation.fulfilled.match(result)) {
               const conv = result.payload;
@@ -838,6 +842,47 @@ const HomeScreen: React.FC = () => {
           setSelectedTutorId(tutorId);
           setCurrentScreen('privateTutorDetail');
         }}
+        onStartChat={async (tutorId: number, tutorName: string) => {
+          try {
+            console.log('💬 [HomeScreen] Starting chat with private tutor');
+            console.log('💬 [HomeScreen] Tutor ID:', tutorId);
+            console.log('💬 [HomeScreen] Tutor Name:', tutorName);
+
+            const { startConversation, fetchConversations } = await import('../store/slices/chatSlice');
+
+            // Start conversation with tutorId
+            const result = await dispatch(startConversation({
+              tutorId: tutorId,
+              childId: selectedChildId ? (typeof selectedChildId === 'string' ? parseInt(selectedChildId, 10) : selectedChildId) : null
+            }));
+
+            if (startConversation.fulfilled.match(result)) {
+              const conversation = result.payload;
+              if (conversation && conversation.id) {
+                console.log('✅ [HomeScreen] Conversation started/fetched:', conversation.id);
+
+                // Set current conversation and participant name
+                setCurrentChatConversationId(conversation.id);
+                setCurrentChatParticipantName(tutorName);
+
+                // Use a small timeout to ensure state is updated before navigation
+                setTimeout(() => {
+                  setCurrentScreen('chatDetail');
+                }, 100);
+              } else {
+                console.error('❌ [HomeScreen] Conversation started but no ID returned');
+                Alert.alert('Error', 'Failed to start conversation');
+              }
+            } else {
+              const errorMessage = result.payload as string || 'Failed to start conversation';
+              console.error('❌ [HomeScreen] startConversation rejected:', errorMessage);
+              Alert.alert('Error', errorMessage);
+            }
+          } catch (error: any) {
+            console.error('❌ [HomeScreen] Error starting tutor conversation:', error);
+            Alert.alert('Error', error.message || 'Failed to start conversation');
+          }
+        }}
       />
     );
   }
@@ -857,6 +902,32 @@ const HomeScreen: React.FC = () => {
         tutorId={selectedTutorId}
         onBack={() => setCurrentScreen('private')}
         onTabPress={handleTabPress}
+        onStartChat={async (tutorId: number, tutorName: string) => {
+          try {
+            console.log('💬 [HomeScreen] Starting chat with private tutor from detail');
+            const { startConversation } = await import('../store/slices/chatSlice');
+
+            const result = await dispatch(startConversation({
+              tutorId: tutorId,
+              childId: selectedChildId ? (typeof selectedChildId === 'string' ? parseInt(selectedChildId, 10) : selectedChildId) : null
+            }));
+
+            if (startConversation.fulfilled.match(result)) {
+              const conversation = result.payload;
+              if (conversation && conversation.id) {
+                setCurrentChatConversationId(conversation.id);
+                setCurrentChatParticipantName(tutorName);
+                setTimeout(() => {
+                  setCurrentScreen('chatDetail');
+                }, 100);
+              }
+            } else {
+              Alert.alert('Error', (result.payload as string) || 'Failed to start conversation');
+            }
+          } catch (error: any) {
+            Alert.alert('Error', error.message || 'Failed to start conversation');
+          }
+        }}
       />
     );
   }
@@ -963,6 +1034,14 @@ const HomeScreen: React.FC = () => {
         }}
         searchQuery=""
         initialFilters={appliedFilters || undefined}
+      />
+    );
+  }
+
+  if (currentScreen === 'notifications') {
+    return (
+      <NotificationsScreen
+        onBack={() => setCurrentScreen('profile')}
       />
     );
   }
@@ -1306,7 +1385,10 @@ const HomeScreen: React.FC = () => {
               <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.profileOption}>
+            <TouchableOpacity
+              style={styles.profileOption}
+              onPress={() => setCurrentScreen('notifications')}
+            >
               <View style={styles.optionLeft}>
                 <Ionicons name="notifications-outline" size={20} color="#6b7280" />
                 <Text style={styles.optionText}>Notifications</Text>
@@ -1314,13 +1396,7 @@ const HomeScreen: React.FC = () => {
               <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.profileOption}>
-              <View style={styles.optionLeft}>
-                <Ionicons name="shield-outline" size={20} color="#6b7280" />
-                <Text style={styles.optionText}>Privacy & Security</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-            </TouchableOpacity>
+
 
             {/* Logout Button in Account Section */}
             <TouchableOpacity
@@ -1359,12 +1435,26 @@ const HomeScreen: React.FC = () => {
           <View style={styles.profileSection}>
             <Text style={styles.sectionTitle}>App</Text>
 
-            <TouchableOpacity style={styles.profileOption}>
+            <TouchableOpacity
+              style={styles.profileOption}
+              onPress={() => {
+                const email = 'support@coachingapp.com';
+                const subject = 'Help and Support Request';
+                const body = 'Please describe your issue or question:';
+                Linking.openURL(`mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`).catch(() => {
+                  Alert.alert(
+                    'Help & Support',
+                    'We will get back to you. Mail your concern to:\nsupport@coachingapp.com',
+                    [{ text: 'OK' }]
+                  );
+                });
+              }}
+            >
               <View style={styles.optionLeft}>
                 <Ionicons name="help-circle-outline" size={20} color="#6b7280" />
                 <Text style={styles.optionText}>Help & Support</Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+              <Ionicons name="mail-outline" size={20} color="#3b82f6" />
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.profileOption}>

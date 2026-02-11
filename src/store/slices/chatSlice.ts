@@ -40,11 +40,23 @@ export interface CoachingCenterBasic {
   total_reviews?: number;
 }
 
+export interface PrivateTutorMinimal {
+  id: number;
+  teacher_name: string;
+  teacher_photo?: string | null;
+  hourly_rate_display: string;
+}
+
 export interface Conversation {
   id: number;
-  coaching: CoachingCenterBasic;
+  coaching?: CoachingCenterBasic | null;
+  private_tutor?: PrivateTutorMinimal | null;
+  conversation_type: 'coaching' | 'tutor' | 'admin';
+  child_name?: string | null;
+  child_id?: number | null;
   user_unread_count: number;
   coaching_unread_count: number;
+  tutor_unread_count?: number;
   last_message?: ChatMessage | null;
   created_at: string;
   updated_at: string;
@@ -191,14 +203,19 @@ export const fetchMessagesRecent = createAsyncThunk(
 // Start a new conversation
 export const startConversation = createAsyncThunk(
   'chat/startConversation',
-  async (coachingId: number, { rejectWithValue }) => {
+  async (
+    { coachingId, tutorId, childId }: { coachingId?: number; tutorId?: number; childId?: number | null },
+    { rejectWithValue }
+  ) => {
     try {
-      const requestBody = {
-        coaching_id: coachingId,
-      };
+      const requestBody: any = {};
+      if (coachingId) requestBody.coaching_id = coachingId;
+      if (tutorId) requestBody.tutor_id = tutorId;
+      if (childId) requestBody.child_id = childId;
+
       console.log('📤 [Chat] Starting conversation - API: POST /chat/conversations/start/');
       console.log('📤 [Chat] Request body:', JSON.stringify(requestBody, null, 2));
-      console.log('📤 [Chat] Coaching ID:', coachingId, '(type:', typeof coachingId, ')');
+      console.log('📤 [Chat] Parameters:', { coachingId, tutorId, childId });
 
       const { data } = await api.post('/chat/conversations/start/', requestBody);
       console.log('📥 [Chat] Start conversation response:', JSON.stringify(data, null, 2));
@@ -373,7 +390,7 @@ export const chatSlice = createSlice({
         // Action payload is already the conversations array (processed in thunk)
         const conversations = Array.isArray(action.payload) ? action.payload : [];
         // Filter out any invalid conversations
-        state.conversations = conversations.filter((conv: any) => conv && conv.id && conv.coaching);
+        state.conversations = conversations.filter((conv: any) => conv && conv.id && (conv.coaching || conv.private_tutor));
         console.log('✅ [Chat] Conversations stored in state:', state.conversations.length);
       })
       .addCase(fetchConversations.rejected, (state, action) => {
@@ -433,6 +450,7 @@ export const chatSlice = createSlice({
             state.currentConversation = {
               id: action.payload.conversationId,
               coaching: {} as any, // Will be populated by fetchConversationDetail
+              conversation_type: 'coaching', // Default
               user_unread_count: 0,
               coaching_unread_count: 0,
               messages: action.payload.messages,

@@ -105,9 +105,9 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
 
-      // Check if there are unread messages from coaching
+      // Check if there are unread messages from coaching/tutor
       const hasUnread = currentConversation.messages.some(
-        msg => (msg.sender_type === 'coaching' || msg.sender_type === 'coaching_center') && !msg.is_read
+        msg => (msg.sender_type === 'coaching' || msg.sender_type === 'coaching_center' || msg.sender_type === 'tutor') && !msg.is_read
       );
       if (hasUnread) {
         console.log('💬 [ChatScreen] New unread messages from coaching detected, marking as read');
@@ -362,7 +362,14 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
         parseDate(item.created_at).toDateString() !== parseDate(prevMessage.created_at).toDateString());
     const showAvatar = !prevMessage || prevMessage.sender_type !== item.sender_type;
 
-    const displaySenderName = isAdminMessage ? '👑 Admin' : (item.sender_name || 'Coaching');
+    let defaultName = 'Coaching';
+    if (currentConversation?.conversation_type === 'tutor' && currentConversation.private_tutor) {
+      defaultName = currentConversation.private_tutor.teacher_name;
+    } else if (currentConversation?.coaching) {
+      defaultName = currentConversation.coaching.branch_name || 'Coaching';
+    }
+
+    const displaySenderName = isAdminMessage ? '👑 Admin' : (item.sender_name || defaultName);
     const displayTime = isAdminMessage ? formatTimeOrJustNow(item.created_at) : formatTime(item.created_at);
 
     return (
@@ -380,7 +387,11 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
         >
           {!isMyMessage && showAvatar && (
             <View style={[styles.otherAvatar, isAdminMessage && styles.adminAvatar]}>
-              <Ionicons name={isAdminMessage ? 'shield-checkmark' : 'person'} size={16} color={isAdminMessage ? '#7c3aed' : '#059669'} />
+              <Ionicons
+                name={isAdminMessage ? 'shield-checkmark' : (currentConversation?.conversation_type === 'tutor' ? 'person' : 'school')}
+                size={16}
+                color={isAdminMessage ? '#7c3aed' : '#059669'}
+              />
             </View>
           )}
           <View

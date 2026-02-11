@@ -423,9 +423,29 @@ const CoachingDetailScreen: React.FC<CoachingDetailScreenProps> = ({
                   <Text style={styles.feesDetailText}>Doubt clearing sessions</Text>
                 </View>
               </View>
-              <TouchableOpacity style={styles.feesButton}>
-                <Text style={styles.feesButtonText}>View Fee Structure</Text>
-                <Ionicons name="chevron-forward" size={16} color="#ffffff" />
+              <TouchableOpacity
+                style={[
+                  styles.feesButton,
+                  !coachingData.fee_structure_file && styles.feesButtonDisabled
+                ]}
+                disabled={!coachingData.fee_structure_file}
+                onPress={() => {
+                  if (coachingData.fee_structure_file) {
+                    Linking.openURL(coachingData.fee_structure_file);
+                  }
+                }}
+              >
+                <Text style={[
+                  styles.feesButtonText,
+                  !coachingData.fee_structure_file && styles.feesButtonTextDisabled
+                ]}>
+                  Download Fee Structure
+                </Text>
+                <Ionicons
+                  name="download"
+                  size={16}
+                  color={coachingData.fee_structure_file ? "#ffffff" : "#9ca3af"}
+                />
               </TouchableOpacity>
             </View>
           </View>
@@ -1137,11 +1157,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 10,
   },
+  feesButtonDisabled: {
+    backgroundColor: '#f3f4f6',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
   feesButtonText: {
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
     marginRight: 8,
+  },
+  feesButtonTextDisabled: {
+    color: '#9ca3af',
   },
   amenitiesSection: {
     backgroundColor: '#ffffff',
